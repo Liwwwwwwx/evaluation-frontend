@@ -19,6 +19,8 @@ export async function proxyUnified(request: NextRequest, path: string) {
   }
   try {
     const upstream = await fetch(new URL(path, backendOrigin()), { method: request.method, headers, body, cache: "no-store", redirect: "error", signal: request.signal });
-    return new Response(upstream.body, { status: upstream.status, headers: { "Content-Type": upstream.headers.get("content-type") || "application/json", "Cache-Control": "no-store, no-transform", "X-Accel-Buffering": "no" } });
+    const responseHeaders = new Headers({ "Content-Type": upstream.headers.get("content-type") || "application/json", "Cache-Control": "no-store, no-transform", "X-Accel-Buffering": "no" });
+    for (const name of ["Content-Disposition", "Content-Security-Policy", "X-Content-Type-Options"]) { const value = upstream.headers.get(name); if (value) responseHeaders.set(name, value); }
+    return new Response(upstream.body, { status: upstream.status, headers: responseHeaders });
   } catch { return NextResponse.json({ error: "无法连接独立测评服务，请稍后重试。" }, { status: 503 }); }
 }

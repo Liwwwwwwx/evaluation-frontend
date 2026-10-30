@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 
 type Run = { runId: string; serviceKey: string; origin: string; question: string; status: string; startedAt: string | null };
-const names: Record<string, string> = { "alpha-rsi": "1110", alloy: "合金材料", literature: "文献检索", "literature-aircraft": "航空文献", synthesis: "综合任务", "new-material": "新材料" };
+const names: Record<string, string> = { "alpha-rsi": "1110", alloy: "合金材料", literature: "文献检索", "literature-aircraft": "航空文献", synthesis: "合成制备", "new-material": "新材料" };
 const statuses: Record<string, string> = { running: "运行中", scoring: "评分中", done: "已结束", error: "失败" };
 function dateLabel(value: string | null) {
   if (!value) return "未知";
