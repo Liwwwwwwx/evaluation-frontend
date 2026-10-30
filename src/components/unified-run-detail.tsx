@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Markdown from "react-markdown";
-import remarkGfm from "remark-gfm";
+import { AnswerMarkdown } from "@/components/answer-markdown";
 import { UnifiedScores } from "@/components/unified-scores";
 
 type Run = { runId: string; serviceKey: string; question: string; status: string; executionStatus?: string; scoringStatus?: string; answer: string; answerTruncated: boolean; scores: unknown; run: unknown; scoreError: string | null; error: string | null; recoveryState?: string; origin: string; questionId: string | null; datasetVersion: string | null };
@@ -35,7 +34,7 @@ export function UnifiedRunDetail({ runId }: { runId: string }) {
   if (!run) return <div className="chat-state">{error ? <><p role="alert">{error}</p><button type="button" className="secondary-button" onClick={() => setRetry((value) => value + 1)}>重试</button></> : "正在读取运行…"}</div>;
   return <div className="chat-view"><div className="chat-top"><h1>运行详情</h1><span className={`run-dot ${run.status === "done" ? "done" : run.status === "error" ? "error" : "running"}`} /><span>{statuses[run.status] || "状态未知"} · {names[run.serviceKey] || run.serviceKey}</span></div>
     <div className="chat-scroll"><div className="chat-scroll-inner"><div className="run-layout">
-      <div className="run-chat" role="region" aria-label="对话内容" tabIndex={0}><p className="run-question">{run.question}</p><section className="run-answer-block"><div className="run-answer-head"><strong>{names[run.serviceKey] || run.serviceKey}</strong><span>回答</span></div><div className="run-answer"><Markdown remarkPlugins={[remarkGfm]}>{run.answer || "暂无回答。"}</Markdown></div>{run.answerTruncated && <p className="run-score-note">保存的回答已截断。</p>}{error && <p className="eval-error" role="alert">{error}</p>}</section></div>
+      <div className="run-chat" role="region" aria-label="对话内容" tabIndex={0}><p className="run-question">{run.question}</p><section className="run-answer-block"><div className="run-answer-head"><strong>{names[run.serviceKey] || run.serviceKey}</strong><span>回答</span></div><div className="run-answer"><AnswerMarkdown content={run.answer} streaming={run.executionStatus === "running" || (!run.executionStatus && run.status === "running")} /></div>{run.answerTruncated && <p className="run-score-note">保存的回答已截断。</p>}{error && <p className="eval-error" role="alert">{error}</p>}</section></div>
       <aside className="run-panel" tabIndex={0} aria-label="测评结果"><div className="run-panel-head"><h2>测评结果</h2><p>运行结束不代表题目要求已完成。</p></div><section className="run-block"><h3>运行信息</h3><dl className="run-info"><div><dt>运行 ID</dt><dd className="mono">{run.runId}</dd></div><div><dt>执行</dt><dd>{executionStatuses[run.executionStatus || ""] || "状态未知"}</dd></div><div><dt>评分</dt><dd>{scoringStatuses[run.scoringStatus || ""] || "状态未知"}</dd></div><div><dt>来源</dt><dd>{run.origin === "manual" ? "人工对话" : run.origin === "automation" ? "自动化" : run.origin === "legacy" ? "其他入口" : "未知"}</dd></div>{run.questionId && <div><dt>题库 ID</dt><dd>{run.questionId}</dd></div>}{run.datasetVersion && <div><dt>数据集</dt><dd>{run.datasetVersion}</dd></div>}</dl>{run.recoveryState === "snapshot_only" && ["running", "scoring"].includes(run.status) && <p className="run-score-note">显示的是已保存的快照，当前进程无法确认任务是否仍在运行。</p>}{run.error && <p className="run-score-note">{run.error}</p>}</section><section className="run-block"><h3>评分</h3>{run.scoreError && <p className="run-score-note">{run.scoreError}</p>}<UnifiedScores scores={run.scores} run={run.run} /></section><p className="run-note">模型评分不代表科学真实性。</p></aside>
     </div></div></div></div>;
 }

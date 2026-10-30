@@ -1,3 +1,4 @@
+import "katex/dist/katex.min.css";
 import type { Metadata } from "next";
 import "./globals.css";
 

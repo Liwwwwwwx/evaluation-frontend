@@ -505,3 +505,9 @@ a.nav-item.active:hover { background: var(--color-bg-selected); }
   .chat-scroll-inner { padding: 0 16px 32px; }
 }
 @media (max-width: 767px) { .run-question { max-width: 100%; } }
+
+/* 行内公式沿用 KaTeX 自然排版，避免字形边缘溢出产生微型滚动条。
+   仅独立的块公式容器承担长公式横向滚动。 */
+.run-answer .katex-display { max-width: 100%; margin: 16px 0; padding: 4px 0; overflow-x: auto; overflow-y: hidden; }
+.run-answer .katex-error { color: inherit; white-space: pre-wrap; overflow-wrap: anywhere; }
+.run-answer-block, .run-answer { min-width: 0; max-width: 100%; }

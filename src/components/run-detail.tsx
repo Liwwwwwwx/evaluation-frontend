@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Markdown from "react-markdown";
-import remarkGfm from "remark-gfm";
+import { AnswerMarkdown } from "@/components/answer-markdown";
 
 type QualityDimension = { label: string; score: number; note: string };
 
@@ -50,13 +49,6 @@ type RunMeta = {
   questionDatasetVersion?: string | null;
   questionSourceType?: string | null;
 };
-
-function cleanAnswer(text: string) {
-  return text
-    .replace(/<<<[^<>]{1,80}>>>/g, "")
-    .replace(/\[(?:start|end)\]/gi, "")
-    .trim();
-}
 
 function message(error: unknown) {
   return error instanceof Error ? error.message : "请求失败，请稍后重试。";
@@ -241,7 +233,7 @@ export function RunDetail({ runId }: { runId: string }) {
   const science = quality?.scientificReview || null;
   const md = data?.markdownSyntax || null;
   const running = data ? data.status === "running" : false;
-  const answerText = data?.answer ? cleanAnswer(data.answer) : "";
+  const answerText = data?.answer || "";
   const pending = data ? data.status === "running" || data.deepSeekScore?.status === "pending" || data.qwenScore?.status === "pending" : false;
 
   return (
@@ -276,7 +268,7 @@ export function RunDetail({ runId }: { runId: string }) {
               </div>
               {answerText ? (
                 <div className="run-answer">
-                  <Markdown remarkPlugins={[remarkGfm]} components={{ table: ({ children, ...props }) => <div className="run-table-wrap"><table {...props}>{children}</table></div> }}>{answerText}</Markdown>
+                  <AnswerMarkdown content={answerText} streaming={running} />
                 </div>
               ) : (
                 <p className="run-answer empty">
