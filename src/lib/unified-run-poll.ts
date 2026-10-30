@@ -2,7 +2,7 @@ export type UnifiedRunSnapshot = {
   runId: string; serviceKey: string; question: string; status: string; answer: string;
   executionStatus?: string; scoringStatus?: string; answerTruncated: boolean;
   run: unknown; scores: unknown; scoreError: string | null; error: string | null;
-  recoveryState?: string; canReply?: boolean; persistenceError?: boolean;
+  recoveryState?: string; canReply?: boolean; canRescore?: boolean; persistenceError?: boolean;
   origin: string; questionId: string | null; datasetVersion: string | null;
 };
 

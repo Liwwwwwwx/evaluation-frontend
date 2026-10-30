@@ -598,3 +598,35 @@ a.nav-item.active:hover { background: var(--color-bg-selected); }
 .eval-pending-recovery p { margin: 0 0 12px; }
 .eval-pending-recovery a { display: inline-flex; align-items: center; min-height: 44px; }
 .eval-pending-recovery button { min-height: 44px; }
+
+.score-dimensions { display: grid; gap: 12px; margin: 8px 0; font-size: 13px; }
+.score-dimensions > div { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; }
+.score-dimensions dt { font-weight: 600; }
+.score-dimensions dd { margin: 0; font-variant-numeric: tabular-nums; }
+.score-dimensions dd:nth-of-type(n+2) { grid-column: 1 / -1; }
+.score-task, .score-rubric, .score-history { margin: 12px 0; font-size: 13px; line-height: 20px; overflow-wrap: anywhere; }
+.score-task p, .run-score li p { margin: 4px 0; }
+.run-score blockquote { margin: 6px 0; padding-left: 10px; border-left: 2px solid var(--color-border); color: var(--color-fg-muted); white-space: pre-wrap; overflow-wrap: anywhere; }
+.run-score summary, .score-rubric summary, .score-history summary { cursor: pointer; font-size: 13px; line-height: 20px; }
+.score-snippet { display: block; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--color-fg-muted); }
+.score-summary { display: grid; gap: 2px; font-size: 12px; line-height: 18px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.bank-table .col-score { width: 200px; min-width: 180px; }
+.score-bank-link { display: block; margin: 6px 0; color: var(--color-fg); text-decoration: none; font-size: 12px; }
+.score-bank-link:hover { text-decoration: underline; }
+
+.score-bank-others summary { font-size: 12px; color: var(--color-fg-muted); cursor: pointer; }
+
+/* 评分列增加后保留题目阅读宽度，窄屏在表格内部横向浏览。 */
+.bank-table-wrap { overflow-x: auto; }
+.bank-table { min-width: 720px; }
+@media (max-width: 700px) { .bank-table { min-width: 520px; } }
+
+.run-score-heading { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; }
+.score-rescore { display: contents; }
+.score-rescore-button { grid-column: 2; display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 40px; padding: 0 8px; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--color-fg-muted); font-size: 13px; line-height: 20px; font-weight: 500; white-space: nowrap; }
+.score-rescore-button svg { width: 20px; height: 20px; flex: none; }
+.score-rescore-button:not(:disabled):hover { background: var(--color-bg-hover); color: var(--color-fg); }
+.score-rescore-button:not(:disabled):active { background: var(--color-bg-selected); }
+.score-rescore-button:disabled { color: var(--color-fg-subtle); }
+.score-rescore-error { grid-column: 1 / -1; }
+@media (max-width: 767px) { .score-rescore-button { min-height: 44px; } }

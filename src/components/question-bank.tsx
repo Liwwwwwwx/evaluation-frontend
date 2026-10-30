@@ -1,11 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import Link from "next/link";
+import { ScoreSummary, type ScoreSummaryValue } from "@/components/score-summary";
 import { useRouter } from "next/navigation";
 import { questionDomains as domains } from "@/lib/question-domains";
 import { parseXlsxFirstSheet } from "@/lib/xlsx-parser";
 
 type Question = { id: string; question: string; domainKey?: string | null; serviceKey: string | null; criteria?: unknown; sourceType: string; datasetVersion: string; createdAt?: string | null };
+type QuestionScoreRow = { questionId: string; datasetVersion: string; runId: string; serviceKey: string; startedAt?: string; scores: ScoreSummaryValue };
 type Draft = { domainKey: string; question: string };
 type IconName = "search" | "close" | "trash" | "copy" | "chevron";
 
@@ -64,8 +67,19 @@ function formatDateTime(value?: string | null) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
+const serviceNames: Record<string, string> = { literature: "文献检索", "literature-aircraft": "航空文献", alloy: "合金材料", synthesis: "合成制备", "new-material": "新材料" };
+function QuestionScores({ rows, state }: { rows: QuestionScoreRow[]; state: string }) {
+  if (state !== "ready") return <span className="run-score-note">{state === "failed" ? "评分读取失败" : "读取中…"}</span>;
+  if (!rows.length) return <span className="run-score-note">未评分</span>;
+  const ordered = [...rows].sort((a,b) => (Date.parse(b.startedAt || "") || 0) - (Date.parse(a.startedAt || "") || 0) || b.runId.localeCompare(a.runId));
+  const link = (row: QuestionScoreRow) => <Link key={row.runId} className="score-bank-link" href={`/runs/${row.runId}`}><span>{serviceNames[row.serviceKey] || row.serviceKey}</span><ScoreSummary scores={row.scores} /></Link>;
+  return <>{link(ordered[0])}{ordered.length > 1 && <details className="score-bank-others"><summary>其他服务（{ordered.length - 1}）</summary>{ordered.slice(1).map(link)}</details>}</>;
+}
+
 export function QuestionBank() {
   const router = useRouter();
+  const [scoreRows, setScoreRows] = useState<QuestionScoreRow[]>([]);
+  const [scoresState, setScoresState] = useState("loading");
   const [quickBusy, setQuickBusy] = useState(false);
   const [rows, setRows] = useState<Question[]>([]); const [total, setTotal] = useState(0);
   const [source, setSource] = useState<"fixed" | "random">("fixed"); const [service, setService] = useState("");
@@ -100,13 +114,21 @@ export function QuestionBank() {
     const request = ++requestId.current; setLoading(true); setError("");
     const params = new URLSearchParams({ source, status: "active", limit: String(pageSize), offset: String(page * pageSize) });
     if (service) params.set("domain", service); if (search) params.set("search", search);
-    try { const data = await jsonRequest(`/api/question-bank/questions?${params}`); if (request !== requestId.current) return; if (!Array.isArray(data.items) || typeof data.total !== "number") throw new Error("题库数据格式异常，请稍后重试。"); setRows(data.items); setTotal(data.total); }
+    try { const data = await jsonRequest(`/api/question-bank/questions?${params}`); if (request !== requestId.current) return; if (!Array.isArray(data.items) || typeof data.total !== "number") throw new Error("题库数据格式异常，请稍后重试。"); setRows(data.items); setScoreRows([]); setScoresState("loading"); setTotal(data.total); }
     catch (err) { if (request === requestId.current) { setError(getMessage(err)); setRows([]); setTotal(0); } }
     finally { if (request === requestId.current) setLoading(false); }
   }, [source, service, search, page]);
   useEffect(() => { if (!permissionReady) return; const activeRequest = requestId; const timeout = setTimeout(() => void load(), 0); return () => { clearTimeout(timeout); activeRequest.current++; }; }, [load, permissionReady, tick]);
   useEffect(() => { setSelected({}); }, [source, service, search, page]);
 
+  useEffect(() => {
+    const controller = new AbortController();
+    if (!rows.length) return () => controller.abort();
+    const items = rows.map(row => ({ id: row.id, datasetVersion: row.datasetVersion }));
+    const query = new URLSearchParams({ items: JSON.stringify(items) });
+    jsonRequest(`/api/evaluation/unified/question-scores?${query}`, { signal: controller.signal }).then(data => { if (!Array.isArray(data.items)) throw new Error("格式错误"); setScoreRows(data.items); setScoresState("ready"); }).catch(() => { if (!controller.signal.aborted) { setScoreRows([]); setScoresState("failed"); } });
+    return () => controller.abort();
+  }, [rows]);
   const pages = Math.max(1, Math.ceil(total / pageSize));
   const canManage = write;
   const selectedRows = Object.values(selected);
@@ -236,12 +258,13 @@ export function QuestionBank() {
     {permissionReady && !loading && !error && (rows.length > 0
       ? <div className="bank-table-wrap">
         <table className="bank-table">
-          <colgroup>{canManage && <col className="col-check" />}<col /><col className="col-service" /><col className="col-time" /><col className="col-action" /></colgroup>
+          <colgroup>{canManage && <col className="col-check" />}<col /><col className="col-service" /><col className="col-time" /><col className="col-score" /><col className="col-action" /></colgroup>
           <thead><tr>
             {canManage && <th className="col-check"><input ref={headCheck} type="checkbox" checked={allSelected} onChange={toggleAll} aria-label="全选本页题目" /></th>}
             <th scope="col">题目</th>
             <th scope="col" className="col-service">领域</th>
             <th scope="col" className="col-time">更新时间</th>
+            <th scope="col" className="col-score">评分（本版本最近运行）</th>
             <th scope="col" className="col-action"><span className="sr-only">操作</span></th>
           </tr></thead>
           <tbody>{rows.map((row) => {
@@ -251,6 +274,7 @@ export function QuestionBank() {
               <td className="col-question"><button type="button" className="row-question" title={row.question} onClick={() => { setDetail(row); setDetailDomain(row.domainKey || ""); setEditMode(false); setEditError(""); setEditText(row.question); detailDialog.current?.showModal(); }}>{row.question}</button></td>
               <td className="col-service">{domainLabel(row)}</td>
               <td className="col-time">{formatDate(row.createdAt)}</td>
+              <td className="col-score"><QuestionScores rows={scoreRows.filter(v => v.questionId === row.id && v.datasetVersion === row.datasetVersion)} state={scoresState} /></td>
               <td className="col-action">{canManage && <button type="button" className="icon-button row-delete" aria-label="删除该题目" onClick={() => askDelete([row])}><Icon name="trash" /></button>}</td>
             </tr>;
           })}</tbody>

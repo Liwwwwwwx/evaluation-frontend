@@ -9,7 +9,8 @@
     "lint": "eslint",
     "type-check": "tsc --noEmit",
     "test:markdown": "node --test test/answer-markdown.test.mjs",
-    "test:services": "node --test test/run-service-details.test.mjs test/unified-run-recovery.test.mjs"
+    "test:services": "node --test test/run-service-details.test.mjs test/unified-run-recovery.test.mjs",
+    "test:scoring": "node --test test/scoring.test.mjs"
   },
   "dependencies": {
     "@google/model-viewer": "^4.4.0",

@@ -14,7 +14,7 @@ function ResultBlock({ title, status, children }: { title: string; status: strin
   return <div className="run-score"><div className="run-score-head"><strong>{title}</strong><span className="run-score-value">{status}</span></div>{children}</div>;
 }
 
-export function UnifiedScores({ scores, run }: { scores: unknown; run?: unknown }) {
+function LegacyScores({ scores, run }: { scores: unknown; run?: unknown }) {
   const items = object(scores);
   const markdown = object(object(run)?.markdownSyntax);
   const deepSeek = object(items?.deepSeekScore);
@@ -60,5 +60,46 @@ export function UnifiedScores({ scores, run }: { scores: unknown; run?: unknown 
       {limitations.length > 0 && <ul className="run-list">{limitations.map((value, index) => typeof value === "string" ? <li key={index}>{value}</li> : null)}</ul>}
       <p className="run-score-note">以上检查未做独立核验，不代表已确认正确或错误。</p>
     </ResultBlock>}
+  </>;
+}
+
+function stringList(value: unknown) { return Array.isArray(value) ? value.filter(v => typeof v === "string") as string[] : []; }
+function TaskCompletion({ value }: { value: unknown }) {
+  const task = object(value); if (!task) return null;
+  return <div className="score-task"><strong>任务完成度 · {taskStates[text(task.status)] || "无法确认"}</strong><p className="run-score-note">{task.qualified === true ? "要求清单已满足（模型判断）" : "尚不能认定完整任务合格"}</p><details><summary>查看逐项依据</summary><ul className="run-list">{(Array.isArray(task.requirements) ? task.requirements : []).map((v, i) => { const row = object(v); return row ? <li key={i}><strong>{text(row.id)} · {requirementStates[text(row.status)] || "无法确认"}{row.critical === true ? " · 关键要求" : ""}</strong><p>{text(row.requirement)}</p>{text(row.evidence) && <blockquote>{text(row.evidence)}</blockquote>}{text(row.note) && <p>{text(row.note)}</p>}</li> : null; })}</ul></details></div>;
+}
+function Judge({ value, name }: { value: unknown; name: string }) {
+  const item = object(value); const quality = object(item?.quality); const ready = item?.status === "ready" && quality?.version === "evaluation-v1";
+  const total = quality?.total; const score = typeof total === "number" && Number.isFinite(total) && total >= 0 && total <= 100 ? total : null;
+  const dimensions = object(quality?.dimensions);
+  return <ResultBlock title={name} status={ready && score !== null ? `${score} / 100` : states[text(item?.status)] || "无评分"}>
+    {text(item?.model) && <p className="run-score-note">{text(item?.model)} · {text(item?.evaluatedAt) && new Date(text(item?.evaluatedAt)).toLocaleString("zh-CN")}</p>}
+    {ready && <>
+      {object(quality?.source)?.truncated === true && <p className="run-score-note">输入不完整 · 分数仅供参考</p>}
+      {dimensions && <dl className="score-dimensions">{Object.entries(dimensions).map(([key, v]) => { const d = object(v); return d ? <div key={key}><dt>{text(d.label)}</dt><dd>{d.applicable === false ? "不适用" : typeof d.score === "number" ? `${d.score} / 100 · 权重 ${Math.round(Number(d.weight) * 100)}%` : "缺少评分"}</dd><dd className="run-score-note">{text(d.note)}</dd>{text(d.evidence) && <dd><blockquote>{text(d.evidence)}</blockquote></dd>}</div> : null; })}</dl>}
+      <p className="run-score-note">{text(quality?.comment)}</p>
+      <TaskCompletion value={quality?.taskCompletion} />
+      {[["亮点", quality?.highlights], ["不足", quality?.gaps], ["改进建议", quality?.suggestions]].map(([label, list]) => stringList(list).length > 0 && <div key={String(label)}><strong>{String(label)}</strong><ul className="run-list">{stringList(list).map((v,i) => <li key={i}>{v}</li>)}</ul></div>)}
+      <details><summary>评分局限与覆盖范围</summary><ul className="run-list">{stringList(quality?.limitations).map((v,i) => <li key={i}>{v}</li>)}</ul><p className="run-score-note">正文 {Number(object(quality?.source)?.answerChars || 0)} 字符；结构化材料 {Number(object(quality?.source)?.structuredChars || 0)} 字符。未独立核验科学真实性。</p></details>
+    </>}
+    {text(item?.error) && <p className="run-score-note">{text(item?.error)}</p>}
+  </ResultBlock>;
+}
+function FormatCheck({ value }: { value: unknown }) {
+  const markdown = object(value); if (!markdown) return null;
+  const issues = Array.isArray(markdown.issues) ? markdown.issues : [];
+  return <ResultBlock title="Markdown 机检" status={checkStates[text(markdown.status)] || "状态未知"}><p className="run-score-note">原文检查 · {markdown.coverage === "partial" ? "覆盖不完整" : "完整文本"} · 未检查远程链接可用性</p>{issues.length ? <details><summary>查看 {issues.length} 项问题与建议</summary><ul className="run-list">{issues.map((v,i) => { const issue = object(v); return issue ? <li key={i}><strong>{issue.severity === "error" ? "错误" : "提示"} · 第 {Number(issue.line || 1)} 行</strong><p>{text(issue.detail)}</p>{text(issue.snippet) && <code className="score-snippet">{text(issue.snippet)}</code>}<p>{text(issue.suggestion)}</p></li> : null; })}</ul></details> : <p className="run-score-note">当前规则未发现问题；不代表内容正确。显示层修复不影响原文检查。</p>}</ResultBlock>;
+}
+export function UnifiedScores({ scores, run }: { scores: unknown; run?: unknown }) {
+  const current = object(run); const scoring = object(current?.scoring);
+  const items = object(scores); const isNew = scoring?.version === "evaluation-v1" || object(object(items?.deepSeekScore)?.quality)?.version === "evaluation-v1" || object(object(items?.qwenScore)?.quality)?.version === "evaluation-v1";
+  if (!isNew) return <LegacyScores scores={scores} run={run} />;
+  const rubric = object(scoring?.rubric); const history = Array.isArray(scoring?.history) ? scoring.history : [];
+  return <><p className="run-score-note">可读性 40% · 专业性 40% · 图文辅助 20%。图文不适用时其余维度各占 50%；两家模型独立评分，不取平均。</p>
+    <FormatCheck value={current?.markdownSyntax} />
+    {rubric && <details className="score-rubric"><summary>统一题目要求清单</summary><p className="run-score-note">{text(rubric.model)} 提取 · {text(rubric.visualAidsReason)}</p><ul className="run-list">{(Array.isArray(rubric.requirements) ? rubric.requirements : []).map((v,i) => { const row = object(v); return row ? <li key={i}>{text(row.id)}{row.critical === true ? " · 关键要求" : ""}：{text(row.requirement)}</li> : null; })}</ul></details>}
+    <Judge name="DeepSeek" value={items?.deepSeekScore} /><Judge name="千问" value={items?.qwenScore} />
+    <p className="run-score-note">评分规则 {text(scoring?.version)} · 本轮 {text(scoring?.attemptId)}</p>
+    {history.length > 0 && <details className="score-history"><summary>历史评分（{history.length} 轮）</summary>{history.map((v,i) => { const row = object(v); const previous = object(row?.scores); return row ? <details key={i}><summary>第 {i + 1} 轮 · {text(row.startedAt)}</summary><FormatCheck value={row.markdownSyntax} /><Judge name="DeepSeek" value={previous?.deepSeekScore} /><Judge name="千问" value={previous?.qwenScore} /></details> : null; })}</details>}
   </>;
 }
