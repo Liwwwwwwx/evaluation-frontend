@@ -2,10 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { adminOrigin, copySessionCookie, localCookie, upstreamCookie } from "@/lib/auth-proxy";
 
 const fixedCaseBase = "/api/admin/team-services/evaluations/question-bank/fixed-cases";
-const routes: Record<string, { path: string; method: "GET" | "POST" | "DELETE" }> = {
+const routes: Record<string, { path: string; method: "GET" | "POST" | "PUT" | "DELETE" }> = {
   access: { path: "/api/admin/auth/me", method: "GET" },
   questions: { path: "/api/admin/team-services/evaluations/question-bank/questions", method: "GET" },
   import: { path: fixedCaseBase, method: "POST" },
+  generate: { path: "/api/admin/team-services/evaluations/question-bank/generate", method: "POST" },
+  update: { path: fixedCaseBase, method: "PUT" },
   delete: { path: fixedCaseBase, method: "DELETE" },
 };
 
@@ -30,15 +32,24 @@ async function proxy(request: NextRequest, action: string) {
       body = JSON.stringify({ items: value.items.map((item: { serviceKey: string; question: string }) => ({ serviceKey: item.serviceKey, question: item.question })) });
     } catch { return NextResponse.json({ ok: false, error: "导入数据格式不正确" }, { status: 400 }); }
   }
-  if (action === "delete") {
+  if (action === "delete" || action === "update") {
     try {
       const value = await request.json();
       const id = value?.id;
       const datasetVersion = value?.datasetVersion;
       if (typeof id !== "string" || !id || id.length > 200 || typeof datasetVersion !== "string" || !datasetVersion || datasetVersion.length > 100) throw new Error();
       path = `${fixedCaseBase}/${encodeURIComponent(id)}`;
-      body = JSON.stringify({ datasetVersion });
+      if (action === "update" && (typeof value.question !== "string" || value.question.length > 500)) throw new Error();
+      body = JSON.stringify({ datasetVersion, ...(action === "update" ? { question: value.question } : {}) });
     } catch { return NextResponse.json({ ok: false, error: "删除参数不正确" }, { status: 400 }); }
+  }
+
+  if (action === "generate") {
+    try {
+      const value = await request.json();
+      if (typeof value.serviceKey !== "string" || typeof value.topic !== "string" || value.topic.length > 500 || !Number.isInteger(value.count) || value.count < 1 || value.count > 10) throw new Error();
+      body = JSON.stringify({ serviceKey: value.serviceKey, topic: value.topic, count: value.count });
+    } catch { return NextResponse.json({ ok: false, error: "生成参数不正确" }, { status: 400 }); }
   }
 
   try {
@@ -47,7 +58,7 @@ async function proxy(request: NextRequest, action: string) {
     if (action === "questions") for (const key of ["service", "source", "status", "search", "limit", "offset"]) { const value = request.nextUrl.searchParams.get(key); if (value) url.searchParams.set(key, value); }
     const headers = new Headers({ Accept: "application/json", Origin: origin, Cookie: `${upstreamCookie}=${session}` });
     if (body) headers.set("Content-Type", "application/json");
-    const upstream = await fetch(url, { method: route.method, headers, body, cache: "no-store", redirect: "error", signal: AbortSignal.timeout(15000) });
+    const upstream = await fetch(url, { method: route.method, headers, body, cache: "no-store", redirect: "error", signal: AbortSignal.timeout(action === "generate" ? 130000 : 15000) });
     const data = await upstream.json().catch(() => ({ ok: false, error: "题库服务返回异常" }));
     const response = NextResponse.json(data, { status: upstream.status, headers: { "Cache-Control": "no-store" } });
     copySessionCookie(upstream, response);
@@ -58,3 +69,5 @@ async function proxy(request: NextRequest, action: string) {
 export async function GET(request: NextRequest, { params }: { params: Promise<{ action: string }> }) { return proxy(request, (await params).action); }
 export async function POST(request: NextRequest, { params }: { params: Promise<{ action: string }> }) { return proxy(request, (await params).action); }
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ action: string }> }) { return proxy(request, (await params).action); }
+
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ action: string }> }) { return proxy(request, (await params).action); }

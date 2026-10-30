@@ -47,6 +47,8 @@ export function AuthGate({ children }: { children: ReactNode }) {
     try {
       const response = await fetch("/api/auth/logout", { method: "POST" });
       if (!response.ok) throw new Error();
+      sessionStorage.removeItem("evaluation-unified-run");
+      sessionStorage.removeItem("evaluation-unified-pending");
       router.replace("/login"); router.refresh();
     } catch { setError("退出失败，请检查认证服务后重试。"); setExiting(false); }
   }

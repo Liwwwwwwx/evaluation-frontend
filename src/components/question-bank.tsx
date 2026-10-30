@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import { parseXlsxFirstSheet } from "@/lib/xlsx-parser";
 
 type Question = { id: string; question: string; serviceKey: string | null; sourceType: string; datasetVersion: string; createdAt?: string | null };
@@ -25,7 +26,7 @@ function getMessage(error: unknown) { return error instanceof Error ? error.mess
 async function jsonRequest(url: string, options?: RequestInit) {
   const response = await fetch(url, { ...options, cache: "no-store" });
   const data = await response.json().catch(() => ({}));
-  if (!response.ok || data.ok === false) throw new Error(typeof data.error === "string" ? data.error : response.status === 403 ? "没有操作权限，请联系管理员。" : `请求失败（${response.status}）`);
+  if (!response.ok || data.ok === false) throw new Error(typeof data.error === "string" ? data.error : typeof data.error?.message === "string" ? data.error.message : response.status === 403 ? "没有操作权限，请联系管理员。" : `请求失败（${response.status}）`);
   return data;
 }
 function canWrite(permissions: unknown) {
@@ -63,6 +64,8 @@ function formatDateTime(value?: string | null) {
 }
 
 export function QuestionBank() {
+  const router = useRouter();
+  const [quickBusy, setQuickBusy] = useState(false);
   const [rows, setRows] = useState<Question[]>([]); const [total, setTotal] = useState(0);
   const [source, setSource] = useState("fixed"); const [service, setService] = useState("");
   const [input, setInput] = useState(""); const [search, setSearch] = useState(""); const [page, setPage] = useState(0); const [tick, setTick] = useState(0);
@@ -70,6 +73,8 @@ export function QuestionBank() {
   const [write, setWrite] = useState(false); const [permissionReady, setPermissionReady] = useState(false); const [permissionError, setPermissionError] = useState("");
   const [selected, setSelected] = useState<Record<string, Question>>({});
   const [detail, setDetail] = useState<Question | null>(null);
+  const [editMode, setEditMode] = useState(false); const [editText, setEditText] = useState(""); const [editBusy, setEditBusy] = useState(false); const [editError, setEditError] = useState("");
+  const [topic, setTopic] = useState(""); const [generateCount, setGenerateCount] = useState(3); const [generating, setGenerating] = useState(false);
   const [confirmRows, setConfirmRows] = useState<Question[]>([]); const [deleting, setDeleting] = useState<{ done: number; total: number } | null>(null); const [deleteError, setDeleteError] = useState("");
   const [toasts, setToasts] = useState<{ id: number; kind: "success" | "error"; text: string }[]>([]);
   const toastId = useRef(0); const toastTimers = useRef<number[]>([]);
@@ -81,7 +86,7 @@ export function QuestionBank() {
     toastTimers.current.push(timer);
   }
   const [drafts, setDrafts] = useState<Draft[]>([]); const [draftService, setDraftService] = useState("alpha-rsi"); const [draftQuestion, setDraftQuestion] = useState("");
-  const [importMode, setImportMode] = useState<"manual" | "excel">("manual");
+  const [importMode, setImportMode] = useState<"manual" | "excel" | "generate">("manual");
   const [importError, setImportError] = useState(""); const [importing, setImporting] = useState(false);
   const importDialog = useRef<HTMLDialogElement>(null); const detailDialog = useRef<HTMLDialogElement>(null); const confirmDialog = useRef<HTMLDialogElement>(null);
   const headCheck = useRef<HTMLInputElement>(null); const requestId = useRef(0);
@@ -140,14 +145,48 @@ export function QuestionBank() {
     if (failed.length < target.length) { toast("success", `已删除 ${target.length - failed.length} 道题目。`); shiftPage(target.length - failed.length); }
   }
 
+  async function prepareEvaluation(row: Question) {
+    if (quickBusy || !row.serviceKey || !["fixed", "random"].includes(row.sourceType)) return;
+    if (sessionStorage.getItem("evaluation-unified-pending")) { toast("error", "上次提交结果尚未确认，请先返回测评页面处理。"); return; }
+    setQuickBusy(true);
+    try {
+      const current = sessionStorage.getItem("evaluation-unified-run");
+      if (current) {
+        const run = await jsonRequest(`/api/evaluation/unified/runs/${encodeURIComponent(current)}`);
+        if (["running", "scoring"].includes(run.status)) throw new Error("当前测评还未结束，请先返回查看。");
+      }
+      sessionStorage.setItem("evaluation-selected-question", JSON.stringify(row));
+      sessionStorage.removeItem("evaluation-unified-run");
+      router.push("/evaluate");
+    } catch (err) { toast("error", getMessage(err)); } finally { setQuickBusy(false); }
+  }
+
   async function copyQuestion(text: string) {
     try { await navigator.clipboard.writeText(text); toast("success", "题目已复制到剪贴板。"); }
     catch { toast("error", "无法访问剪贴板，请手动选择文本复制。"); }
   }
 
-  function openImport(mode: "manual" | "excel") { setImportMode(mode); setDrafts([]); setDraftQuestion(""); setImportError(""); importDialog.current?.showModal(); }
+  function openImport(mode: "manual" | "excel" | "generate") { setImportMode(mode); setDrafts([]); setDraftQuestion(""); setImportError(""); importDialog.current?.showModal(); }
   async function readFile(file: File) { setImportError(""); try { const items = await parseXlsxFirstSheet(file); const cleaned = items.map(item => ({ serviceKey: item.serviceKey.trim(), question: item.question.trim() })); const problem = validate(cleaned); if (problem) throw new Error(problem); setDrafts(cleaned); } catch (err) { setDrafts([]); setImportError(getMessage(err)); } }
   function addDraft() { const next = [...drafts, { serviceKey: draftService, question: draftQuestion.trim() }]; const problem = validate(next); if (problem) { setImportError(problem); return; } setDrafts(next); setDraftQuestion(""); setImportError(""); }
+  async function generateDrafts() {
+    if (generating || !topic.trim()) return;
+    setGenerating(true); setImportError(""); setDrafts([]);
+    try {
+      const data = await jsonRequest("/api/question-bank/generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ serviceKey: draftService, topic: topic.trim(), count: generateCount }) });
+      if (!Array.isArray(data.items)) throw new Error("生成结果格式异常");
+      const problem = validate(data.items); if (problem) throw new Error(problem);
+      setDrafts(data.items); if (data.items.length < generateCount) setImportError(`模型返回了 ${data.items.length} 道有效题目，少于所请求数量。`);
+    } catch (err) { setImportError(getMessage(err)); } finally { setGenerating(false); }
+  }
+  async function saveEdit() {
+    if (!detail || editBusy) return;
+    const problem = validate([{ serviceKey: detail.serviceKey || "", question: editText }]); if (problem) { setEditError(problem); return; }
+    setEditBusy(true); setEditError("");
+    try { await jsonRequest("/api/question-bank/update", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: detail.id, datasetVersion: detail.datasetVersion, question: editText.trim() }) });
+      detailDialog.current?.close(); setEditMode(false); toast("success", "题目已更新，历史记录保留原版本。"); setTick(value => value + 1);
+    } catch (err) { setEditError(getMessage(err)); } finally { setEditBusy(false); }
+  }
   async function submitImport() { const problem = validate(drafts); if (problem) { setImportError(problem); return; } setImporting(true); setImportError(""); try { const data = await jsonRequest("/api/question-bank/import", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ items: drafts }) }); if (!Array.isArray(data.items)) throw new Error("导入结果格式异常，请刷新列表核实，避免重复提交。"); importDialog.current?.close(); toast("success", `已导入 ${data.items.length} 道固定题。`); setSource("fixed"); setService(""); setInput(""); setSearch(""); if (page !== 0) setPage(0); else setTick((value) => value + 1); }
     catch (err) { setImportError(`${getMessage(err)} 若连接中断，请先刷新列表核实结果，避免重复导入。`); } finally { setImporting(false); } }
 
@@ -197,7 +236,7 @@ export function QuestionBank() {
             const key = rowKey(row); const checked = Object.hasOwn(selected, key);
             return <tr key={key} className={checked ? "selected" : ""}>
               {canManage && <td className="col-check"><input type="checkbox" checked={checked} onChange={() => toggleRow(row)} aria-label={`选择题目：${row.question.slice(0, 24)}`} /></td>}
-              <td className="col-question"><button type="button" className="row-question" title={row.question} onClick={() => { setDetail(row); detailDialog.current?.showModal(); }}>{row.question}</button></td>
+              <td className="col-question"><button type="button" className="row-question" title={row.question} onClick={() => { setDetail(row); setEditMode(false); setEditError(""); setEditText(row.question); detailDialog.current?.showModal(); }}>{row.question}</button></td>
               <td className="col-service">{serviceLabel(row)}</td>
               <td className="col-time">{formatDate(row.createdAt)}</td>
               <td className="col-action">{canManage && <button type="button" className="icon-button row-delete" aria-label="删除该题目" onClick={() => askDelete([row])}><Icon name="trash" /></button>}</td>
@@ -223,7 +262,8 @@ export function QuestionBank() {
     <dialog ref={detailDialog} className="bank-dialog" aria-labelledby="detail-title" onClose={() => setDetail(null)}>
       {detail && <div className="bank-dialog-content">
         <div className="bank-dialog-heading"><div><h2 id="detail-title">题目详情</h2><p>{serviceLabel(detail)} · {detail.sourceType === "random" ? "随机题" : "固定题"}</p></div><button type="button" className="icon-button" aria-label="关闭详情" onClick={() => detailDialog.current?.close()}><Icon name="close" /></button></div>
-        <p className="detail-question">{detail.question}</p>
+        {editMode ? <label>题目内容<textarea value={editText} onChange={event => setEditText(event.target.value)} maxLength={500} disabled={editBusy} /></label> : <p className="detail-question">{detail.question}</p>}
+        {editError && <p className="bank-message error" role="alert">{editError}</p>}
         <dl className="detail-meta">
           <div><dt>数据集版本</dt><dd>{detail.datasetVersion || "—"}</dd></div>
           <div><dt>创建时间</dt><dd>{formatDateTime(detail.createdAt)}</dd></div>
@@ -231,7 +271,7 @@ export function QuestionBank() {
         </dl>
         <div className="bank-dialog-actions">
           <button type="button" className="secondary-button" onClick={() => void copyQuestion(detail.question)}><Icon name="copy" />复制题目</button>
-          <div>{canManage && <button type="button" className="danger-button" onClick={() => { detailDialog.current?.close(); askDelete([detail]); }}>删除</button>}<button type="button" className="secondary-button" onClick={() => detailDialog.current?.close()}>关闭</button></div>
+          <div>{["fixed", "random"].includes(detail.sourceType) && detail.serviceKey && !editMode && <button type="button" className="secondary-button" disabled={quickBusy} onClick={() => void prepareEvaluation(detail)}>{quickBusy ? "正在准备…" : "使用这道题测评"}</button>}{canManage && (editMode ? <button type="button" className="primary-button" disabled={editBusy} onClick={() => void saveEdit()}>{editBusy ? "保存中…" : "保存修改"}</button> : <button type="button" className="secondary-button" onClick={() => setEditMode(true)}>编辑</button>)}{canManage && !editMode && <button type="button" className="danger-button" onClick={() => { detailDialog.current?.close(); askDelete([detail]); }}>删除</button>}<button type="button" className="secondary-button" onClick={() => detailDialog.current?.close()}>关闭</button></div>
         </div>
       </div>}
     </dialog>
@@ -253,13 +293,15 @@ export function QuestionBank() {
         <div className="bank-dialog-heading"><div><h2 id="import-title">导入固定题</h2><p>先准备题目，确认预览后再保存到题库。</p></div><button type="button" className="icon-button" aria-label="关闭导入" disabled={importing} onClick={() => importDialog.current?.close()}><Icon name="close" /></button></div>
         <div className="bank-modes" role="tablist" aria-label="导入方式">
           <button type="button" role="tab" aria-selected={importMode === "manual"} className={importMode === "manual" ? "selected" : ""} disabled={importing} onClick={() => setImportMode("manual")}>手动添加</button>
-          <button type="button" role="tab" aria-selected={importMode === "excel"} className={importMode === "excel" ? "selected" : ""} disabled={importing} onClick={() => setImportMode("excel")}>导入 Excel</button>
+          <button type="button" role="tab" aria-selected={importMode === "excel"} className={importMode === "excel" ? "selected" : ""} disabled={importing || generating} onClick={() => setImportMode("excel")}>导入 Excel</button>
+          <button type="button" role="tab" aria-selected={importMode === "generate"} className={importMode === "generate" ? "selected" : ""} disabled={importing || generating} onClick={() => setImportMode("generate")}>AI 生成</button>
         </div>
         {importMode === "manual" ? <div className="import-fields"><p className="import-intro">选择服务并输入题目，可连续添加多条。</p><label>服务<select value={draftService} onChange={event => setDraftService(event.target.value)} disabled={importing}>{Object.entries(services).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label><label>题目<textarea value={draftQuestion} onChange={event => setDraftQuestion(event.target.value)} maxLength={500} disabled={importing} placeholder="输入题目内容（至少 8 个字符）" /></label><button type="button" className="secondary-button" onClick={addDraft} disabled={importing || !draftQuestion.trim()}>添加到预览</button></div>
+          : importMode === "generate" ? <div className="import-fields"><p className="import-intro">描述想考察的主题，生成后可预览并确认入库。</p><label>服务<select value={draftService} onChange={event => setDraftService(event.target.value)} disabled={generating}>{Object.entries(services).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label><label>出题主题<textarea value={topic} onChange={event => setTopic(event.target.value)} maxLength={500} disabled={generating} placeholder="例如：高温合金的强度与成分比较" /></label><label>生成数量<input type="number" min={1} max={10} value={generateCount} onChange={event => setGenerateCount(Number(event.target.value))} disabled={generating} /></label><button type="button" className="secondary-button" onClick={() => void generateDrafts()} disabled={generating || !topic.trim() || generateCount < 1 || generateCount > 10}>{generating ? "正在生成…" : "生成题目"}</button></div>
           : <div className="excel-guide"><p>1. 在 Excel 第一张工作表中填写以下两列：</p><div className="example-table"><div><strong>服务</strong><strong>题目</strong></div><div><span>alpha-rsi</span><span>填写需要评测的题目内容</span></div></div><p>2. 保存为 .xlsx 文件，选择文件后检查预览。</p><p className="excel-hint">一次最多 100 条、10 MB；重新选择文件会替换当前预览。</p><details className="service-guide"><summary>查看支持的服务标识</summary><div>{Object.entries(services).map(([key, label]) => <span key={key}><strong>{label}</strong><code>{key}</code></span>)}</div></details><label className="secondary-button file-button">选择 Excel 文件<input type="file" accept=".xlsx" disabled={importing} onChange={event => { const file = event.target.files?.[0]; if (file) void readFile(file); event.target.value = ""; }} /></label></div>}
         {importError && <p className="form-error" role="alert">{importError}</p>}
         {drafts.length > 0 && <div className="import-preview"><h3>导入预览 · {drafts.length} 条</h3>{drafts.map((item, index) => <div className="preview-row" key={`${index}-${item.serviceKey}`}><span>{services[item.serviceKey]}</span><p>{item.question}</p><button type="button" className="text-button" disabled={importing} onClick={() => setDrafts(drafts.filter((_, i) => i !== index))}>移除</button></div>)}</div>}
-        <div className="bank-dialog-actions"><span /><div><button type="button" className="secondary-button" disabled={importing} onClick={() => importDialog.current?.close()}>取消</button><button type="button" className="primary-button" disabled={importing || !drafts.length} onClick={() => void submitImport()}>{importing ? "导入中…" : `确认导入${drafts.length ? `（${drafts.length}）` : ""}`}</button></div></div>
+        <div className="bank-dialog-actions"><span /><div><button type="button" className="secondary-button" disabled={importing} onClick={() => importDialog.current?.close()}>取消</button><button type="button" className="primary-button" disabled={importing || generating || !drafts.length} onClick={() => void submitImport()}>{importing ? "导入中…" : `确认导入${drafts.length ? `（${drafts.length}）` : ""}`}</button></div></div>
       </div>
     </dialog>
 

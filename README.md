@@ -17,11 +17,11 @@ corepack yarn install --frozen-lockfile
 corepack yarn dev
 ```
 
-打开 http://localhost:6714。默认认证代理为本机 `http://127.0.0.1:6713`，可通过 `SCIENCE_ADMIN_FRONTEND_URL` 指定；生产环境必须配置 HTTPS 地址，参见 `.env.example`。认证服务需按其自身要求配置并运行。
+打开 http://localhost:6714。登录代理默认访问测评后端 `http://127.0.0.1:7714`，可通过 `SCIENCE_EVALUATION_BACKEND_URL` 指定；后端需配置数据库、会话表和对应的前端访问 origin。生产环境必须使用 HTTPS，参见 `.env.example` 和后端 README。
 
 检查命令：`corepack yarn lint`、`corepack yarn type-check` 和 `corepack yarn build`。
 
 ## 项目边界
 
-- 登录与后续服务复用既有 Science Admin 能力；业务接口和权限需按实际契约接入。
+- 登录使用独立测评后端，共享 Science Admin 的账号和权限；业务代理仍指向旧管理端，不接受新的测评登录会话，业务功能等待逐步迁移。
 - 项目不包含凭据、真实评测数据或生产部署配置；模型评分不等于科学真实性验证。

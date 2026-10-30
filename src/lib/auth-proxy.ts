@@ -1,5 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
-import { createHash } from "node:crypto";
+import { NextResponse } from "next/server";
 
 export const localCookie = "evaluation_auth_session";
 export const upstreamCookie = "app_auth_session";
@@ -11,50 +10,6 @@ export function adminOrigin() {
   const local = url.hostname === "localhost" || url.hostname === "127.0.0.1" || url.hostname === "[::1]";
   if (url.username || url.password || (url.protocol !== "https:" && !(url.protocol === "http:" && local && process.env.NODE_ENV !== "production"))) throw new Error("认证服务地址必须使用 HTTPS");
   return url.origin;
-}
-
-// 合并同一会话的并发状态检查，避免同时使用同一 refresh token 导致轮换冲突。
-const pendingChecks = new Map<string, Promise<Response>>();
-async function fetchSession(origin: string, session: string, headers: Headers) {
-  const key = createHash("sha256").update(origin).update("\0").update(session).digest("hex");
-  let pending = pendingChecks.get(key);
-  if (!pending) {
-    pending = fetch(`${origin}/api/auth/me`, { headers, cache: "no-store", redirect: "error", signal: AbortSignal.timeout(15000) });
-    pendingChecks.set(key, pending);
-    void pending.then(() => { if (pendingChecks.get(key) === pending) pendingChecks.delete(key); }, () => { if (pendingChecks.get(key) === pending) pendingChecks.delete(key); });
-  }
-  return (await pending).clone();
-}
-
-export async function proxyAuth(request: NextRequest, action: "login" | "me" | "logout") {
-  const isWrite = action !== "me";
-  const host = request.headers.get("host");
-  const expectedOrigin = host ? `${request.nextUrl.protocol}//${host}` : "";
-  if (isWrite && (request.headers.get("origin") !== expectedOrigin || request.headers.get("sec-fetch-site") === "cross-site")) {
-    return NextResponse.json({ ok: false, error: "请求来源无效" }, { status: 403 });
-  }
-  let body: string | undefined;
-  if (action === "login") {
-    try {
-      const input = await request.json();
-      if (typeof input.username !== "string" || !input.username.trim() || input.username.length > 100 || typeof input.password !== "string" || !input.password || input.password.length > 100) throw new Error();
-      body = JSON.stringify({ username: input.username, password: input.password, rememberMe: input.rememberMe === true, locale: "zh" });
-    } catch { return NextResponse.json({ ok: false, error: "请输入有效的用户名和密码" }, { status: 400 }); }
-  }
-  try {
-    const origin = adminOrigin();
-    const session = request.cookies.get(localCookie)?.value;
-    const headers = new Headers({ Accept: "application/json", Origin: origin });
-    if (body) headers.set("Content-Type", "application/json");
-    if (session && action !== "login") headers.set("Cookie", `${upstreamCookie}=${session}`);
-    const upstream = action === "me" && session
-      ? await fetchSession(origin, session, headers)
-      : await fetch(`${origin}/api/auth/${action}`, { method: isWrite ? "POST" : "GET", headers, body, cache: "no-store", redirect: "error", signal: AbortSignal.timeout(15000) });
-    const data = await upstream.json().catch(() => ({ ok: false, error: "认证服务返回异常" }));
-    const response = NextResponse.json(data, { status: upstream.status, headers: { "Cache-Control": "no-store" } });
-    copySessionCookie(upstream, response);
-    return response;
-  } catch { return NextResponse.json({ ok: false, error: "无法连接认证服务，请稍后重试。" }, { status: 503, headers: { "Cache-Control": "no-store" } }); }
 }
 
 export function copySessionCookie(upstream: Response, response: NextResponse) {

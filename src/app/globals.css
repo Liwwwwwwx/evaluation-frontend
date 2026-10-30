@@ -29,6 +29,10 @@
   --ease-out: cubic-bezier(.2, 0, 0, 1);
 }
 * { box-sizing: border-box; }
+* { scrollbar-width: thin; scrollbar-color: var(--color-border) transparent; }
+*::-webkit-scrollbar { width: 6px; height: 6px; }
+*::-webkit-scrollbar-thumb { border-radius: var(--radius-full); background: var(--color-border); }
+*::-webkit-scrollbar-track { background: transparent; }
 html, body { min-height: 100%; margin: 0; }
 body { color: var(--color-fg); background: var(--color-bg); font: 14px/22px -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; -webkit-font-smoothing: antialiased; }
 a { color: inherit; text-decoration: none; }
@@ -403,10 +407,25 @@ a.nav-item.active:hover { background: var(--color-bg-selected); }
 .chat-mobilebar { display: none; }
 .chat-drawer { display: none; }
 .chat-empty-state { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 32px; color: var(--color-fg-muted); text-align: center; }
-.chat-empty-state h2 { margin: 0; color: var(--color-fg); font-size: 22px; line-height: 30px; font-weight: 600; }
+.chat-empty-state h1, .chat-empty-state h2 { margin: 0; color: var(--color-fg); font-size: 22px; line-height: 30px; font-weight: 600; }
 .chat-empty-state p { margin: 0; max-width: 420px; }
 .chat-state { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 64px 16px; color: var(--color-fg-muted); text-align: center; }
 .chat-state p { margin: 0; }
+.runs-list-page { width: min(100%, 1200px); flex: 1; min-height: 0; display: flex; flex-direction: column; margin: 0 auto; padding: 40px 32px 0; }
+.runs-list-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 24px; }
+.runs-list-header h1 { margin: 0; font-size: 28px; line-height: 36px; font-weight: 600; }
+.runs-list-header p { margin: 8px 0 0; color: var(--color-fg-muted); }
+.runs-table-wrap { flex: 1; min-height: 0; overflow: auto; }
+.runs-table { width: 100%; min-width: 800px; border-collapse: separate; border-spacing: 0; text-align: left; }
+.runs-table th { position: sticky; top: 0; background: var(--color-bg); border-bottom: 1px solid var(--color-border); color: var(--color-fg-muted); font-size: 13px; font-weight: 500; }
+.runs-table th, .runs-table td { padding: 12px; vertical-align: middle; }
+.runs-table td { border-bottom: 1px solid var(--color-border); font-variant-numeric: tabular-nums; }
+.runs-table th:not(:first-child), .runs-table td:not(:first-child) { white-space: nowrap; }
+.runs-table tbody tr:hover { background: var(--color-bg-hover); }
+.runs-question { display: block; min-width: 220px; max-width: 480px; overflow-wrap: anywhere; }
+.runs-question:hover, .runs-detail-link:hover { text-decoration: underline; }
+.runs-detail-link { white-space: nowrap; }
+@media (max-width: 767px) { .runs-list-page { padding: 24px 16px 0; } }
 .run-dot { width: 6px; height: 6px; flex: none; display: inline-block; border-radius: 50%; background: var(--color-fg-subtle); }
 .run-dot.running { background: var(--color-info); animation: run-pulse 1.4s var(--ease-out) infinite; }
 .run-dot.done { background: var(--color-success); }
@@ -418,10 +437,6 @@ a.nav-item.active:hover { background: var(--color-bg-selected); }
 .chat-top { height: 56px; flex: none; display: flex; align-items: center; gap: 8px; padding: 0 24px; color: var(--color-fg-muted); font-size: 13px; line-height: 20px; }
 .chat-top h1 { margin: 0 16px 0 0; color: var(--color-fg); font-size: 16px; line-height: 24px; font-weight: 600; }
 .chat-scroll { flex: 1; min-height: 0; overflow: hidden; }
-.chat-history, .run-chat, .run-panel { scrollbar-width: thin; scrollbar-color: var(--color-border) transparent; }
-.chat-history::-webkit-scrollbar, .run-chat::-webkit-scrollbar, .run-panel::-webkit-scrollbar { width: 6px; }
-.chat-history::-webkit-scrollbar-thumb, .run-chat::-webkit-scrollbar-thumb, .run-panel::-webkit-scrollbar-thumb { border-radius: var(--radius-full); background: var(--color-border); }
-.chat-history::-webkit-scrollbar-track, .run-chat::-webkit-scrollbar-track, .run-panel::-webkit-scrollbar-track { background: transparent; }
 .chat-scroll-inner { width: 100%; height: 100%; padding: 24px 32px 24px; }
 .run-muted { color: var(--color-fg-muted); font-size: 12px; }
 .run-layout { height: 100%; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(360px, 420px); gap: 32px; }
