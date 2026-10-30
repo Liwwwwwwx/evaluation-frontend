@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 const sessionCookie = "evaluation_session";
 const oldCookie = "evaluation_auth_session";
 
-function backendOrigin() {
+export function backendOrigin() {
   const configured = process.env.SCIENCE_EVALUATION_BACKEND_URL;
   if (!configured && process.env.NODE_ENV === "production") throw new Error("测评认证服务地址未配置");
   const url = new URL(configured || "http://127.0.0.1:7714");

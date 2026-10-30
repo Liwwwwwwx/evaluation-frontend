@@ -101,7 +101,7 @@ function cellValue(cell: Element, sharedStrings: string[]) {
   return value;
 }
 
-export async function parseXlsxFirstSheet(file: File): Promise<Array<{ serviceKey: string; question: string }>> {
+export async function parseXlsxFirstSheet(file: File): Promise<Array<{ domainKey: string; question: string }>> {
   if (file.size > MAX_FILE_BYTES) throw new Error("Excel 文件不能超过 10 MB");
   if (!/\.xlsx$/i.test(file.name)) throw new Error("请上传 .xlsx 格式的 Excel 文件");
   const buffer = await file.arrayBuffer();
@@ -146,11 +146,11 @@ export async function parseXlsxFirstSheet(file: File): Promise<Array<{ serviceKe
   const matrix = [...rows.entries()].sort(([a], [b]) => a - b).map(([, row]) => row);
   if (matrix.length < 2) throw new Error("Excel 至少需要标题行和一条案例");
   const headers = matrix[0].map((item) => String(item ?? "").trim());
-  const serviceIndex = headers.indexOf("服务");
+  const domainIndex = headers.indexOf("领域");
   const questionIndex = headers.indexOf("题目");
-  if (serviceIndex < 0 || questionIndex < 0) throw new Error("第一张表必须包含“服务”和“题目”列");
+  if (domainIndex < 0 || questionIndex < 0) throw new Error("第一张表必须包含“领域”和“题目”列");
   const items = matrix.slice(1).filter((row) => row.some((item) => String(item ?? "").trim() !== "")).map((row) => ({
-    serviceKey: String(row[serviceIndex] ?? "").trim(),
+    domainKey: String(row[domainIndex] ?? "").trim(),
     question: String(row[questionIndex] ?? "").trim(),
   }));
   if (items.length > MAX_ROWS) throw new Error("一次最多导入 100 条固定案例");

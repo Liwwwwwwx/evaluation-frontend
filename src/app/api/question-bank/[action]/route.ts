@@ -1,73 +1,34 @@
 import { NextRequest, NextResponse } from "next/server";
-import { adminOrigin, copySessionCookie, localCookie, upstreamCookie } from "@/lib/auth-proxy";
+import { backendOrigin } from "@/lib/evaluation-auth-proxy";
 
-const fixedCaseBase = "/api/admin/team-services/evaluations/question-bank/fixed-cases";
-const routes: Record<string, { path: string; method: "GET" | "POST" | "PUT" | "DELETE" }> = {
-  access: { path: "/api/admin/auth/me", method: "GET" },
-  questions: { path: "/api/admin/team-services/evaluations/question-bank/questions", method: "GET" },
-  import: { path: fixedCaseBase, method: "POST" },
-  generate: { path: "/api/admin/team-services/evaluations/question-bank/generate", method: "POST" },
-  update: { path: fixedCaseBase, method: "PUT" },
-  delete: { path: fixedCaseBase, method: "DELETE" },
-};
-
-function sameOrigin(request: NextRequest) {
-  const host = request.headers.get("host");
-  return !!host && request.headers.get("origin") === `${request.nextUrl.protocol}//${host}` && request.headers.get("sec-fetch-site") !== "cross-site";
-}
+const methods: Record<string, string> = { access: "GET", questions: "GET", import: "POST", "random-save": "POST", generate: "POST", domain: "PUT", update: "PUT", delete: "DELETE" };
 
 async function proxy(request: NextRequest, action: string) {
-  const route = routes[action];
-  if (!route || request.method !== route.method) return NextResponse.json({ ok: false, error: "Not found" }, { status: 404 });
-  if (route.method !== "GET" && !sameOrigin(request)) return NextResponse.json({ ok: false, error: "请求来源无效" }, { status: 403 });
-  const session = request.cookies.get(localCookie)?.value;
-  if (!session) return NextResponse.json({ ok: false, error: "请先登录" }, { status: 401 });
-
-  let body: string | undefined;
-  let path = route.path;
-  if (action === "import") {
-    try {
-      const value = await request.json();
-      if (!Array.isArray(value.items) || value.items.length < 1 || value.items.length > 100 || value.items.some((item: unknown) => !item || typeof item !== "object" || typeof (item as Record<string, unknown>).serviceKey !== "string" || typeof (item as Record<string, unknown>).question !== "string" || ((item as Record<string, string>).question.length > 500))) throw new Error();
-      body = JSON.stringify({ items: value.items.map((item: { serviceKey: string; question: string }) => ({ serviceKey: item.serviceKey, question: item.question })) });
-    } catch { return NextResponse.json({ ok: false, error: "导入数据格式不正确" }, { status: 400 }); }
-  }
-  if (action === "delete" || action === "update") {
-    try {
-      const value = await request.json();
-      const id = value?.id;
-      const datasetVersion = value?.datasetVersion;
-      if (typeof id !== "string" || !id || id.length > 200 || typeof datasetVersion !== "string" || !datasetVersion || datasetVersion.length > 100) throw new Error();
-      path = `${fixedCaseBase}/${encodeURIComponent(id)}`;
-      if (action === "update" && (typeof value.question !== "string" || value.question.length > 500)) throw new Error();
-      body = JSON.stringify({ datasetVersion, ...(action === "update" ? { question: value.question } : {}) });
-    } catch { return NextResponse.json({ ok: false, error: "删除参数不正确" }, { status: 400 }); }
-  }
-
-  if (action === "generate") {
-    try {
-      const value = await request.json();
-      if (typeof value.serviceKey !== "string" || typeof value.topic !== "string" || value.topic.length > 500 || !Number.isInteger(value.count) || value.count < 1 || value.count > 10) throw new Error();
-      body = JSON.stringify({ serviceKey: value.serviceKey, topic: value.topic, count: value.count });
-    } catch { return NextResponse.json({ ok: false, error: "生成参数不正确" }, { status: 400 }); }
-  }
-
+  if (!Object.hasOwn(methods, action) || request.method !== methods[action]) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const host = request.headers.get("host");
+  const origin = host ? `${request.nextUrl.protocol}//${host}` : "";
+  if (request.method !== "GET" && (request.headers.get("origin") !== origin || request.headers.get("sec-fetch-site") === "cross-site")) return NextResponse.json({ error: "请求来源无效" }, { status: 403 });
+  const session = request.cookies.get("evaluation_session")?.value;
+  if (!session) return NextResponse.json({ error: "请先登录" }, { status: 401 });
   try {
-    const origin = adminOrigin();
-    const url = new URL(path, origin);
-    if (action === "questions") for (const key of ["service", "source", "status", "search", "limit", "offset"]) { const value = request.nextUrl.searchParams.get(key); if (value) url.searchParams.set(key, value); }
-    const headers = new Headers({ Accept: "application/json", Origin: origin, Cookie: `${upstreamCookie}=${session}` });
-    if (body) headers.set("Content-Type", "application/json");
-    const upstream = await fetch(url, { method: route.method, headers, body, cache: "no-store", redirect: "error", signal: AbortSignal.timeout(action === "generate" ? 130000 : 15000) });
-    const data = await upstream.json().catch(() => ({ ok: false, error: "题库服务返回异常" }));
-    const response = NextResponse.json(data, { status: upstream.status, headers: { "Cache-Control": "no-store" } });
-    copySessionCookie(upstream, response);
-    return response;
-  } catch { return NextResponse.json({ ok: false, error: "无法连接题库服务，请稍后重试。" }, { status: 503 }); }
+    const url = new URL(`/api/question-bank/${action}`, backendOrigin());
+    if (action === "questions") for (const key of ["service", "domain", "source", "status", "search", "limit", "offset"]) { const value = request.nextUrl.searchParams.get(key); if (value) url.searchParams.set(key, value); }
+    const headers = new Headers({ Accept: "application/json", Cookie: `evaluation_session=${session}` });
+    let body: string | undefined;
+    if (request.method !== "GET") {
+      if (!request.headers.get("content-type")?.toLowerCase().startsWith("application/json")) return NextResponse.json({ error: "请求格式无效" }, { status: 415 });
+      const size = Number(request.headers.get("content-length") || 0);
+      if (size > 256 * 1024) return NextResponse.json({ error: "请求内容过大" }, { status: 413 });
+      body = await request.text();
+      if (Buffer.byteLength(body) > 256 * 1024) return NextResponse.json({ error: "请求内容过大" }, { status: 413 });
+      headers.set("Content-Type", "application/json"); headers.set("Origin", origin);
+    }
+    const upstream = await fetch(url, { method: request.method, headers, body, cache: "no-store", redirect: "error", signal: AbortSignal.timeout(action === "generate" ? 130000 : 15000) });
+    const data = await upstream.json().catch(() => ({ error: "题库服务返回异常" }));
+    return NextResponse.json(data, { status: upstream.status, headers: { "Cache-Control": "no-store" } });
+  } catch { return NextResponse.json({ error: "无法连接题库服务，请稍后重试。" }, { status: 503 }); }
 }
-
 export async function GET(request: NextRequest, { params }: { params: Promise<{ action: string }> }) { return proxy(request, (await params).action); }
 export async function POST(request: NextRequest, { params }: { params: Promise<{ action: string }> }) { return proxy(request, (await params).action); }
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ action: string }> }) { return proxy(request, (await params).action); }
-
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ action: string }> }) { return proxy(request, (await params).action); }
