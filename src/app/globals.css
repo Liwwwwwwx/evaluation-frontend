@@ -593,3 +593,8 @@ a.nav-item.active:hover { background: var(--color-bg-selected); }
 }
 
 .structured-candidate-table .structured-numeric, .structured-candidate-detail td:nth-child(2) { text-align: right; }
+
+.eval-pending-recovery { margin: 16px 0; color: var(--color-fg-muted); font-size: 13px; line-height: 20px; }
+.eval-pending-recovery p { margin: 0 0 12px; }
+.eval-pending-recovery a { display: inline-flex; align-items: center; min-height: 44px; }
+.eval-pending-recovery button { min-height: 44px; }

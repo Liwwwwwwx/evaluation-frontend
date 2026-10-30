@@ -90,3 +90,8 @@ test('候选汇总保留未排序候选、无编号记录和单独验证，不�
   assert.equal(rows.length, 5); assert.equal(rows.filter(row => row.id === 'C1').length, 1); assert.equal(rows.find(row => row.id === 'C3').valid, false);
   assert.equal(resultCandidates({ candidates: [{ formula_pretty: 'Al' }] }, []).length, 1);
 });
+
+
+test('成果整理降级提示可见，不隐藏已有正文和结构化结果', () => {
+  assert.match(render({ artifactError: '部分成果路径无效，已跳过对应预览链接' }), /部分成果路径无效/);
+});

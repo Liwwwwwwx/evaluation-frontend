@@ -35,6 +35,7 @@ export function StructuredOutcomes({ details, runId }: { details: DataRecord; ru
   </> : null}
     <DataDisclosure title={`查看完整结构化结果${frames.length ? `（${frames.length}个协议帧）` : ""}`} value={details} />
     {snapshot?.ok === false && <p className="run-score-note">{text(snapshot.error) || "任务快照未提供"}</p>}
+    {text(details.artifactError) && <p className="run-score-note" role="status">{text(details.artifactError)}</p>}
     {details.truncated === true && <p className="run-score-note">部分结构化帧超过保存上限，当前记录不完整。</p>}
     {result && Object.hasOwn(result, "message") && <p className="run-score-note">{scalar(result.message)}</p>}
   </>;

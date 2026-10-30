@@ -4,9 +4,11 @@ import { questionDomains } from "@/lib/question-domains";
 import { RunServiceInfo } from "@/components/run-service-info";
 import { RunServiceDetails } from "@/components/run-service-details";
 import { UnifiedScores } from "@/components/unified-scores";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { AnswerMarkdown } from "@/components/answer-markdown";
 import { readUnifiedStream } from "@/lib/unified-stream";
+import { createUnifiedRun } from "@/lib/unified-run-request";
+import { watchUnifiedRun } from "@/lib/unified-run-poll";
 
 type BankQuestion = {
   id: string;
@@ -78,7 +80,16 @@ export function Evaluate() {
   const [run, setRun] = useState<{ id: string; question: string; service: string; answer: string; status: string; executionStatus?: string; scoringStatus?: string; result: unknown; scores: unknown; scoreError: string; truncated: boolean; snapshotOnly?: boolean; canReply?: boolean } | null>(null);
   const [recovering, setRecovering] = useState(false);
   const runId = useRef("");
-  const runStatus = useRef("");
+  const stopRecovery = useRef<(() => void) | null>(null);
+  const [recoveryRetry, setRecoveryRetry] = useState(0);
+  const [hasPendingRequest, setHasPendingRequest] = useState(false);
+  const resetRun = useCallback(() => {
+    stopRecovery.current?.(); stopRecovery.current = null;
+    runId.current = "";
+    sessionStorage.removeItem("evaluation-unified-run");
+    window.dispatchEvent(new Event("evaluation-unified-change"));
+    setRun(null); setRecovering(false); setSubmitError("");
+  }, []);
 
   const [pickerOpen, setPickerOpen] = useState(false);
   const [input, setInput] = useState("");
@@ -128,6 +139,7 @@ export function Evaluate() {
   useEffect(() => {
     const pendingText = sessionStorage.getItem("evaluation-unified-pending");
     if (!pendingText) return;
+    setHasPendingRequest(true);
     try {
       const pending = JSON.parse(pendingText) as { body?: string };
       const body = JSON.parse(pending.body || "{}") as Record<string, unknown>;
@@ -144,34 +156,34 @@ export function Evaluate() {
   useEffect(() => {
     const startNew = (event: Event) => {
       if (submitting) { event.preventDefault(); setSubmitError("当前运行仍在输出，请等待结束后新建测评。"); return; }
-      runId.current = "";
-      setRun(null);
-      setSubmitError("");
+      resetRun();
     };
     window.addEventListener("evaluation-new-request", startNew);
     return () => window.removeEventListener("evaluation-new-request", startNew);
-  }, [submitting]);
+  }, [submitting, resetRun]);
 
   useEffect(() => {
-    let active = true;
+    if (submitting) return;
     const id = sessionStorage.getItem("evaluation-unified-run");
     if (!id) return;
     runId.current = id;
     setRecovering(true);
-    const load = async () => {
-      try {
-        const data = await jsonRequest(`/api/evaluation/unified/runs/${encodeURIComponent(id)}`);
-        if (!active) return;
-        runStatus.current = data.status || "unknown";
+    const stop = watchUnifiedRun(id, {
+      onData: data => {
+        if (runId.current !== id) return;
         setRun({ id, question: data.question || "", service: data.serviceKey || "", answer: data.answer || "", status: data.status || "unknown", executionStatus: data.executionStatus, scoringStatus: data.scoringStatus, result: data.run, scores: data.scores || null, scoreError: data.scoreError || "", truncated: data.answerTruncated === true, snapshotOnly: data.recoveryState === "snapshot_only", canReply: data.canReply === true });
         setSubmitError(data.persistenceError === true ? "记录保存失败；请稍后读取原运行，不要重复发起。" : "");
-      } catch (error) { if (active) { runStatus.current = "unknown"; setSubmitError(`无法恢复运行：${message(error)}；服务重启或记录过期后可能无法恢复。`); } }
-      finally { if (active) setRecovering(false); }
-    };
-    void load();
-    const timer = window.setInterval(() => { if (!submitting && ["running", "scoring"].includes(runStatus.current)) void load(); }, 5000);
-    return () => { active = false; window.clearInterval(timer); };
-  }, [submitting]);
+        setRecovering(false);
+      },
+      onError: (error, retrying) => {
+        if (runId.current !== id) return;
+        setSubmitError(`无法恢复运行：${error}${retrying ? "；正在自动重试。" : "；请重试读取原运行。"}`);
+        setRecovering(false);
+      },
+    });
+    stopRecovery.current = stop;
+    return () => { stop(); if (stopRecovery.current === stop) stopRecovery.current = null; };
+  }, [submitting, recoveryRetry]);
 
   useEffect(() => {
     const node = dialog.current;
@@ -263,24 +275,11 @@ export function Evaluate() {
     setSubmitError("");
     try {
       const body = JSON.stringify({ serviceKey: service, question: trimmed, ...(source ? { questionId: source.id, datasetVersion: source.datasetVersion, sourceType: source.sourceType } : {}) });
-      const pendingText = sessionStorage.getItem("evaluation-unified-pending");
-      let pending: { key: string; body: string } | null = null;
-      if (pendingText) { try { pending = JSON.parse(pendingText); } catch { throw new Error("上次请求状态无法读取，请先核对运行记录。"); } }
-      if (pending && pending.body !== body) throw new Error("上次提交结果尚未确认，请使用原题和原服务重试，或先核对运行记录。");
-      const key = pending?.key || crypto.randomUUID();
-      sessionStorage.setItem("evaluation-unified-pending", JSON.stringify({ key, body }));
-      const created = await fetch("/api/evaluation/unified/runs", { method: "POST", headers: { "Content-Type": "application/json", "Idempotency-Key": key }, body });
-      const createdData = await created.json().catch(() => ({}));
-      if (!created.ok) {
-        // 权限变化或网络错误不能证明之前的提交未被服务端接收。
-        if (created.status === 400) sessionStorage.removeItem("evaluation-unified-pending");
-        throw new Error(typeof createdData.error === "string" ? createdData.error : typeof createdData.error?.message === "string" ? createdData.error.message : `请求失败（${created.status}）`);
-      }
-      if (typeof createdData.runId !== "string") throw new Error("未收到运行 ID，请使用原题重试以确认状态。");
-      const id = createdData.runId;
-      runId.current = id; runStatus.current = "running";
+      const id = await createUnifiedRun(body);
+      runId.current = id;
       sessionStorage.setItem("evaluation-unified-run", id);
       sessionStorage.removeItem("evaluation-unified-pending");
+      setHasPendingRequest(false);
       window.dispatchEvent(new Event("evaluation-unified-change"));
       setRun({ id, question: trimmed, service, answer: "", status: "running", result: null, scores: null, scoreError: "", truncated: false });
       const response = await fetch(`/api/evaluation/unified/runs/${encodeURIComponent(id)}/events`, { cache: "no-store" });
@@ -289,7 +288,6 @@ export function Evaluate() {
       await readUnifiedStream(response, ({ event: name, data }) => {
         if (name === "snapshot") {
           const status = typeof data.status === "string" ? data.status : "unknown";
-          runStatus.current = status;
           setRun((current) => current ? { ...current, answer: typeof data.answer === "string" ? data.answer : "", status,
             executionStatus: typeof data.executionStatus === "string" ? data.executionStatus : undefined,
             scoringStatus: typeof data.scoringStatus === "string" ? data.scoringStatus : undefined,
@@ -307,7 +305,6 @@ export function Evaluate() {
           setRun((current) => current ? { ...current, scores: data.scores, scoringStatus: typeof data.scoringStatus === "string" ? data.scoringStatus : current.scoringStatus, scoreError: typeof data.scoreError === "string" ? data.scoreError : "" } : current);
         } else if (name === "done") {
           finished = true;
-          runStatus.current = typeof data.status === "string" ? data.status : "unknown";
           setRun((current) => current ? { ...current, status: typeof data.status === "string" ? data.status : "unknown", executionStatus: typeof data.executionStatus === "string" ? data.executionStatus : current.executionStatus, scoringStatus: typeof data.scoringStatus === "string" ? data.scoringStatus : current.scoringStatus } : current);
         } else if (name === "error") {
           finished = true;
@@ -317,15 +314,16 @@ export function Evaluate() {
       });
       if (!finished) setSubmitError("连接中断，正在尝试按运行 ID 恢复；不会重复发起。");
     } catch (error) {
-      setSubmitError(`${message(error)}${runId.current ? " 可根据已有运行 ID 恢复。" : " 如果请求已发出，请确认任务状态后再重试。"}`);
-    } finally { setSubmitting(false); }
+      const uncertain = Boolean(sessionStorage.getItem("evaluation-unified-pending"));
+      setSubmitError(`${message(error)}${runId.current ? " 可根据已有运行 ID 恢复。" : uncertain ? " 请先核对运行记录后再重试。" : ""}`);
+    } finally { setHasPendingRequest(Boolean(sessionStorage.getItem("evaluation-unified-pending"))); setSubmitting(false); }
   }
 
   const draftError = over
     ? `题目超过 ${max} 个字符，请精简后再发起。`
     : trimmed && trimmed.length < min ? `题目过短，至少需要 ${min} 个字符。` : "";
 
-  if (run) return <div className="chat-view"><div className="chat-top"><h1>运行详情</h1><span className={`run-dot ${run.status === "done" ? "done" : run.status === "error" ? "error" : "running"}`} /><span>{run.status === "done" ? "已结束" : run.status === "error" ? "失败" : run.status === "scoring" ? "评分中" : "运行中"} · {services.find((item) => item.key === run.service)?.label || run.service}</span></div><div className="chat-scroll"><div className="chat-scroll-inner"><div className="run-layout"><div className="run-chat" tabIndex={0} role="region" aria-label="对话内容"><p className="run-question">{run.question}</p><section className="run-answer-block"><div className="run-answer-head"><strong>{services.find((item) => item.key === run.service)?.label || run.service}</strong><span>回答</span></div><div className="run-answer"><AnswerMarkdown content={run.answer} streaming={run.executionStatus === "running" || (!run.executionStatus && run.status === "running")} empty="等待服务输出…" /></div><RunServiceDetails run={run.result} runId={run.id} canReply={run.canReply} snapshotOnly={run.snapshotOnly} />{run.truncated && <p className="run-score-note">恢复的回答已截断。</p>}{submitError && <p className="eval-error" role="alert">{submitError}</p>}</section></div><aside className="run-panel"><div className="run-panel-head"><h2>测评结果</h2><p>运行结束不代表题目要求已完成。</p></div><section className="run-block"><h3>运行信息</h3><dl className="run-info"><div><dt>运行 ID</dt><dd className="mono">{run.id}</dd></div><RunServiceInfo serviceName={services.find(item => item.key === run.service)?.label || run.service} run={run.result} /><div><dt>执行</dt><dd>{run.executionStatus === "succeeded" ? "已结束" : run.executionStatus === "failed" ? "失败" : "运行中"}</dd></div><div><dt>评分</dt><dd>{({ pending: "评分中", ready: "已完成", failed: "评分失败", unavailable: "未配置", absent: "无评分", unknown: "状态未知" } as Record<string, string>)[run.scoringStatus || "pending"] || "状态未知"}</dd></div></dl></section><section className="run-block"><h3>评分</h3>{run.snapshotOnly && ["running", "scoring"].includes(run.status) && <p className="run-score-note">显示的是已保存的快照，当前进程无法确认任务是否仍在运行。</p>}{run.scoreError && <p className="run-score-note">{run.scoreError}</p>}<UnifiedScores scores={run.scores} run={run.result} /></section><p className="run-note">模型评分不代表科学真实性。运行记录依赖服务端持久化。</p><button type="button" className="secondary-button" disabled={submitting} onClick={() => { sessionStorage.removeItem("evaluation-unified-run"); window.dispatchEvent(new Event("evaluation-unified-change")); runId.current = ""; setRun(null); setSubmitError(""); }}>新建测评</button></aside></div></div></div></div>;
+  if (run) return <div className="chat-view"><div className="chat-top"><h1>运行详情</h1><span className={`run-dot ${run.status === "done" ? "done" : run.status === "error" ? "error" : "running"}`} /><span>{run.status === "done" ? "已结束" : run.status === "error" ? "失败" : run.status === "scoring" ? "评分中" : "运行中"} · {services.find((item) => item.key === run.service)?.label || run.service}</span></div><div className="chat-scroll"><div className="chat-scroll-inner"><div className="run-layout"><div className="run-chat" tabIndex={0} role="region" aria-label="对话内容"><p className="run-question">{run.question}</p><section className="run-answer-block"><div className="run-answer-head"><strong>{services.find((item) => item.key === run.service)?.label || run.service}</strong><span>回答</span></div><div className="run-answer"><AnswerMarkdown content={run.answer} streaming={run.executionStatus === "running" || (!run.executionStatus && run.status === "running")} empty="等待服务输出…" /></div><RunServiceDetails run={run.result} runId={run.id} canReply={run.canReply} snapshotOnly={run.snapshotOnly} />{run.truncated && <p className="run-score-note">恢复的回答已截断。</p>}{submitError && <div role="alert"><p className="eval-error">{submitError}</p><button type="button" className="secondary-button" onClick={() => setRecoveryRetry(value => value + 1)}>重试读取运行</button></div>}</section></div><aside className="run-panel"><div className="run-panel-head"><h2>测评结果</h2><p>运行结束不代表题目要求已完成。</p></div><section className="run-block"><h3>运行信息</h3><dl className="run-info"><div><dt>运行 ID</dt><dd className="mono">{run.id}</dd></div><RunServiceInfo serviceName={services.find(item => item.key === run.service)?.label || run.service} run={run.result} /><div><dt>执行</dt><dd>{run.executionStatus === "succeeded" ? "已结束" : run.executionStatus === "failed" ? "失败" : "运行中"}</dd></div><div><dt>评分</dt><dd>{({ pending: "评分中", ready: "已完成", failed: "评分失败", unavailable: "未配置", absent: "无评分", unknown: "状态未知" } as Record<string, string>)[run.scoringStatus || "pending"] || "状态未知"}</dd></div></dl></section><section className="run-block"><h3>评分</h3>{run.snapshotOnly && ["running", "scoring"].includes(run.status) && <p className="run-score-note">显示的是已保存的快照，当前进程无法确认任务是否仍在运行。</p>}{run.scoreError && <p className="run-score-note">{run.scoreError}</p>}<UnifiedScores scores={run.scores} run={run.result} /></section><p className="run-note">模型评分不代表科学真实性。运行记录依赖服务端持久化。</p><button type="button" className="secondary-button" disabled={submitting} onClick={resetRun}>新建测评</button></aside></div></div></div></div>;
 
   return (
     <main className="eval-page">
@@ -418,6 +416,8 @@ export function Evaluate() {
           </div>
         </form>
 
+        {hasPendingRequest && <div className="eval-pending-recovery"><p>上次提交可能已创建任务，请先核对运行记录。允许新建不会取消已发出的运行。</p><div className="run-review-actions"><a href="/runs" target="_blank" rel="noopener noreferrer">查看运行记录</a><button type="button" className="secondary-button" disabled={busy} onClick={() => { sessionStorage.removeItem("evaluation-unified-pending"); setHasPendingRequest(false); setSubmitError(""); }}>已核对记录，允许新建</button></div></div>}
+        {submitError && runId.current && !run && <button type="button" className="secondary-button" onClick={() => setRecoveryRetry(value => value + 1)}>重试读取运行</button>}
         {submitError ? (
           <p className="eval-error" role="alert">{submitError}</p>
         ) : draftError ? (
