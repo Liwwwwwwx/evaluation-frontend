@@ -12,7 +12,7 @@ async function proxy(request: NextRequest, action: string) {
   if (!session) return NextResponse.json({ error: "请先登录" }, { status: 401 });
   try {
     const url = new URL(`/api/question-bank/${action}`, backendOrigin());
-    if (action === "questions") for (const key of ["service", "domain", "source", "status", "search", "limit", "offset"]) { const value = request.nextUrl.searchParams.get(key); if (value) url.searchParams.set(key, value); }
+    if (action === "questions") for (const key of ["service", "runnableFor", "domain", "source", "status", "search", "limit", "offset"]) { const value = request.nextUrl.searchParams.get(key); if (value) url.searchParams.set(key, value); }
     const headers = new Headers({ Accept: "application/json", Cookie: `evaluation_session=${session}` });
     let body: string | undefined;
     if (request.method !== "GET") {

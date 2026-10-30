@@ -6,7 +6,7 @@ import remarkGfm from "remark-gfm";
 import { UnifiedScores } from "@/components/unified-scores";
 
 type Run = { runId: string; serviceKey: string; question: string; status: string; executionStatus?: string; scoringStatus?: string; answer: string; answerTruncated: boolean; scores: unknown; run: unknown; scoreError: string | null; error: string | null; recoveryState?: string; origin: string; questionId: string | null; datasetVersion: string | null };
-const names: Record<string, string> = { "alpha-rsi": "1110", alloy: "合金材料", literature: "文献", "literature-aircraft": "航空文献", synthesis: "综合任务", "new-material": "新材料" };
+const names: Record<string, string> = { "alpha-rsi": "1110", alloy: "合金材料", literature: "文献检索", "literature-aircraft": "航空文献", synthesis: "综合任务", "new-material": "新材料" };
 const statuses: Record<string, string> = { running: "运行中", scoring: "评分中", done: "已结束", error: "失败" };
 const executionStatuses: Record<string, string> = { running: "运行中", succeeded: "已结束", failed: "失败" };
 const scoringStatuses: Record<string, string> = { pending: "评分中", ready: "已完成", failed: "评分失败", unavailable: "未配置", absent: "无评分", unknown: "状态未知" };

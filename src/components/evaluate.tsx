@@ -1,5 +1,6 @@
 "use client";
 
+import { questionDomains } from "@/lib/question-domains";
 import { UnifiedScores } from "@/components/unified-scores";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import Markdown from "react-markdown";
@@ -10,19 +11,20 @@ type BankQuestion = {
   id: string;
   question: string;
   serviceKey: string | null;
+  domainKey?: string | null;
   sourceType: string;
   datasetVersion: string;
 };
 
 type IconName = "book" | "shuffle" | "close" | "check" | "search" | "chevron" | "arrow-up";
 
-const services = [
-  { key: "alpha-rsi", label: "1110", enabled: true },
-  { key: "alloy", label: "合金材料", enabled: true },
-  { key: "literature", label: "文献", enabled: true },
-  { key: "literature-aircraft", label: "航空文献", enabled: true },
-  { key: "synthesis", label: "综合任务", enabled: true },
-  { key: "new-material", label: "新材料", enabled: true },
+const serviceCatalog = [
+  { key: "alpha-rsi", label: "1110", enabled: false },
+  { key: "alloy", label: "合金材料", enabled: false },
+  { key: "literature", label: "文献检索", enabled: false },
+  { key: "literature-aircraft", label: "航空文献", enabled: false },
+  { key: "synthesis", label: "综合任务", enabled: false },
+  { key: "new-material", label: "新材料", enabled: false },
 ];
 
 const MAX = 500;
@@ -57,7 +59,7 @@ async function jsonRequest(url: string, init?: RequestInit) {
 }
 
 function bankUrl(service: string, params: Record<string, string>) {
-  return `/api/question-bank/questions?${new URLSearchParams({ service, source: "fixed", status: "active", ...params })}`;
+  return `/api/question-bank/questions?${new URLSearchParams({ runnableFor: service, status: "active", ...params })}`;
 }
 
 
@@ -65,7 +67,10 @@ export function Evaluate() {
   const [draft, setDraft] = useState("");
   const [source, setSource] = useState<BankQuestion | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [service, setService] = useState("alpha-rsi");
+  const [service, setService] = useState("literature");
+  const [services, setServices] = useState(serviceCatalog);
+  const [domain, setDomain] = useState("");
+  const [bankSource, setBankSource] = useState("");
   const [randomBusy, setRandomBusy] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
@@ -93,18 +98,27 @@ export function Evaluate() {
   const max = service === "synthesis" ? 200 : MAX;
   const min = service === "alpha-rsi" ? 1 : MIN;
   const over = trimmed.length > max;
-  const draftValid = trimmed.length >= min && !over && !submitting && !recovering;
+  const draftValid = services.some(item => item.key === service && item.enabled) && trimmed.length >= min && !over && !submitting && !recovering;
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const serviceLabel = services.find((item) => item.key === service)?.label ?? "1110";
   const busy = submitting || randomBusy;
+
+  useEffect(() => {
+    const controller = new AbortController();
+    jsonRequest("/api/evaluation/unified/services", { signal: controller.signal }).then(data => {
+      setServices(serviceCatalog.map(item => ({ ...item, enabled: Array.isArray(data.items) && data.items.some((enabled: { key: string; enabled: boolean }) => enabled.key === item.key && enabled.enabled) })));
+      if (!data.items?.some((item: { enabled: boolean }) => item.enabled)) setSubmitError("测评执行尚未启用，当前可查看题库和运行记录。");
+    }).catch(error => { if (!controller.signal.aborted) setSubmitError(message(error)); });
+    return () => controller.abort();
+  }, []);
 
   useEffect(() => {
     const selected = sessionStorage.getItem("evaluation-selected-question");
     if (!selected || sessionStorage.getItem("evaluation-unified-pending")) return;
     try {
       const row = JSON.parse(selected) as BankQuestion;
-      if (row && typeof row.id === "string" && typeof row.datasetVersion === "string" && typeof row.question === "string" && typeof row.serviceKey === "string" && ["fixed", "random"].includes(row.sourceType)) {
-        setDraft(row.question); setService(row.serviceKey); setSource(row);
+      if (row && typeof row.id === "string" && typeof row.datasetVersion === "string" && typeof row.question === "string" && (row.serviceKey === null || typeof row.serviceKey === "string") && ["fixed", "random"].includes(row.sourceType)) {
+        setDraft(row.question); if (row.serviceKey) setService(row.serviceKey); setSource(row);
         sessionStorage.removeItem("evaluation-selected-question");
       }
     } catch { setSubmitError("无法读取选中的题目，请返回题库重试。"); }
@@ -186,6 +200,8 @@ export function Evaluate() {
     setLoadError("");
     const params: Record<string, string> = { limit: String(PAGE_SIZE), offset: String(page * PAGE_SIZE) };
     if (search) params.search = search;
+    if (domain) params.domain = domain;
+    if (bankSource) params.source = bankSource;
     jsonRequest(bankUrl(service, params), { signal: controller.signal })
       .then((data) => {
         if (!Array.isArray(data.items) || typeof data.total !== "number") throw new Error("题库数据格式异常，请稍后重试。");
@@ -200,7 +216,7 @@ export function Evaluate() {
       })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
-  }, [pickerOpen, page, search, reload, service]);
+  }, [pickerOpen, page, search, reload, service, domain, bankSource]);
 
   function openPicker() {
     setPicked(null);
@@ -223,11 +239,11 @@ export function Evaluate() {
     setRandomBusy(true);
     setSubmitError("");
     try {
-      const first = await jsonRequest(bankUrl(service, { limit: "1", offset: "0" }));
+      const first = await jsonRequest(bankUrl(service, { limit: "1", offset: "0", ...(domain ? { domain } : {}), ...(bankSource ? { source: bankSource } : {}) }));
       const count = Number(first.total);
       if (!Number.isFinite(count) || count < 1) throw new Error("题库中还没有适用于当前服务的题目。");
       const offset = Math.floor(Math.random() * count);
-      const data = offset === 0 ? first : await jsonRequest(bankUrl(service, { limit: "1", offset: String(offset) }));
+      const data = offset === 0 ? first : await jsonRequest(bankUrl(service, { limit: "1", offset: String(offset), ...(domain ? { domain } : {}), ...(bankSource ? { source: bankSource } : {}) }));
       const row = data.items?.[0] as BankQuestion | undefined;
       if (!row) throw new Error("没有取到可用题目，请重试。");
       setDraft(row.question);
@@ -313,7 +329,7 @@ export function Evaluate() {
       <div className="eval-inner">
         <section className="eval-intro">
           <h1>要测评什么？</h1>
-          <p>选择服务，随机取一道题库题或直接输入，发起一次单题测评。</p>
+          <p>从题库选题或直接输入，再选择服务发起单题测评。</p>
         </section>
 
         <form className="eval-composer" data-disabled={busy} onSubmit={handleSubmit}>
@@ -369,7 +385,7 @@ export function Evaluate() {
                         aria-selected={item.key === service}
                         aria-disabled={!item.enabled}
                         disabled={!item.enabled}
-                        onClick={() => { setService(item.key); setSource(null); setMenuOpen(false); }}
+                        onClick={() => { setService(item.key); if (source?.serviceKey && source.serviceKey !== item.key) setSource(null); setMenuOpen(false); }}
                       >
                         <span className="check"><Icon name="check" /></span>
                         <span>{item.label}</span>
@@ -412,13 +428,17 @@ export function Evaluate() {
           <div className="eval-dialog-head">
             <div>
               <h2 id="eval-picker-title">从题库选择</h2>
-              <p>服务 {serviceLabel} · 只显示适用于该服务的题目</p>
+              <p>选择领域和题型；仅显示可在当前服务执行且不带专属评分规则的题目</p>
             </div>
             <button type="button" className="icon-button" aria-label="关闭题库" onClick={() => setPickerOpen(false)}>
               <Icon name="close" />
             </button>
           </div>
 
+          <div className="import-fields">
+            <label>领域<select value={domain} onChange={event => { setDomain(event.target.value); setPage(0); setPicked(null); }}><option value="">全部领域</option><option value="unclassified">未分类</option>{Object.entries(questionDomains).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
+            <label>题型<select value={bankSource} onChange={event => { setBankSource(event.target.value); setPage(0); setPicked(null); }}><option value="">固定题和随机题</option><option value="fixed">固定题</option><option value="random">随机题</option></select></label>
+          </div>
           <div className="search-field eval-search">
             <Icon name="search" />
             <label className="sr-only" htmlFor="eval-search">搜索题目</label>
@@ -433,7 +453,7 @@ export function Evaluate() {
               <button type="button" className="secondary-button" onClick={() => setReload((value) => value + 1)}>重试</button>
             </div>
           ) : rows.length === 0 ? (
-            <p className="eval-dialog-state">{search ? "没有找到符合条件的题目。" : "题库里还没有适用于 1110 的题目。"}</p>
+            <p className="eval-dialog-state">{search ? "没有找到符合条件的题目。" : "当前条件下没有可用题目。"}</p>
           ) : (
             <div className="eval-options" role="listbox" aria-label="题目列表">
               {rows.map((row) => {
@@ -450,7 +470,7 @@ export function Evaluate() {
                   >
                     <span className="eval-check" aria-hidden="true" />
                     <span className="eval-option-body">
-                      <span className="eval-option-meta">{row.id} · {row.sourceType === "random" ? "随机题" : "固定题"} · 数据集 {row.datasetVersion}</span>
+                      <span className="eval-option-meta">{questionDomains[row.domainKey || ""] || "未分类"} · {row.sourceType === "random" ? "随机题" : "固定题"} · 数据集 {row.datasetVersion}</span>
                       <span className="eval-option-text">{row.question}</span>
                     </span>
                   </button>

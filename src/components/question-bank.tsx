@@ -2,13 +2,14 @@
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import { questionDomains as domains } from "@/lib/question-domains";
 import { parseXlsxFirstSheet } from "@/lib/xlsx-parser";
 
-type Question = { id: string; question: string; domainKey?: string | null; serviceKey: string | null; sourceType: string; datasetVersion: string; createdAt?: string | null };
+type Question = { id: string; question: string; domainKey?: string | null; serviceKey: string | null; criteria?: unknown; sourceType: string; datasetVersion: string; createdAt?: string | null };
 type Draft = { domainKey: string; question: string };
 type IconName = "search" | "close" | "trash" | "copy" | "chevron";
 
-const domains: Record<string, string> = { "materials-rd": "材料研发", "materials-rd-context": "材料研发上下文", "chip-packaging": "芯片封装", "computing-satellite-engineering": "算力卫星系统工程", "space-computing-packaging": "太空计算芯片与先进封装", "synthesis-preparation": "合成制备", "chip-packaging-interdisciplinary": "芯片封装跨学科科研", "space-computing-interdisciplinary": "太空计算跨学科科研", "computing-satellite-interdisciplinary": "算力卫星跨学科科研" };
+
 const pageSize = 20;
 const rowKey = (row: Question) => `${row.id}|${row.datasetVersion}`;
 
@@ -148,7 +149,7 @@ export function QuestionBank() {
   }
 
   async function prepareEvaluation(row: Question) {
-    if (quickBusy || !row.serviceKey || !["fixed", "random"].includes(row.sourceType)) return;
+    if (quickBusy || !["fixed", "random"].includes(row.sourceType)) return;
     if (sessionStorage.getItem("evaluation-unified-pending")) { toast("error", "上次提交结果尚未确认，请先返回测评页面处理。"); return; }
     setQuickBusy(true);
     try {
@@ -283,7 +284,7 @@ export function QuestionBank() {
         </dl>
         <div className="bank-dialog-actions">
           <button type="button" className="secondary-button" onClick={() => void copyQuestion(detail.question)}><Icon name="copy" />复制题目</button>
-          <div>{["fixed", "random"].includes(detail.sourceType) && detail.serviceKey && !editMode && <button type="button" className="secondary-button" disabled={quickBusy} onClick={() => void prepareEvaluation(detail)}>{quickBusy ? "正在准备…" : "使用这道题测评"}</button>}{canManage && (editMode ? <button type="button" className="primary-button" disabled={editBusy} onClick={() => void saveEdit()}>{editBusy ? "保存中…" : "保存修改"}</button> : <button type="button" className="secondary-button" disabled={domainBusy} onClick={() => setEditMode(true)}>编辑</button>)}{canManage && !editMode && <button type="button" className="danger-button" disabled={domainBusy} onClick={() => { detailDialog.current?.close(); askDelete([detail]); }}>删除</button>}<button type="button" className="secondary-button" onClick={() => detailDialog.current?.close()}>关闭</button></div>
+          <div>{["fixed", "random"].includes(detail.sourceType) && !detail.criteria && (!detail.serviceKey || detail.serviceKey === "literature") && !editMode && <button type="button" className="secondary-button" disabled={quickBusy} onClick={() => void prepareEvaluation(detail)}>{quickBusy ? "正在准备…" : "使用这道题测评"}</button>}{canManage && (editMode ? <button type="button" className="primary-button" disabled={editBusy} onClick={() => void saveEdit()}>{editBusy ? "保存中…" : "保存修改"}</button> : <button type="button" className="secondary-button" disabled={domainBusy} onClick={() => setEditMode(true)}>编辑</button>)}{canManage && !editMode && <button type="button" className="danger-button" disabled={domainBusy} onClick={() => { detailDialog.current?.close(); askDelete([detail]); }}>删除</button>}<button type="button" className="secondary-button" onClick={() => detailDialog.current?.close()}>关闭</button></div>
         </div>
       </div>}
     </dialog>
