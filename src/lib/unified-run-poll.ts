@@ -4,6 +4,7 @@ export type UnifiedRunSnapshot = {
   run: unknown; scores: unknown; scoreError: string | null; error: string | null;
   recoveryState?: string; canReply?: boolean; canRescore?: boolean; persistenceError?: boolean;
   origin: string; questionId: string | null; datasetVersion: string | null;
+  startedAt?: string | null; finishedAt?: string | null;
 };
 
 // 只读取已有运行。串行轮询、有限重试，并丢弃取消后的迟到响应。

@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { StructuredOutcomes } from "@/components/structured-outcomes";
-import { DataDisclosure } from "@/components/structured-value";
 
 type ObjectValue = Record<string, unknown>;
 function object(value: unknown): ObjectValue | null { return value && typeof value === "object" && !Array.isArray(value) ? value as ObjectValue : null; }
@@ -37,20 +36,18 @@ export function RunServiceDetails({ run, runId, canReply = false, snapshotOnly =
   const nativeRun = object(run); const details = object(nativeRun?.details);
   if (!details) return text(nativeRun?.error) ? <p className="eval-error" role="alert">{text(nativeRun?.error)}</p> : null;
   const pending = object(details.pendingReview);
-  const progress = Array.isArray(details.progress) ? details.progress : [];
-  const current = object(progress[progress.length - 1]);
   const snapshot = object(details.snapshot); const result = object(snapshot?.data) || object(details.result);
   const reviews = Array.isArray(details.review) ? details.review : [];
   const automaticReplies = reviews.map(object).filter(item => item?.source === "automatic" && item.action === "continue" && item.delivery === "sent").length;
+  const decisions = reviews.map(object).filter(item => item?.source === "automatic" && item.delivery === "sent" && text(item.summary));
   const nativeStatus = text(result?.status);
   const resultStates: Record<string, string> = { completed: "已完成", partially_completed: "部分完成", pending_validation: "待验证", failed: "失败", done: "已结束", success: "成功", ok: "成功" };
   return <div className="run-service-details">
     {automaticReplies > 0 && <p className="run-score-note" role="status">测评平台已自动答复继续（{automaticReplies}次）。</p>}
+    {decisions.length > 0 && <ul className="run-score-note" aria-label="自动确认结果">{decisions.map((item, index) => <li key={index}>{text(item?.summary)}</li>)}</ul>}
     {text(nativeRun?.error) && <p className="eval-error" role="alert">{text(nativeRun?.error)}</p>}
     {pending && <section className="run-service-section" aria-label="运行条件确认"><h3>{text(pending.title) || "请确认运行条件"}</h3><p className="run-score-note">服务正在等待答复，尚未自动接受建议条件。</p><details><summary>查看服务提出的条件</summary><pre>{JSON.stringify(pending.data, null, 2)}</pre></details>{canReply && !snapshotOnly ? <ReviewForm key={text(pending.requestId)} review={pending} runId={runId} onRefresh={onRefresh} /> : <p className="run-score-note">仅发起人可在原运行进程中答复；当前显示的记录无法提交确认。</p>}</section>}
-    {current && <section className="run-service-section" aria-label="服务进度"><h3>服务进度</h3><p>{text(current.text) || text(current.message) || text(current.title) || text(current.description) || text(current.stage) || text(current.phase) || "已收到服务进度"}{typeof current.percent === "number" && Number.isFinite(current.percent) && current.percent >= 0 && current.percent <= 100 ? ` · ${current.percent}%` : ""}</p></section>}
     {nativeStatus && <p className="run-score-note">服务结果：{resultStates[nativeStatus] || nativeStatus}。这是服务自报状态。</p>}
     <StructuredOutcomes details={details} runId={runId} />
-    {reviews.length > 0 && <DataDisclosure title="查看确认记录" value={reviews} />}
   </div>;
 }

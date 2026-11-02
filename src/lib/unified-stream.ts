@@ -1,6 +1,6 @@
 export type UnifiedEvent = { event: string; data: Record<string, unknown> };
 
-export async function readUnifiedStream(response: Response, onEvent: (event: UnifiedEvent) => void) {
+export async function readUnifiedStream(response: Response, onEvent: (event: UnifiedEvent) => void, { onActivity = () => {} }: { onActivity?: () => void } = {}) {
   if (!response.body || !response.headers.get("content-type")?.includes("text/event-stream")) throw new Error("评测服务未返回流式数据。");
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
@@ -26,11 +26,12 @@ export async function readUnifiedStream(response: Response, onEvent: (event: Uni
   try {
     while (true) {
       const chunk = await reader.read();
+      if (!chunk.done) onActivity();
       buffer += decoder.decode(chunk.value, { stream: !chunk.done });
       const lines = buffer.split("\n");
       buffer = lines.pop() || "";
       for (const item of lines) line(item.replace(/\r$/, ""));
       if (chunk.done) { if (buffer) line(buffer); if (data.length) line(""); break; }
     }
-  } finally { reader.releaseLock(); }
+  } finally { await reader.cancel().catch(() => {}); reader.releaseLock(); }
 }

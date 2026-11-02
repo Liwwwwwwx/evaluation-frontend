@@ -3,41 +3,17 @@ function object(value: unknown): RecordValue | null {
   return value && typeof value === "object" && !Array.isArray(value) ? value as RecordValue : null;
 }
 function text(value: unknown): string { return typeof value === "string" ? value : ""; }
+function stringList(value: unknown) { return Array.isArray(value) ? value.filter(v => typeof v === "string") as string[] : []; }
 const scoreLabels: Record<string, string> = { deepSeekScore: "DeepSeek", qwenScore: "Qwen", quality: "质量解读" };
 const states: Record<string, string> = { pending: "评分中", ready: "已完成", failed: "评分失败", unavailable: "未配置", absent: "无评分", skipped: "不适用" };
 const taskStates: Record<string, string> = { completed: "已完成", partial: "部分完成", clarification: "请求补充信息", failed: "未完成", unclear: "无法确认" };
 const requirementStates: Record<string, string> = { met: "已满足", partial: "部分满足", missing: "缺失", unclear: "无法确认" };
 const checkStates: Record<string, string> = { passed: "通过", observe: "有提示", failed: "未通过", not_evaluable: "无法评估", consistent: "一致", issue: "有疑点", unclear: "无法判断", not_applicable: "不适用" };
 const understandingStates: Record<string, string> = { on_target: "贴合题面", partial: "部分贴合", off_target: "偏离题面", unclear: "无法判断" };
-const deliveryStates: Record<string,string> = { delivered:"已交付",partial:"部分交付",not_delivered:"未交付",unclear:"无法确认" };
-const efficiencyStates: Record<string,string> = { passed:"未发现超阈值",warning:"耗时提醒",critical:"严重耗时异常",not_evaluable:"无法评估" };
+const qualificationStates: Record<string, string> = { qualified: "合格", not_qualified: "未达标", unclear: "无法判断" };
 
 function ResultBlock({ title, status, children }: { title: string; status: string; children?: React.ReactNode }) {
   return <div className="run-score"><div className="run-score-head"><strong>{title}</strong><span className="run-score-value">{status}</span></div>{children}</div>;
-}
-function TimingEvidence({value}: {value:unknown}) {
-  const rows=Array.isArray(value)?value:[];if(!rows.length)return null;
-  return <details><summary>查看计时证据</summary><ul className="run-list">{rows.map((v,i)=>{const e=object(v);return e && typeof e.atMs === "number" && Number.isFinite(e.atMs) ? <li key={i}>{text(e.id)} · {{start:"开始",end:"结束",running:"运行中"}[text(e.kind)] || "阶段事件"} · 任务开始后 {(e.atMs/1000).toFixed(1)} 秒</li>:null;})}</ul></details>;
-}
-function RuleSnapshotDetails({value}: {value:unknown}) {
-  const policy=object(value);const config=object(policy?.config);if(!config)return null;
-  return <details className="score-rubric"><summary>查看本轮规则快照</summary><p>{text(policy?.name)} · {policy?.id === "builtin-v1" ? "内置" : `v${Number(policy?.version)}`}</p>{[["内容评分",config.contentInstructions],["任务交付",config.completionInstructions],["交付体验",config.experienceInstructions]].map(([label,value])=><div key={String(label)}><strong>{String(label)}</strong><p className="run-score-note" style={{whiteSpace:"pre-wrap"}}>{text(value)}</p></div>)}</details>;
-}
-function ProcessEfficiency({value}: {value:unknown}) {
-  const review=object(value);if(!review)return null;
-  const rows=Array.isArray(review.rows)?review.rows:[];
-  return <ResultBlock title="阶段效率 · 机检" status={efficiencyStates[text(review.status)] || "无法评估"}>
-    {typeof review.elapsedMs === "number" && Number.isFinite(review.elapsedMs) && <p className="run-score-note">实际总耗时 {(review.elapsedMs/1000).toFixed(1)} 秒</p>}
-    <p className="run-score-note">{text(review.note)}{review.coverage === "partial" && " 过程记录不完整。"}</p>
-    <ul className="run-list">{rows.map((v,i)=>{const r=object(v);return r?<li key={i}><strong>{text(r.label)} · {efficiencyStates[text(r.status)] || "无法评估"}</strong>{typeof r.durationMs === "number" && Number.isFinite(r.durationMs) && <span> · {r.open === true ? "已持续至少 " : ""}{(r.durationMs/1000).toFixed(1)} 秒</span>}<p className="run-score-note">{text(r.note)}</p>{Array.isArray(r.evidence) && r.evidence.length > 0 && <p className="run-score-note">阶段事件：{r.evidence.filter(v=>typeof v === "string").join("、")}</p>}<TimingEvidence value={r.observations} /></li>:null;})}</ul>
-  </ResultBlock>;
-}
-function DeliveryExperience({quality}: {quality:RecordValue | null}) {
-  const delivery=object(quality?.deliveryReview);const experience=object(quality?.experienceReview);const qualification=object(quality?.qualification);
-  return <>{qualification && <p className="run-score-note">内容判定：{{qualified:"合格",not_qualified:"未达标",unclear:"无法判断"}[text(qualification.status)] || "无法判断"} · 合格线 {Number(qualification.passScore)} 分{qualification.markdownGate === true && " · 包含Markdown门槛"}</p>}
-    {delivery && <div className="score-experience"><strong>实际交付 · {deliveryStates[text(delivery.status)] || "无法确认"}</strong><p>{text(delivery.note)}</p>{text(delivery.evidence) && <blockquote>{text(delivery.evidence)}</blockquote>}</div>}
-    {experience && <details className="score-experience"><summary>交付体验 · {checkStates[text(experience.status)] || "无法判断"}</summary><p className="run-score-note">{experience.coverage === "answer_only" ? "仅覆盖保存的回答，未采集完整过程。" : "覆盖回答和实际保存的过程文字。"}</p><ul className="run-list">{(Array.isArray(experience.checks)?experience.checks:[]).map((v,i)=>{const c=object(v);return c?<li key={i}><strong>{text(c.label)} · {checkStates[text(c.status)] || "无法判断"}</strong><p>{text(c.note)}</p>{text(c.evidence) && <blockquote>{text(c.evidence)}</blockquote>}</li>:null;})}</ul></details>}
-  </>;
 }
 
 function LegacyScores({ scores, run }: { scores: unknown; run?: unknown }) {
@@ -89,48 +65,41 @@ function LegacyScores({ scores, run }: { scores: unknown; run?: unknown }) {
   </>;
 }
 
-function stringList(value: unknown) { return Array.isArray(value) ? value.filter(v => typeof v === "string") as string[] : []; }
-function TaskCompletion({ value }: { value: unknown }) {
-  const task = object(value); if (!task) return null;
-  return <div className="score-task"><strong>任务完成度 · {taskStates[text(task.status)] || "无法确认"}</strong><p className="run-score-note">{task.qualified === true ? "要求清单已满足（模型判断）" : "尚不能认定完整任务合格"}</p><details><summary>查看逐项依据</summary><ul className="run-list">{(Array.isArray(task.requirements) ? task.requirements : []).map((v, i) => { const row = object(v); return row ? <li key={i}><strong>{text(row.id)} · {requirementStates[text(row.status)] || "无法确认"}{row.critical === true ? " · 关键要求" : ""}</strong><p>{text(row.requirement)}</p>{text(row.evidence) && <blockquote>{text(row.evidence)}</blockquote>}{text(row.note) && <p>{text(row.note)}</p>}</li> : null; })}</ul></details></div>;
+function FindingList({ label, items }: { label: string; items: string[] }) {
+  return <div className="score-findings"><strong>{label}</strong><ul>{items.map((item, index) => <li key={index}>{item}</li>)}</ul></div>;
 }
-function Judge({ value, name }: { value: unknown; name: string }) {
+
+function JudgeCard({ value, name }: { value: unknown; name: string }) {
   const item = object(value); const quality = object(item?.quality); const ready = item?.status === "ready" && quality?.version === "evaluation-v1";
   const total = quality?.total; const score = typeof total === "number" && Number.isFinite(total) && total >= 0 && total <= 100 ? total : null;
   const dimensions = object(quality?.dimensions);
-  return <ResultBlock title={name} status={ready && score !== null ? `${score} / 100` : states[text(item?.status)] || "无评分"}>
-    {text(item?.model) && <p className="run-score-note">{text(item?.model)} · {text(item?.evaluatedAt) && new Date(text(item?.evaluatedAt)).toLocaleString("zh-CN")}</p>}
-    {ready && <>
-      {object(quality?.source)?.truncated === true && <p className="run-score-note">输入不完整 · 分数仅供参考</p>}
-      {dimensions && <dl className="score-dimensions">{Object.entries(dimensions).map(([key, v]) => { const d = object(v); return d ? <div key={key}><dt>{text(d.label)}</dt><dd>{d.applicable === false ? "不适用" : typeof d.score === "number" ? `${d.score} / 100 · 权重 ${Math.round(Number(d.weight) * 100)}%` : "缺少评分"}</dd><dd className="run-score-note">{text(d.note)}</dd>{text(d.evidence) && <dd><blockquote>{text(d.evidence)}</blockquote></dd>}</div> : null; })}</dl>}
-      <p className="run-score-note">{text(quality?.comment)}</p>
-      <TaskCompletion value={quality?.taskCompletion} />
-      <DeliveryExperience quality={quality} />
-      {[["亮点", quality?.highlights], ["不足", quality?.gaps], ["改进建议", quality?.suggestions]].map(([label, list]) => stringList(list).length > 0 && <div key={String(label)}><strong>{String(label)}</strong><ul className="run-list">{stringList(list).map((v,i) => <li key={i}>{v}</li>)}</ul></div>)}
-      <details><summary>评分局限与覆盖范围</summary><ul className="run-list">{stringList(quality?.limitations).map((v,i) => <li key={i}>{v}</li>)}</ul><p className="run-score-note">正文 {Number(object(quality?.source)?.answerChars || 0)} 字符；结构化材料 {Number(object(quality?.source)?.structuredChars || 0)} 字符。未独立核验科学真实性。</p></details>
-    </>}
+  const task = object(quality?.taskCompletion);
+  const qualification = object(quality?.qualification);
+  const gaps = stringList(quality?.gaps); const suggestions = stringList(quality?.suggestions);
+  const truncated = object(quality?.source)?.truncated === true;
+  const state = states[text(item?.status)] || "无评分";
+  return <article className="score-card">
+    <div className="score-card-head"><strong className="score-card-name">{name}</strong><span className="score-card-state">{ready && score !== null ? (truncated ? "参考分" : "评分完成") : state}</span></div>
+    {ready && score !== null && <div className="score-number"><strong>{score}</strong><span> / 100</span></div>}
+    {ready && score === null && <p className="run-score-note">评分结果缺少有效的总分。</p>}
+    {ready && task && <p className="score-card-task">任务完成度 · {taskStates[text(task.status)] || "无法确认"}</p>}
+    {ready && qualification && <p className="score-card-task">内容判定 · {qualificationStates[text(qualification.status)] || "无法判断"}{typeof qualification.passScore === "number" && Number.isFinite(qualification.passScore) ? ` · 合格线 ${Number(qualification.passScore)} 分` : ""}</p>}
+    {ready && dimensions && <div className="score-visual">{Object.entries(dimensions).map(([key, v]) => { const d = object(v); if (!d) return null; const applicable = d.applicable !== false; const dimScore = typeof d.score === "number" && Number.isFinite(d.score) ? d.score : null; const weight = typeof d.weight === "number" && Number.isFinite(d.weight) ? Math.round(Number(d.weight) * 100) : null; return <div className="score-visual-row" key={key}><span className="score-visual-label">{text(d.label) || key}{weight !== null ? ` · ${weight}%` : ""}</span><span className="score-visual-value">{!applicable ? "不适用" : dimScore !== null ? `${dimScore} / 100` : "缺少评分"}</span>{applicable && dimScore !== null && <span className="score-visual-bar" aria-hidden="true"><i style={{ width: `${Math.max(0, Math.min(100, dimScore))}%` }} /></span>}{applicable && text(d.note) && <span className="score-visual-note">{text(d.note)}</span>}</div>; })}</div>}
+    {ready && gaps.length > 0 && <FindingList label="扣分原因" items={gaps} />}
+    {ready && suggestions.length > 0 && <FindingList label="改进建议" items={suggestions} />}
+    {ready && text(quality?.comment) && <p className="score-comment"><strong>总评：</strong>{text(quality?.comment)}</p>}
+    {truncated && <p className="run-score-note">输入不完整 · 分数仅供参考</p>}
     {text(item?.error) && <p className="run-score-note">{text(item?.error)}</p>}
-  </ResultBlock>;
+  </article>;
 }
-function FormatCheck({ value }: { value: unknown }) {
-  const markdown = object(value); if (!markdown) return null;
-  const issues = Array.isArray(markdown.issues) ? markdown.issues : [];
-  return <ResultBlock title="Markdown 机检" status={checkStates[text(markdown.status)] || "状态未知"}><p className="run-score-note">原文检查 · {markdown.coverage === "partial" ? "覆盖不完整" : "完整文本"} · 未检查远程链接可用性</p>{issues.length ? <details><summary>查看 {issues.length} 项问题与建议</summary><ul className="run-list">{issues.map((v,i) => { const issue = object(v); return issue ? <li key={i}><strong>{issue.severity === "error" ? "错误" : "提示"} · 第 {Number(issue.line || 1)} 行</strong><p>{text(issue.detail)}</p>{text(issue.snippet) && <code className="score-snippet">{text(issue.snippet)}</code>}<p>{text(issue.suggestion)}</p></li> : null; })}</ul></details> : <p className="run-score-note">当前规则未发现问题；不代表内容正确。显示层修复不影响原文检查。</p>}</ResultBlock>;
-}
-export function UnifiedScores({ scores, run }: { scores: unknown; run?: unknown }) {
-  const current = object(run); const scoring = object(current?.scoring);
+
+export function UnifiedScores({ scores, run, executionStatus }: { scores: unknown; run?: unknown; executionStatus?: string }) {
+  if (["queued", "running"].includes(executionStatus || "")) return <p className="run-score-note">回答生成完成后自动评分。</p>;
+  const scoring = object(object(run)?.scoring);
   const items = object(scores); const isNew = scoring?.version === "evaluation-v1" || object(object(items?.deepSeekScore)?.quality)?.version === "evaluation-v1" || object(object(items?.qwenScore)?.quality)?.version === "evaluation-v1";
   if (!isNew) return <LegacyScores scores={scores} run={run} />;
-  const rubric = object(scoring?.rubric); const history = Array.isArray(scoring?.history) ? scoring.history : [];
-  const policy=object(scoring?.ruleSnapshot);const weights=object(object(policy?.config)?.weights);
-  return <><p className="run-score-note">{weights ? `可读性 ${Number(weights.readability)}% · 专业性 ${Number(weights.professionalism)}% · 图文辅助 ${Number(weights.visualAids)}%。图文不适用时其余维度按比例归一化` : "可读性 40% · 专业性 40% · 图文辅助 20%。图文不适用时其余维度各占 50%"}；两家模型独立评分，不取平均。</p>
-    {policy && <p className="run-score-note">本轮规则：{text(policy.name)} · {policy.id === "builtin-v1" ? "内置" : `v${Number(policy.version)}`}。重新评分沿用该运行的原规则。</p>}
-    <RuleSnapshotDetails value={policy} />
-    <ProcessEfficiency value={scoring?.efficiency} />
-    <FormatCheck value={current?.markdownSyntax} />
-    {rubric && <details className="score-rubric"><summary>统一题目要求清单</summary><p className="run-score-note">{text(rubric.model)} 提取 · {text(rubric.visualAidsReason)}</p><ul className="run-list">{(Array.isArray(rubric.requirements) ? rubric.requirements : []).map((v,i) => { const row = object(v); return row ? <li key={i}>{text(row.id)}{row.critical === true ? " · 关键要求" : ""}：{text(row.requirement)}</li> : null; })}</ul></details>}
-    <Judge name="DeepSeek" value={items?.deepSeekScore} /><Judge name="千问" value={items?.qwenScore} />
-    <p className="run-score-note">评分规则 {text(scoring?.version)} · 本轮 {text(scoring?.attemptId)}</p>
-    {history.length > 0 && <details className="score-history"><summary>历史评分（{history.length} 轮）</summary>{history.map((v,i) => { const row = object(v); const previous = object(row?.scores); return row ? <details key={i}><summary>第 {i + 1} 轮 · {text(row.startedAt)}</summary><RuleSnapshotDetails value={row.ruleSnapshot} /><ProcessEfficiency value={row.efficiency} /><FormatCheck value={row.markdownSyntax} /><Judge name="DeepSeek" value={previous?.deepSeekScore} /><Judge name="千问" value={previous?.qwenScore} /></details> : null; })}</details>}
-  </>;
+  return <div className="score-board">
+    <p className="score-intro">两家模型独立评分，不取平均；百分制只表示回答质量，不代表科学真实性。</p>
+    <div className="score-cards"><JudgeCard name="DeepSeek" value={items?.deepSeekScore} /><JudgeCard name="千问" value={items?.qwenScore} /></div>
+  </div>;
 }

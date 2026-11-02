@@ -23,9 +23,10 @@ function loadSource(relative) {
 const { RunServiceDetails } = await import(loadSource('../src/components/run-service-details.tsx'));
 const render = (details, props = {}) => renderToStaticMarkup(React.createElement(RunServiceDetails, { run: { details }, runId: 'test', ...props }));
 
-test('材料候选、工艺阶段和服务自报状态可读，零数量不当缺失', () => {
+test('材料候选、工艺阶段和服务自报状态可读，零数量不当缺失，不再显示服务进度', () => {
   const html = render({ result: { status: 'partially_completed', all_candidates: [{ candidate_id: 'ALU001' }] }, protocolFrames: [{ stage_id: 'S1', title: '过滤', input_count: 10, output_count: 0 }], progress: [{ title: '材料配方设计', phase: 'complete' }] });
-  for (const value of ['部分完成', '服务自报状态', 'ALU001', '工艺阶段', '过滤', '输出0', '材料配方设计']) assert.ok(html.includes(value), value);
+  for (const value of ['部分完成', '服务自报状态', 'ALU001', '工艺阶段', '过滤', '输出0']) assert.ok(html.includes(value), value);
+  assert.doesNotMatch(html, /服务进度|材料配方设计/);
   assert.doesNotMatch(html, /科学准确率/);
 });
 
@@ -63,6 +64,12 @@ test('自动继续明确标注系统答复，不显示人工表单或将发送�
   assert.doesNotMatch(render({ review: [{ action: 'continue', source: 'automatic', delivery: 'failed' }] }), /平台已自动答复继续/);
 });
 
+test('自动方案选择摘要可见，确认记录与连接诊断不再展示，失败答复不显示成已确认', () => {
+  const details = { review: [{ source: 'automatic', action: 'continue', delivery: 'sent', summary: '自动确认线性堆叠，沿用服务配置。' }, { source: 'automatic', delivery: 'failed', summary: '错误的成功摘要' }], transport: { closeCode: 1006, lastJsonType: 'display.final_answer' } };
+  const html = render(details);
+  assert.match(html, /自动确认线性堆叠/); assert.doesNotMatch(html, /错误的成功摘要|查看连接诊断|查看确认记录/);
+});
+
 const { resultCandidates, compositionSummary, scalar } = await import(loadSource('../src/lib/structured-results.ts'));
 const { StructuredValue } = await import(loadSource('../src/components/structured-value.tsx'));
 
@@ -94,4 +101,16 @@ test('候选汇总保留未排序候选、无编号记录和单独验证，不�
 
 test('成果整理降级提示可见，不隐藏已有正文和结构化结果', () => {
   assert.match(render({ artifactError: '部分成果路径无效，已跳过对应预览链接' }), /部分成果路径无效/);
+});
+
+test('IC模型按类型和调用保留文件链接，拒绝脚本与凭据地址，不把不同结果混在一起', () => {
+  const html = render({ protocolFrames: [
+    { type: 'IC_STL', request_id: 'first', meta: { layer_count: 0 }, data: [{ key: 'model.glb', src: 'https://example.com/first/model.glb', desc: '堆叠结构' }, { key: '重复', src: 'https://example.com/first/model.glb' }, { key: '危险', src: 'javascript:alert(1)' }] },
+    { type: 'IC_STL', request_id: 'second', data: [{ key: 'model.glb', src: 'https://example.com/second/model.glb' }] },
+    { type: 'IC_INTERFACE', data: [{ key: 'interface_model.glb', src: 'https://example.com/interface.glb' }, { key: '凭据', src: 'https://user:password@example.com/a' }] },
+    { type: 'IC_POWER', data: [{ key: 'power.csv', src: 'https://example.com/power.csv' }] },
+  ] });
+  for (const value of ['Chiplet 堆叠模型', '芯片键合界面', '功率分布', '/first/model.glb', '/second/model.glb', 'interface_model.glb', 'power.csv', '服务报告层数：0']) assert.ok(html.includes(value), value);
+  assert.equal((html.match(/href="https:\/\/example.com\/first\/model.glb"/g) || []).length, 1);
+  assert.match(html, /noopener noreferrer/); assert.doesNotMatch(html, /javascript:|password@|>危险</);
 });

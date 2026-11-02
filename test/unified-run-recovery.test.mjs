@@ -104,3 +104,22 @@ test('请求超时可重试，权限或不存在错误停止自动读取', async
     await flush(); t.mock.timers.tick(60000); await flush(); cancel(); assert.equal(reads, 1); assert.deepEqual(failures, [false]);
   }
 });
+
+
+test('Mission使用独立运行接口，题库身份与幂等重试保持不变', async () => {
+  const storage = memoryStorage(); const requests = [];
+  const body = JSON.stringify({ serviceKey: 'mission-material', question: '评估芯片封装导热界面材料的研究方案。', questionId: 'QB-001', datasetVersion: 'v1', sourceType: 'fixed' });
+  const request = async (url, init) => {
+    requests.push({ url, key: init.headers['Idempotency-Key'], body: JSON.parse(init.body) });
+    if (requests.length === 1) throw Error('网络中断');
+    return Response.json({ runId: id });
+  };
+  await assert.rejects(createUnifiedRun(body, { storage, request }), /网络中断/);
+  assert.equal(await createUnifiedRun(body, { storage, request }), id);
+  assert.equal(requests.length, 2);
+  assert.equal(requests[0].key, requests[1].key);
+  for (const item of requests) {
+    assert.equal(item.url, '/api/evaluation/unified/runs');
+    assert.deepEqual(item.body, JSON.parse(body));
+  }
+});
