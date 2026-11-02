@@ -95,8 +95,8 @@ export type ComparisonService = {
   scoreDelta: { deepSeek: number | null; qwen: number | null };
   completionDelta: number;
   failureDelta: number;
-  newFailureCount: number;
-  fixedCount: number;
+  newFailureCount: number | null;
+  fixedCount: number | null;
 };
 
 export type ComparisonQuestion = {

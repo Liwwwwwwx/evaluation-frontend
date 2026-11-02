@@ -98,7 +98,7 @@ export function BatchComparisonPage({ batchId, basePath, preview = false }: { ba
               <span className={styles.deltaCell}><span>DeepSeek</span><b className={`${styles.deltaValue} ${deltaTone(item.scoreDelta.deepSeek)}`}>{formatDelta(item.scoreDelta.deepSeek)}</b></span>
               <span className={styles.deltaCell}><span>千问</span><b className={`${styles.deltaValue} ${deltaTone(item.scoreDelta.qwen)}`}>{formatDelta(item.scoreDelta.qwen)}</b></span>
             </span>
-            <span className={styles.serviceCount}><span>新增失败 <b>{item.newFailureCount}</b></span><span>修复 <b>{item.fixedCount}</b></span></span>
+            {comparison.mode === "question" && <span className={styles.serviceCount}><span>新增失败 <b>{item.newFailureCount ?? "—"}</b></span><span>修复 <b>{item.fixedCount ?? "—"}</b></span></span>}
           </div>)}
         </div>
       </section>
