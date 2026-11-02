@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { backendOrigin } from "@/lib/evaluation-auth-proxy";
 
-export async function proxyUnified(request: NextRequest, path: string) {
+export async function proxyUnified(request: NextRequest, path: string, options: {maxBodyBytes?: number} = {}) {
   const session = request.cookies.get("evaluation_session")?.value;
   if (!session) return NextResponse.json({ error: "请先登录" }, { status: 401 });
   const host = request.headers.get("host");
@@ -14,7 +14,7 @@ export async function proxyUnified(request: NextRequest, path: string) {
     if (!/^[\x21-\x7e]{1,128}$/.test(key)) return NextResponse.json({ error: "幂等键无效" }, { status: 400 });
     if (!request.headers.get("content-type")?.toLowerCase().startsWith("application/json")) return NextResponse.json({ error: "请求格式无效" }, { status: 415 });
     body = await request.text();
-    if (Buffer.byteLength(body) > 16 * 1024) return NextResponse.json({ error: "请求内容过大" }, { status: 413 });
+    if (Buffer.byteLength(body) > (options.maxBodyBytes || 16 * 1024)) return NextResponse.json({ error: "请求内容过大" }, { status: 413 });
     headers.set("Origin", origin); headers.set("Content-Type", "application/json"); headers.set("Idempotency-Key", key);
   }
   try {

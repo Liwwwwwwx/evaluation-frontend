@@ -29,7 +29,7 @@ function Icon({ name }: { name: IconName }) {
 }
 
 function statusClass(status: string) {
-  if (status === "running") return "run-dot running";
+  if (["queued", "running", "scoring"].includes(status)) return "run-dot running";
   if (status === "done") return "run-dot done";
   if (status === "error") return "run-dot error";
   return "run-dot";
@@ -107,9 +107,9 @@ function SidebarBody({ items, error, activeId, onNavigate }: {
       </div>
 
       <div className="chat-foot">
-        <Link className={`chat-foot-link${pathname === "/" ? " active" : ""}`} href="/" aria-current={pathname === "/" ? "page" : undefined} onClick={onNavigate}><Icon name="grid" />评测工作台</Link>
         <Link className={`chat-foot-link${pathname === "/runs" ? " active" : ""}`} href="/runs" aria-current={pathname === "/runs" ? "page" : undefined} onClick={onNavigate}><Icon name="clock" />运行记录</Link>
         <Link className={`chat-foot-link${pathname === "/question-bank" ? " active" : ""}`} href="/question-bank" aria-current={pathname === "/question-bank" ? "page" : undefined} onClick={onNavigate}><Icon name="book" />题库</Link>
+        <Link className={`chat-foot-link${pathname === "/scoring-rules" ? " active" : ""}`} href="/scoring-rules" aria-current={pathname === "/scoring-rules" ? "page" : undefined} onClick={onNavigate}><Icon name="grid" />评测规则</Link>
         <div className="chat-account"><AccountMenu showName /></div>
       </div>
     </>
@@ -178,7 +178,7 @@ export function ChatShell({ children }: { children: ReactNode }) {
           <button type="button" className="icon-button" aria-label="打开运行历史" onClick={() => drawer.current?.showModal()}>
             <Icon name="menu" />
           </button>
-          <span>{isEvaluate ? "新建测评" : pathname === "/" ? "评测工作台" : pathname === "/question-bank" ? "题库" : "运行记录"}</span>
+          <span>{isEvaluate ? "新建测评" : pathname === "/" ? "评测工作台" : pathname === "/question-bank" ? "题库" : pathname === "/scoring-rules" ? "评测规则" : "运行记录"}</span>
         </div>
         {children}
       </div>

@@ -57,6 +57,18 @@ test('运行详情临时失败后自动恢复，保留已有结果且只发GET�
   t.mock.timers.tick(60000); await flush(); assert.equal(calls, 3);
 });
 
+test('排队任务和恢复中的快照继续轮询', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  let calls = 0; const states = [];
+  const stop = watchUnifiedRun(id, { onData: data => states.push(data.status), onError() {}, request: async () => Response.json(run(++calls === 1 ? 'queued' : 'running')) });
+  await flush(); t.mock.timers.tick(5000); await flush(); stop();
+  assert.deepEqual(states, ['queued', 'running']);
+  let reads = 0;
+  const stopSnapshot = watchUnifiedRun(id, { onData() {}, onError() {}, request: async () => { reads++; return Response.json({ ...run('queued'), recoveryState: 'snapshot_only' }); } });
+  await flush(); t.mock.timers.tick(30000); await flush(); stopSnapshot();
+  assert.equal(reads, 2);
+});
+
 test('连续失败最多自动重试3次，之后可手动重新订阅读取', async t => {
   t.mock.timers.enable({ apis: ['setTimeout'] });
   let calls = 0; const errors = [];

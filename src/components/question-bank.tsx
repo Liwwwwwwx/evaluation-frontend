@@ -67,7 +67,7 @@ function formatDateTime(value?: string | null) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
-const serviceNames: Record<string, string> = { literature: "文献检索", "literature-aircraft": "航空文献", alloy: "合金材料", synthesis: "合成制备", "new-material": "新材料" };
+const serviceNames: Record<string, string> = { "mission-material": "Mission_ScienceMaterial（主服务）", literature: "文献检索", "literature-aircraft": "航空文献", alloy: "合金材料", synthesis: "合成制备", "new-material": "新材料" };
 function QuestionScores({ rows, state }: { rows: QuestionScoreRow[]; state: string }) {
   if (state !== "ready") return <span className="run-score-note">{state === "failed" ? "评分读取失败" : "读取中…"}</span>;
   if (!rows.length) return <span className="run-score-note">未评分</span>;
@@ -308,7 +308,7 @@ export function QuestionBank() {
         </dl>
         <div className="bank-dialog-actions">
           <button type="button" className="secondary-button" onClick={() => void copyQuestion(detail.question)}><Icon name="copy" />复制题目</button>
-          <div>{["fixed", "random"].includes(detail.sourceType) && !detail.criteria && (!detail.serviceKey || ["literature", "literature-aircraft", "alloy", "synthesis", "new-material"].includes(detail.serviceKey)) && !editMode && <button type="button" className="secondary-button" disabled={quickBusy} onClick={() => void prepareEvaluation(detail)}>{quickBusy ? "正在准备…" : "使用这道题测评"}</button>}{canManage && (editMode ? <button type="button" className="primary-button" disabled={editBusy} onClick={() => void saveEdit()}>{editBusy ? "保存中…" : "保存修改"}</button> : <button type="button" className="secondary-button" disabled={domainBusy} onClick={() => setEditMode(true)}>编辑</button>)}{canManage && !editMode && <button type="button" className="danger-button" disabled={domainBusy} onClick={() => { detailDialog.current?.close(); askDelete([detail]); }}>删除</button>}<button type="button" className="secondary-button" onClick={() => detailDialog.current?.close()}>关闭</button></div>
+          <div>{["fixed", "random"].includes(detail.sourceType) && !detail.criteria && (!detail.serviceKey || ["mission-material", "literature", "literature-aircraft", "alloy", "synthesis", "new-material"].includes(detail.serviceKey)) && !editMode && <button type="button" className="secondary-button" disabled={quickBusy} onClick={() => void prepareEvaluation(detail)}>{quickBusy ? "正在准备…" : "使用这道题测评"}</button>}{canManage && (editMode ? <button type="button" className="primary-button" disabled={editBusy} onClick={() => void saveEdit()}>{editBusy ? "保存中…" : "保存修改"}</button> : <button type="button" className="secondary-button" disabled={domainBusy} onClick={() => setEditMode(true)}>编辑</button>)}{canManage && !editMode && <button type="button" className="danger-button" disabled={domainBusy} onClick={() => { detailDialog.current?.close(); askDelete([detail]); }}>删除</button>}<button type="button" className="secondary-button" onClick={() => detailDialog.current?.close()}>关闭</button></div>
         </div>
       </div>}
     </dialog>

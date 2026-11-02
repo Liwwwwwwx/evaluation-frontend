@@ -22,6 +22,7 @@ type BankQuestion = {
 type IconName = "book" | "shuffle" | "close" | "check" | "search" | "chevron" | "arrow-up";
 
 const serviceCatalog = [
+  { key: "mission-material", label: "Mission_ScienceMaterial（主服务）", enabled: false },
   { key: "alpha-rsi", label: "1110", enabled: false },
   { key: "alloy", label: "合金材料", enabled: false },
   { key: "literature", label: "文献检索", enabled: false },
@@ -70,7 +71,7 @@ export function Evaluate() {
   const [draft, setDraft] = useState("");
   const [source, setSource] = useState<BankQuestion | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [service, setService] = useState("literature");
+  const [service, setService] = useState("mission-material");
   const [services, setServices] = useState(serviceCatalog);
   const [domain, setDomain] = useState("");
   const [bankSource, setBankSource] = useState("");
@@ -80,15 +81,18 @@ export function Evaluate() {
   const [run, setRun] = useState<{ id: string; question: string; service: string; answer: string; status: string; executionStatus?: string; scoringStatus?: string; result: unknown; scores: unknown; scoreError: string; truncated: boolean; snapshotOnly?: boolean; canReply?: boolean } | null>(null);
   const [recovering, setRecovering] = useState(false);
   const runId = useRef("");
+  const streamController = useRef<AbortController | null>(null);
   const stopRecovery = useRef<(() => void) | null>(null);
+  useEffect(() => () => { runId.current = ""; streamController.current?.abort(); }, []);
   const [recoveryRetry, setRecoveryRetry] = useState(0);
   const [hasPendingRequest, setHasPendingRequest] = useState(false);
   const resetRun = useCallback(() => {
     stopRecovery.current?.(); stopRecovery.current = null;
     runId.current = "";
+    streamController.current?.abort(); streamController.current = null;
     sessionStorage.removeItem("evaluation-unified-run");
     window.dispatchEvent(new Event("evaluation-unified-change"));
-    setRun(null); setRecovering(false); setSubmitError("");
+    setRun(null); setSubmitting(false); setRecovering(false); setSubmitError("");
   }, []);
 
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -118,7 +122,9 @@ export function Evaluate() {
   useEffect(() => {
     const controller = new AbortController();
     jsonRequest("/api/evaluation/unified/services", { signal: controller.signal }).then(data => {
-      setServices(serviceCatalog.map(item => ({ ...item, enabled: Array.isArray(data.items) && data.items.some((enabled: { key: string; enabled: boolean }) => enabled.key === item.key && enabled.enabled) })));
+      const available = serviceCatalog.map(item => ({ ...item, enabled: Array.isArray(data.items) && data.items.some((enabled: { key: string; enabled: boolean }) => enabled.key === item.key && enabled.enabled) }));
+      setServices(available);
+      setService(current => available.some(item => item.key === current && item.enabled) ? current : available.find(item => item.key === "literature" && item.enabled)?.key || available.find(item => item.enabled)?.key || current);
       if (!data.items?.some((item: { enabled: boolean }) => item.enabled)) setSubmitError("测评执行尚未启用，当前可查看题库和运行记录。");
     }).catch(error => { if (!controller.signal.aborted) setSubmitError(message(error)); });
     return () => controller.abort();
@@ -155,7 +161,7 @@ export function Evaluate() {
 
   useEffect(() => {
     const startNew = (event: Event) => {
-      if (submitting) { event.preventDefault(); setSubmitError("当前运行仍在输出，请等待结束后新建测评。"); return; }
+      if (submitting && !runId.current) { event.preventDefault(); setSubmitError("正在创建运行，请稍候。"); return; }
       resetRun();
     };
     window.addEventListener("evaluation-new-request", startNew);
@@ -273,19 +279,22 @@ export function Evaluate() {
     if (!draftValid) return;
     setSubmitting(true);
     setSubmitError("");
+    let id = "";
     try {
       const body = JSON.stringify({ serviceKey: service, question: trimmed, ...(source ? { questionId: source.id, datasetVersion: source.datasetVersion, sourceType: source.sourceType } : {}) });
-      const id = await createUnifiedRun(body);
+      id = await createUnifiedRun(body);
       runId.current = id;
       sessionStorage.setItem("evaluation-unified-run", id);
       sessionStorage.removeItem("evaluation-unified-pending");
       setHasPendingRequest(false);
       window.dispatchEvent(new Event("evaluation-unified-change"));
       setRun({ id, question: trimmed, service, answer: "", status: "running", result: null, scores: null, scoreError: "", truncated: false });
-      const response = await fetch(`/api/evaluation/unified/runs/${encodeURIComponent(id)}/events`, { cache: "no-store" });
+      const controller = new AbortController(); streamController.current = controller;
+      const response = await fetch(`/api/evaluation/unified/runs/${encodeURIComponent(id)}/events`, { cache: "no-store", signal: controller.signal });
       if (!response.ok) throw new Error(`订阅运行失败（${response.status}）`);
       let finished = false;
       await readUnifiedStream(response, ({ event: name, data }) => {
+        if (runId.current !== id) return;
         if (name === "snapshot") {
           const status = typeof data.status === "string" ? data.status : "unknown";
           setRun((current) => current ? { ...current, answer: typeof data.answer === "string" ? data.answer : "", status,
@@ -294,6 +303,8 @@ export function Evaluate() {
             result: data.run || null, scores: data.scores || null, scoreError: typeof data.scoreError === "string" ? data.scoreError : "",
             truncated: data.answerTruncated === true, snapshotOnly: data.recoveryState === "snapshot_only", canReply: data.canReply === true } : current);
           if (data.live === false) finished = true;
+        } else if (name === "execution") {
+          setRun(current => current ? { ...current, status: "running", executionStatus: "running" } : current);
         } else if (name === "text" && typeof data.delta === "string") {
           const delta = data.delta;
           setRun((current) => current ? { ...current, answer: current.answer + delta } : current);
@@ -312,18 +323,19 @@ export function Evaluate() {
           setSubmitError(typeof data.message === "string" ? data.message : "评测执行失败。");
         }
       });
-      if (!finished) setSubmitError("连接中断，正在尝试按运行 ID 恢复；不会重复发起。");
+      if (runId.current === id && !finished) setSubmitError("连接中断，正在尝试按运行 ID 恢复；不会重复发起。");
     } catch (error) {
+      if (id && runId.current !== id) return;
       const uncertain = Boolean(sessionStorage.getItem("evaluation-unified-pending"));
       setSubmitError(`${message(error)}${runId.current ? " 可根据已有运行 ID 恢复。" : uncertain ? " 请先核对运行记录后再重试。" : ""}`);
-    } finally { setHasPendingRequest(Boolean(sessionStorage.getItem("evaluation-unified-pending"))); setSubmitting(false); }
+    } finally { if (!id || runId.current === id) { streamController.current = null; setHasPendingRequest(Boolean(sessionStorage.getItem("evaluation-unified-pending"))); setSubmitting(false); } }
   }
 
   const draftError = over
     ? `题目超过 ${max} 个字符，请精简后再发起。`
     : trimmed && trimmed.length < min ? `题目过短，至少需要 ${min} 个字符。` : "";
 
-  if (run) return <div className="chat-view"><div className="chat-top"><h1>运行详情</h1><span className={`run-dot ${run.status === "done" ? "done" : run.status === "error" ? "error" : "running"}`} /><span>{run.status === "done" ? "已结束" : run.status === "error" ? "失败" : run.status === "scoring" ? "评分中" : "运行中"} · {services.find((item) => item.key === run.service)?.label || run.service}</span></div><div className="chat-scroll"><div className="chat-scroll-inner"><div className="run-layout"><div className="run-chat" tabIndex={0} role="region" aria-label="对话内容"><p className="run-question">{run.question}</p><section className="run-answer-block"><div className="run-answer-head"><strong>{services.find((item) => item.key === run.service)?.label || run.service}</strong><span>回答</span></div><div className="run-answer"><AnswerMarkdown content={run.answer} streaming={run.executionStatus === "running" || (!run.executionStatus && run.status === "running")} empty="等待服务输出…" /></div><RunServiceDetails run={run.result} runId={run.id} canReply={run.canReply} snapshotOnly={run.snapshotOnly} />{run.truncated && <p className="run-score-note">恢复的回答已截断。</p>}{submitError && <div role="alert"><p className="eval-error">{submitError}</p><button type="button" className="secondary-button" onClick={() => setRecoveryRetry(value => value + 1)}>重试读取运行</button></div>}</section></div><aside className="run-panel"><div className="run-panel-head"><h2>测评结果</h2><p>运行结束不代表题目要求已完成。</p></div><section className="run-block"><h3>运行信息</h3><dl className="run-info"><div><dt>运行 ID</dt><dd className="mono">{run.id}</dd></div><RunServiceInfo serviceName={services.find(item => item.key === run.service)?.label || run.service} run={run.result} /><div><dt>执行</dt><dd>{run.executionStatus === "succeeded" ? "已结束" : run.executionStatus === "failed" ? "失败" : "运行中"}</dd></div><div><dt>评分</dt><dd>{({ pending: "评分中", ready: "已完成", partial: "部分完成", failed: "评分失败", unavailable: "未配置", absent: "无评分", unknown: "状态未知" } as Record<string, string>)[run.scoringStatus || "pending"] || "状态未知"}</dd></div></dl></section><section className="run-block"><h3>评分</h3>{run.snapshotOnly && ["running", "scoring"].includes(run.status) && <p className="run-score-note">显示的是已保存的快照，当前进程无法确认任务是否仍在运行。</p>}{run.scoreError && <p className="run-score-note">{run.scoreError}</p>}<UnifiedScores scores={run.scores} run={run.result} /></section><p className="run-note">模型评分不代表科学真实性。运行记录依赖服务端持久化。</p><button type="button" className="secondary-button" disabled={submitting} onClick={resetRun}>新建测评</button></aside></div></div></div></div>;
+  if (run) return <div className="chat-view"><div className="chat-top"><h1>运行详情</h1><span className={`run-dot ${run.status === "done" ? "done" : run.status === "error" ? "error" : "running"}`} /><span>{run.status === "done" ? "已结束" : run.status === "error" ? "失败" : run.status === "scoring" ? "评分中" : run.status === "queued" ? "排队中" : "运行中"} · {services.find((item) => item.key === run.service)?.label || run.service}</span></div><div className="chat-scroll"><div className="chat-scroll-inner"><div className="run-layout"><div className="run-chat" tabIndex={0} role="region" aria-label="对话内容"><p className="run-question">{run.question}</p><section className="run-answer-block"><div className="run-answer-head"><strong>{services.find((item) => item.key === run.service)?.label || run.service}</strong><span>回答</span></div><div className="run-answer"><AnswerMarkdown content={run.answer} streaming={run.executionStatus === "running" || (!run.executionStatus && run.status === "running")} empty="等待服务输出…" /></div><RunServiceDetails run={run.result} runId={run.id} canReply={run.canReply} snapshotOnly={run.snapshotOnly} />{run.truncated && <p className="run-score-note">恢复的回答已截断。</p>}{submitError && <div role="alert"><p className="eval-error">{submitError}</p><button type="button" className="secondary-button" onClick={() => setRecoveryRetry(value => value + 1)}>重试读取运行</button></div>}</section></div><aside className="run-panel"><div className="run-panel-head"><h2>测评结果</h2><p>运行结束不代表题目要求已完成。</p></div><section className="run-block"><h3>运行信息</h3><dl className="run-info"><div><dt>运行 ID</dt><dd className="mono">{run.id}</dd></div><RunServiceInfo serviceName={services.find(item => item.key === run.service)?.label || run.service} run={run.result} /><div><dt>执行</dt><dd>{run.executionStatus === "succeeded" ? "已结束" : run.executionStatus === "failed" ? "失败" : run.executionStatus === "queued" ? "排队中" : "运行中"}</dd></div><div><dt>评分</dt><dd>{({ pending: "评分中", ready: "已完成", partial: "部分完成", failed: "评分失败", unavailable: "未配置", absent: "无评分", unknown: "状态未知" } as Record<string, string>)[run.scoringStatus || "pending"] || "状态未知"}</dd></div></dl></section><section className="run-block"><h3>评分</h3>{run.snapshotOnly && ["queued", "running", "scoring"].includes(run.status) && <p className="run-score-note">显示的是已保存的快照，当前进程不能确认任务是否仍在执行或排队；请先核对运行记录。</p>}{run.scoreError && <p className="run-score-note">{run.scoreError}</p>}<UnifiedScores scores={run.scores} run={run.result} /></section><p className="run-note">模型评分不代表科学真实性。运行记录依赖服务端持久化。</p><button type="button" className="secondary-button" disabled={submitting && !run.id} onClick={resetRun}>新建测评</button></aside></div></div></div></div>;
 
   return (
     <main className="eval-page">

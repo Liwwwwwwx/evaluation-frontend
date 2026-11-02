@@ -32,7 +32,7 @@ export function watchUnifiedRun(runId: string, {
       if (stopped) return;
       failures = 0;
       onData(data as UnifiedRunSnapshot);
-      if (!stopped && ["running", "scoring"].includes(data.status)) timer = setTimeout(() => void load(), intervalMs);
+      if (!stopped && ["queued", "running", "scoring"].includes(data.status)) timer = setTimeout(() => void load(), intervalMs);
     } catch (error) {
       if (stopped) return;
       const retrying = retryable && ++failures <= 3;

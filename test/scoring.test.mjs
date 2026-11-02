@@ -22,6 +22,7 @@ function loadSource(relative) {
 }
 const { UnifiedScores } = await import(loadSource('../src/components/unified-scores.tsx'));
 const { ScoreSummary } = await import(loadSource('../src/components/score-summary.tsx'));
+const { validateRuleForm,ruleDocument } = await import(loadSource('../src/lib/scoring-rules.ts'));
 function render(scores, run) { return renderToStaticMarkup(React.createElement(UnifiedScores, { scores, run })); }
 const quality = { version: 'evaluation-v1', total: 0, dimensions: { readability: { label: '可读性', score: 0, weight: .5, applicable: true, note: '信息不足' }, visualAids: { label: '图文辅助', score: null, weight: 0, applicable: false, note: '不需要配图' } }, comment: '<script>unsafe</script>', highlights: ['单位清楚'], gaps: ['条件缺失'], suggestions: ['补充温度条件'], taskCompletion: { status: 'partial', qualified: false, requirements: [{ id: 'R1', critical: true, status: 'missing', requirement: '报告温度条件', evidence: '原文片段' }] }, source: { truncated: true }, limitations: ['未独立科学核验'] };
 test('评分展示零分、不适用、参考分、关键缺失和两家不同状态，不执行HTML', () => {
@@ -38,4 +39,18 @@ test('评分清单摘要区分未评分、未配置、失败和真实零分', ()
 test('历史评分可展开，各轮模型结果与Markdown证据保留', () => {
  const html = render({ deepSeekScore: {status:'unavailable'} }, {scoring:{version:'evaluation-v1',history:[{attemptId:'old',startedAt:'2026-01-01',scores:{deepSeekScore:{status:'ready',quality}},markdownSyntax:{status:'observe',issues:[]}}]}});
  assert.match(html, /历史评分（1 轮）/); assert.match(html, /第 1 轮/); assert.match(html, /报告温度条件/);
+});
+test('新版规则显示自定义权重、阶段未知、零耗时、交付缺失和体验证据',()=>{
+ const q={...quality,source:{truncated:false},qualification:{status:'not_qualified',passScore:65},deliveryReview:{status:'not_delivered',note:'只有准备说明',evidence:'先装依赖'},experienceReview:{status:'issue',coverage:'answer_only',checks:[{label:'无关实现细节',status:'issue',note:'普通文档任务中无帮助',evidence:'<script>bad</script>'}]}};
+ const html=render({deepSeekScore:{status:'ready',quality:q}},{scoring:{version:'evaluation-v1',ruleSnapshot:{name:'定制版',id:'one',version:3,config:{weights:{readability:20,professionalism:60,visualAids:20}}},efficiency:{status:'not_evaluable',elapsedMs:0,rows:[{label:'团队查询',status:'not_evaluable',durationMs:null,note:'没有阶段起止时间'}]}}});
+ for(const s of ['可读性 20%','专业性 60%','定制版','v3','无法评估','0.0','未交付','交付体验','没有阶段起止时间','未达标'])assert.ok(html.includes(s),s);
+ assert.ok(!html.includes('<script>'));assert.ok(html.includes('&lt;script&gt;'));
+});
+test('规则表单校验和完整文档保留实际配置，不生成另一套标准',()=>{
+ const value={name:'验收规则',changeNote:'测试',config:{weights:{readability:40,professionalism:40,visualAids:20},passScore:60,markdownGate:false,contentInstructions:'内容说明',completionInstructions:'检查实际交付',experienceInstructions:'结合排障上下文',efficiencyRules:[{serviceKey:'*',phaseKey:'team-discovery',label:'团队查询',warningSeconds:60,criticalSeconds:180}]}};
+ assert.equal(validateRuleForm(value),'');const md=ruleDocument({...value,id:'test',version:2});for(const s of ['可读性：40%','检查实际交付','180秒','v2'])assert.ok(md.includes(s),s);
+ assert.match(ruleDocument({...value,id:'test',version:2},{draft:true}),/草稿（未发布）/);
+ assert.ok(validateRuleForm({...value,config:{...value.config,weights:{readability:50,professionalism:40,visualAids:20}}}));
+ const changed=structuredClone(value);changed.config.efficiencyRules[0].criticalSeconds=30;assert.ok(validateRuleForm(changed));
+ changed.config.efficiencyRules[0].criticalSeconds=180;changed.config.efficiencyRules.push({...changed.config.efficiencyRules[0]});assert.ok(validateRuleForm(changed));
 });
