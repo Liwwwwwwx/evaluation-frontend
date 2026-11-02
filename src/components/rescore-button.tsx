@@ -1,4 +1,5 @@
 "use client";
+import { createRequestKey } from "@/lib/request-key";
 import { useId, useRef, useState } from "react";
 export function RescoreButton({ runId, allowed, revision, onRefresh }: { runId: string; allowed?: boolean; revision: string; onRefresh: () => void }) {
   const hintId = useId();
@@ -6,7 +7,7 @@ export function RescoreButton({ runId, allowed, revision, onRefresh }: { runId: 
   if (!allowed && !busy && accepted === null) return null;
   async function rescore() {
     if (busy || !allowed || accepted === revision) return;
-    setBusy(true); setError(""); key.current ||= crypto.randomUUID();
+    setBusy(true); setError(""); key.current ||= createRequestKey();
     try {
       const response = await fetch(`/api/evaluation/unified/runs/${encodeURIComponent(runId)}/score`, { method: "POST", headers: { "Content-Type": "application/json", "Idempotency-Key": key.current }, body: "{}" });
       const data = await response.json().catch(() => ({}));

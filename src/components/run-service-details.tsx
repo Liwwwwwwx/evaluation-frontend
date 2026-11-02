@@ -1,4 +1,5 @@
 "use client";
+import { createRequestKey } from "@/lib/request-key";
 
 import { useState } from "react";
 import { StructuredOutcomes } from "@/components/structured-outcomes";
@@ -16,7 +17,7 @@ function ReviewForm({ review, runId, onRefresh }: { review: ObjectValue; runId: 
     setBusy(true); setError("");
     try {
       const response = await fetch(`/api/evaluation/unified/runs/${encodeURIComponent(runId)}/reply`, {
-        method: "POST", headers: { "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() },
+        method: "POST", headers: { "Content-Type": "application/json", "Idempotency-Key": createRequestKey() },
         body: JSON.stringify({ requestId: review.requestId, action, answers: questions.map(q => ({ id: q.id, answer: answers[text(q.id)] || "" })) }),
       });
       const result = await response.json().catch(() => ({}));

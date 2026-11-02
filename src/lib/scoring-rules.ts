@@ -1,3 +1,4 @@
+import { createRequestKey } from "@/lib/request-key";
 export type PhaseRule = { serviceKey: string; phaseKey: string; label: string; warningSeconds: number; criticalSeconds: number };
 export type RuleConfig = {
   weights: { readability: number; professionalism: number; visualAids: number };
@@ -32,7 +33,7 @@ export function ruleDocument(rule: RuleSnapshot, options: {draft?:boolean} = {})
   return `# ${rule.name}\n\n规则版本：${options.draft ? "草稿（未发布）" : rule.id === "builtin-v1" ? "内置" : `v${rule.version}`}\n\n## 内容评分\n\n${Object.entries(dimensionNames).map(([k,label]) => `- ${label}：${c.weights[k as keyof typeof dimensionNames]}%`).join("\n")}\n\n图文不适用时，对其余适用维度按比例归一化。合格线 ${c.passScore} 分；两家评委独立评分。\n\n${c.contentInstructions}\n\n## 任务交付\n\n${c.completionInstructions}\n\n## 交付体验\n\n${c.experienceInstructions}\n\n## 阶段效率\n\n${c.efficiencyRules.length ? c.efficiencyRules.map(r => `- ${r.label}（${r.serviceKey} / ${r.phaseKey}）：${r.warningSeconds}秒提醒，${r.criticalSeconds}秒严重异常。`).join("\n") : "未设置阶段阈值。"}\n\n仅使用实际采集的阶段证据；缺少阶段时间时无法评估。\n\n## Markdown\n\n原文机检${c.markdownGate ? "纳入合格门槛" : "独立展示，不纳入合格门槛"}。模型评分不等于独立科学核验。\n`;
 }
 export async function requestRules<T>(url: string, body?: unknown, key?: string): Promise<T> {
-  const response = await fetch(url, { cache: "no-store", ...(body === undefined ? {} : { method: "POST",headers: { "Content-Type":"application/json","Idempotency-Key":key || crypto.randomUUID() },body:JSON.stringify(body) }) });
+  const response = await fetch(url, { cache: "no-store", ...(body === undefined ? {} : { method: "POST",headers: { "Content-Type":"application/json","Idempotency-Key":key || createRequestKey() },body:JSON.stringify(body) }) });
   const data = await response.json().catch(() => null);
   if (!response.ok || !data) throw new Error(typeof data?.error === "string" ? data.error : data?.error?.message || (response.status === 403 ? "没有规则维护权限。" : `请求失败（${response.status}）`));
   return data as T;

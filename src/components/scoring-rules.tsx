@@ -1,4 +1,5 @@
 "use client";
+import { createRequestKey } from "@/lib/request-key";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AnswerMarkdown } from "@/components/answer-markdown";
 import { ScoringRuleForm } from "@/components/scoring-rule-form";
@@ -46,7 +47,7 @@ export function ScoringRules() {
   function copy() {
     if (!form || !catalog?.canWrite || busy || creating) return;
     if (dirty && !window.confirm("当前有未保存修改，使用当前内容新建草稿？")) return;
-    setForm({...structuredClone(form),name:`${form.name.slice(0,88)} 新版本`,changeNote:""});setCreating(true);setTab("content");createKey.current=crypto.randomUUID();setNotice("");setError("");setReloadable(false);
+    setForm({...structuredClone(form),name:`${form.name.slice(0,88)} 新版本`,changeNote:""});setCreating(true);setTab("content");createKey.current=createRequestKey();setNotice("");setError("");setReloadable(false);
   }
   async function mutate(action: "save" | "publish" | "activate" | "archive") {
     if (!form || !selected || !catalog?.canWrite || lock.current) return;
