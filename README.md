@@ -28,7 +28,7 @@ corepack yarn dev
 
 ## CI/CD 与服务器部署
 
-`dev` 开发，经 PR 检查合入 `main` 后自动部署。CI 执行 lint、全部前端测试及生产构建；产物使用 Next standalone，包含 public 和 static。部署目标 `http://36.103.177.195:6714`，独立 systemd 服务 `science-evaluation-frontend`；后端通过服务器回环地址代理。
+`dev` 开发，经 PR 检查合入 `main` 后自动部署。CI 执行 lint、全部前端测试及生产构建；CI 校验 Next standalone 和静态资源，传输源码包后在服务器按 yarn.lock 构建并以 standalone 运行。部署目标 `http://36.103.177.195:1101`，独立 systemd 服务 `science-evaluation-frontend`；后端通过服务器回环地址代理。
 
 服务器私有环境设置 `EVALUATION_ALLOW_HTTP=true` 以按当前要求支持 HTTP 登录；默认仍使用生产 Secure Cookie，HTTPS 请求始终保持 Secure。仅允许回环后端使用 HTTP，远程后端仍必须 HTTPS。
 
