@@ -1,4 +1,5 @@
 "use client";
+import { createRequestKey } from "@/lib/request-key";
 
 import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import { ScoreSummary, type ScoreSummaryValue } from "@/components/score-summary";
@@ -141,7 +142,7 @@ export function UnifiedRunList() {
     if (rescoring) return;
     setRescoring(run.runId);
     try {
-      const response = await fetch(`/api/evaluation/unified/runs/${encodeURIComponent(run.runId)}/score`, { method: "POST", headers: { "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() }, body: "{}" });
+      const response = await fetch(`/api/evaluation/unified/runs/${encodeURIComponent(run.runId)}/score`, { method: "POST", headers: { "Content-Type": "application/json", "Idempotency-Key": createRequestKey() }, body: "{}" });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(typeof data.error === "string" ? data.error : data.error?.message || "无法发起重评，请重试。");
       notify("已提交重新评分。");

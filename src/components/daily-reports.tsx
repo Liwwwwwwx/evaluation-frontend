@@ -1,4 +1,5 @@
 "use client";
+import { createRequestKey } from "@/lib/request-key";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -18,7 +19,7 @@ async function readResponse(response: Response) {
   return value;
 }
 async function generate(date: string) {
-  return readResponse(await fetch(`${base}/${date}/generate`, { method: "POST", headers: { "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() }, body: "{}" }));
+  return readResponse(await fetch(`${base}/${date}/generate`, { method: "POST", headers: { "Content-Type": "application/json", "Idempotency-Key": createRequestKey() }, body: "{}" }));
 }
 
 export function DailyReportList() {

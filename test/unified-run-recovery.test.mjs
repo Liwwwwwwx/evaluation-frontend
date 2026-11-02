@@ -4,7 +4,11 @@ import fs from 'node:fs';
 import ts from 'typescript';
 
 async function source(path) {
-  const code = ts.transpileModule(fs.readFileSync(new URL(path, import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText;
+  let code = ts.transpileModule(fs.readFileSync(new URL(path, import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText;
+  if (code.includes('@/lib/request-key')) {
+    const keyCode = ts.transpileModule(fs.readFileSync(new URL('../src/lib/request-key.ts', import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText;
+    code = code.replace('@/lib/request-key', `data:text/javascript;base64,${Buffer.from(keyCode).toString('base64')}`);
+  }
   return import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
 }
 const { createUnifiedRun } = await source('../src/lib/unified-run-request.ts');
@@ -122,4 +126,21 @@ test('Mission使用独立运行接口，题库身份与幂等重试保持不变'
     assert.equal(item.url, '/api/evaluation/unified/runs');
     assert.deepEqual(item.body, JSON.parse(body));
   }
+});
+
+
+test('HTTP 无 randomUUID 时真实创建链路仍可重试且复用原幂等键', async t => {
+  const previous = Object.getOwnPropertyDescriptor(globalThis, 'crypto');
+  const native = globalThis.crypto;
+  Object.defineProperty(globalThis, 'crypto', { configurable: true, value: { getRandomValues: native.getRandomValues.bind(native) } });
+  t.after(() => Object.defineProperty(globalThis, 'crypto', previous));
+  const storage = memoryStorage(); const keys = [];
+  const request = async (_, init) => {
+    keys.push(init.headers['Idempotency-Key']);
+    if (keys.length === 1) throw Error('网络中断');
+    return Response.json({ runId: id });
+  };
+  await assert.rejects(createUnifiedRun(question, { storage, request }), /网络中断/);
+  assert.equal(await createUnifiedRun(question, { storage, request }), id);
+  assert.match(keys[0], /^[a-f0-9]{32}$/); assert.equal(keys[1], keys[0]);
 });

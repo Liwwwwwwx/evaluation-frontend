@@ -1,3 +1,4 @@
+import { createRequestKey } from "@/lib/request-key";
 type StorageAccess = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 const pendingKey = "evaluation-unified-pending";
 
@@ -12,7 +13,7 @@ export async function createUnifiedRun(body: string, { storage = sessionStorage,
     } catch { throw new Error("上次请求状态无法读取，请先核对运行记录。"); }
   }
   if (pending && pending.body !== body) throw new Error("上次提交结果尚未确认，请使用原题和原服务重试，或先核对运行记录。");
-  const key = pending?.key || crypto.randomUUID();
+  const key = pending?.key || createRequestKey();
   storage.setItem(pendingKey, JSON.stringify({ key, body }));
   const response = await request("/api/evaluation/unified/runs", { method: "POST", headers: { "Content-Type": "application/json", "Idempotency-Key": key }, body });
   const data = await response.json().catch(() => ({}));
