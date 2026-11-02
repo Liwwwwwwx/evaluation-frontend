@@ -137,7 +137,7 @@ export function QuestionDetailPage({ questionId, datasetVersion }: { questionId:
       if (current) {
         const response = await fetch(`/api/evaluation/unified/runs/${encodeURIComponent(current)}`, { cache: "no-store" });
         const run = await readJson<{ status: string }>(response);
-        if (["queued", "running", "scoring"].includes(run.status)) throw new Error("当前测评还未结束，请先返回查看。");
+        if (!["done", "error"].includes(run.status)) throw new Error("当前测评尚未结束或状态未知，请先返回查看。");
       }
       sessionStorage.setItem("evaluation-selected-question", JSON.stringify(question));
       sessionStorage.removeItem("evaluation-unified-run");

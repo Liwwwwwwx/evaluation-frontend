@@ -116,6 +116,7 @@ export function BatchComparisonPage({ batchId, basePath, preview = false }: { ba
           </div>
         </div>
         {stable.length > 0 && <p className={styles.note}>另有 {stable.length} 道题在阈值内持平，未列入变化清单。</p>}
+        {comparison.matchedQuestions > comparison.questions.length && <p className={styles.note}>另有 {comparison.matchedQuestions - comparison.questions.length} 道题未结束或缺少可比较的评分，暂不判断变化。</p>}
       </section> : <section className={styles.section} aria-labelledby="comparison-aggregate-title">
         <h2 id="comparison-aggregate-title">为什么没有逐题对比</h2>
         <p className={styles.note}>{comparison.reason || "本次没有同题同版本记录，只比较服务汇总。"}分数差仅在同一规则版本和同一模型下计算，不把不同版本直接相减。</p>
