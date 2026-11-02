@@ -1,0 +1,1214 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>新建测评 · Science 评测</title>
+<style>
+:root {
+  --color-bg: #fff;
+  --color-bg-subtle: #f7f7f7;
+  --color-bg-hover: #ededed;
+  --color-bg-selected: #e6e6e6;
+  --color-bg-disabled: #f1f1f1;
+  --color-fg: #18191b;
+  --color-fg-muted: #5c5d5f;
+  --color-fg-placeholder: #707274;
+  --color-fg-subtle: #8b8c8e;
+  --color-border: #e4e4e4;
+  --color-action: #191a1c;
+  --color-action-hover: #323335;
+  --color-action-fg: #fff;
+  --color-focus: #191a1c;
+  --color-danger: #b42318;
+  --color-success: #16794c;
+  --color-overlay: rgba(24, 25, 27, .32);
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-xl: 24px;
+  --radius-full: 999px;
+  --elev-2: 0 3px 16px rgba(16, 17, 19, .04);
+  --motion-fast: 120ms;
+  --ease-out: cubic-bezier(.2, 0, 0, 1);
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { min-height: 100%; margin: 0; }
+body { color: var(--color-fg); background: var(--color-bg); font: 14px/22px -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; -webkit-font-smoothing: antialiased; }
+a { color: inherit; text-decoration: none; }
+button, input, textarea, select { font: inherit; }
+button { cursor: pointer; }
+button:disabled { cursor: not-allowed; }
+button:focus-visible, a:focus-visible, select:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+textarea:focus, input:focus { outline: none; }
+svg { width: 20px; height: 20px; flex: none; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+
+.science-logo { width: 32px; height: 32px; flex: none; }
+.workspace { display: flex; min-height: 100svh; }
+.sidebar { width: 256px; flex: none; display: flex; flex-direction: column; background: var(--color-bg-subtle); padding: 16px 12px 12px; }
+.sidebar-header { min-height: 44px; display: flex; align-items: center; justify-content: space-between; padding: 0 8px; margin-bottom: 24px; }
+.brand { display: inline-flex; align-items: center; gap: 8px; font-size: 16px; line-height: 24px; font-weight: 600; }
+.brand b { font-weight: 400; }
+.navigation { display: grid; gap: 4px; }
+.nav-item { min-height: 40px; display: flex; align-items: center; gap: 12px; padding: 0 12px; border-radius: var(--radius-sm); font-size: 14px; }
+.nav-item.active { background: var(--color-bg-selected); font-weight: 600; }
+a.nav-item:hover { background: var(--color-bg-hover); }
+a.nav-item.active:hover { background: var(--color-bg-selected); }
+.nav-item svg { color: var(--color-fg-subtle); }
+.nav-item.active svg { color: var(--color-fg); }
+.sidebar-section { padding: 32px 12px 0; color: var(--color-fg-muted); font-size: 13px; line-height: 20px; font-weight: 600; }
+.sidebar-section p { margin: 16px 0 0; font-weight: 400; }
+.sidebar-footer { display: flex; align-items: center; gap: 8px; margin-top: auto; padding: 12px 8px 4px; }
+.avatar { width: 32px; height: 32px; display: grid; place-items: center; border-radius: var(--radius-full); background: var(--color-bg-selected); font-size: 13px; font-weight: 600; }
+.sidebar-footer div { display: grid; }
+.sidebar-footer strong { font-size: 13px; line-height: 20px; font-weight: 600; }
+.sidebar-footer small { color: var(--color-fg-muted); font-size: 12px; line-height: 18px; }
+
+.workspace-main { min-width: 0; flex: 1; display: flex; flex-direction: column; }
+.workspace-header { height: 64px; flex: none; display: flex; align-items: center; gap: 8px; padding: 0 32px; font-size: 16px; line-height: 24px; font-weight: 600; }
+.icon-button { width: 44px; height: 44px; display: inline-grid; place-items: center; padding: 0; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--color-fg); }
+.icon-button:hover { background: var(--color-bg-hover); }
+.mobile-menu { display: none; }
+.account { margin-left: auto; }
+.account-avatar { position: relative; width: 28px; height: 28px; display: grid; place-items: center; border-radius: var(--radius-full); background: var(--color-bg-selected); font-size: 13px; font-weight: 600; }
+.account-dot { position: absolute; right: 5px; bottom: 5px; width: 8px; height: 8px; border-radius: var(--radius-full); background: var(--color-success); }
+.mobile-drawer { display: none; }
+
+.stage-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px 32px 88px; }
+.stage-wrap.testing { justify-content: flex-start; padding-top: 40px; }
+.stage-inner { width: min(100%, 768px); }
+.stage-wrap.testing .stage-inner { width: min(100%, 1160px); }
+.entry-intro { text-align: center; }
+.entry-intro h1 { margin: 0; font-size: 28px; line-height: 36px; font-weight: 600; }
+.entry-intro p { margin: 8px 0 32px; color: var(--color-fg-muted); }
+
+.composer { padding: 14px 16px 12px; border: 1px solid var(--color-border); border-radius: var(--radius-xl); background: var(--color-bg); box-shadow: var(--elev-2), 0 10px 28px rgba(16, 17, 19, .04); text-align: left; transition: border-color var(--motion-fast) var(--ease-out); }
+.composer[data-disabled="true"] { background: var(--color-bg-subtle); }
+.source-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+.source-chip { display: inline-flex; align-items: center; gap: 4px; height: 26px; padding: 0 4px 0 10px; border-radius: var(--radius-full); background: var(--color-bg-subtle); color: var(--color-fg-muted); font-size: 12px; line-height: 18px; }
+.source-chip svg { width: 13px; height: 13px; }
+.chip-clear { width: 22px; height: 22px; display: inline-grid; place-items: center; padding: 0; border: 0; border-radius: var(--radius-full); background: transparent; color: var(--color-fg-muted); }
+.chip-clear:hover { background: var(--color-bg-selected); color: var(--color-fg); }
+.chip-clear svg { width: 12px; height: 12px; }
+.source-note { color: var(--color-fg-subtle); font-size: 12px; line-height: 18px; }
+
+.queue { display: grid; gap: 6px; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--color-border); }
+.queue-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--color-fg-muted); font-size: 12px; line-height: 18px; }
+.queue-head .text-button { font-size: 12px; }
+.queue-list { display: grid; gap: 2px; max-height: 168px; overflow: hidden auto; }
+.queue-row { display: flex; align-items: center; gap: 8px; min-width: 0; min-height: 34px; padding: 0 4px 0 6px; border-radius: 6px; font-size: 13px; line-height: 20px; }
+.queue-row:hover { background: var(--color-bg-subtle); }
+.queue-badge { flex: none; padding: 1px 8px; border-radius: var(--radius-full); background: var(--color-bg-subtle); color: var(--color-fg-muted); font-size: 11px; line-height: 16px; font-variant-numeric: tabular-nums; }
+.queue-row:hover .queue-badge { background: var(--color-bg-selected); }
+.queue-text { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.queue-row .chip-clear { opacity: .6; }
+.queue-row:hover .chip-clear { opacity: 1; }
+.send-batch { min-height: 40px; padding: 0 16px; }
+
+.composer textarea { width: 100%; min-height: 104px; display: block; padding: 2px 0 8px; resize: none; border: 0; background: transparent; color: var(--color-fg); font-size: 16px; line-height: 26px; }
+.composer textarea::placeholder { color: var(--color-fg-placeholder); opacity: 1; }
+.composer textarea:disabled { color: var(--color-fg-muted); }
+
+.composer-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.composer-tools { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.service-picker { position: relative; }
+.service-trigger { height: 30px; display: inline-flex; align-items: center; gap: 6px; padding: 0 8px 0 12px; border: 1px solid var(--color-border); border-radius: var(--radius-full); background: var(--color-bg); color: var(--color-fg); font-size: 13px; line-height: 20px; }
+.service-trigger:hover:not(:disabled) { background: var(--color-bg-subtle); }
+.service-trigger:disabled { color: var(--color-fg-subtle); }
+.service-trigger .chevron { width: 14px; height: 14px; color: var(--color-fg-subtle); transition: transform var(--motion-fast) var(--ease-out); }
+.service-trigger[aria-expanded="true"] .chevron { transform: rotate(180deg); }
+.service-menu { position: absolute; z-index: 40; left: 0; bottom: calc(100% + 6px); width: 208px; padding: 4px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-bg); box-shadow: 0 10px 32px rgba(16, 17, 19, .10), var(--elev-2); animation: menu-in 120ms var(--ease-out); }
+.service-option { width: 100%; height: 32px; display: flex; align-items: center; gap: 8px; padding: 0 8px; border: 0; border-radius: 6px; background: transparent; color: var(--color-fg); font-size: 13px; line-height: 20px; text-align: left; }
+.service-option:hover:not(:disabled) { background: var(--color-bg-subtle); }
+.service-option:disabled { color: var(--color-fg-subtle); cursor: not-allowed; }
+.opt-check { width: 14px; height: 14px; flex: none; visibility: hidden; }
+.opt-check svg { width: 14px; height: 14px; }
+.service-option.selected .opt-check { visibility: visible; }
+.service-option.selected { font-weight: 600; }
+.opt-tag { margin-left: auto; color: var(--color-fg-subtle); font-size: 11px; line-height: 16px; font-weight: 400; }
+@keyframes menu-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+.tool-button { height: 30px; display: inline-flex; align-items: center; gap: 6px; padding: 0 10px; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--color-fg-muted); font-size: 13px; line-height: 20px; white-space: nowrap; }
+.tool-button svg { width: 15px; height: 15px; }
+.tool-button:hover:not(:disabled) { background: var(--color-bg-hover); color: var(--color-fg); }
+.tool-button:disabled { color: var(--color-fg-subtle); }
+
+.composer-actions { display: flex; align-items: center; gap: 10px; }
+.char-count { color: var(--color-fg-subtle); font-size: 12px; line-height: 18px; font-variant-numeric: tabular-nums; }
+.char-count.over { color: var(--color-danger); font-weight: 600; }
+.send-button { width: 40px; height: 40px; display: grid; place-items: center; padding: 0; border: 0; border-radius: var(--radius-full); background: var(--color-action); color: var(--color-action-fg); transition: background var(--motion-fast) var(--ease-out); }
+.send-button:not(:disabled):hover { background: var(--color-action-hover); }
+.send-button:disabled { background: var(--color-bg-disabled); color: var(--color-fg-muted); }
+.send-button svg { width: 18px; height: 18px; }
+.spinner { width: 14px; height: 14px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin 700ms linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.compose-error { margin: 10px 2px 0; color: var(--color-danger); font-size: 13px; line-height: 20px; }
+.compose-hint { margin: 12px 2px 0; color: var(--color-fg-muted); font-size: 12px; line-height: 18px; text-align: center; }
+
+.task-view { display: flex; flex-direction: column; gap: 24px; }
+.task-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.task-meta { display: flex; align-items: center; gap: 8px; color: var(--color-fg-muted); font-size: 13px; line-height: 20px; }
+.status-dot { width: 6px; height: 6px; flex: none; border-radius: 50%; background: var(--color-fg-subtle); }
+.status-dot.running { background: var(--color-info); animation: pulse 1.4s var(--ease-out) infinite; }
+.status-dot.done { background: var(--color-success); }
+.status-dot.failed { background: var(--color-danger); }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+.text-button { padding: 4px 0; border: 0; background: transparent; color: var(--color-fg-muted); font-size: 13px; text-decoration: underline; }
+.text-button:hover { color: var(--color-fg); }
+.task-layout { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 40px; align-items: start; }
+.chat { display: flex; flex-direction: column; gap: 32px; min-width: 0; padding-top: 4px; }
+.msg-user { align-self: flex-end; max-width: min(100%, 560px); padding: 12px 16px; border-radius: 18px 18px 4px 18px; background: var(--color-bg-subtle); font-size: 16px; line-height: 26px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.msg-assistant { display: grid; gap: 10px; }
+.msg-head { display: flex; align-items: center; gap: 8px; color: var(--color-fg-muted); font-size: 12px; line-height: 18px; }
+.msg-head strong { color: var(--color-fg); font-size: 13px; line-height: 20px; font-weight: 600; }
+.msg-state { margin-left: auto; }
+.msg-body { margin: 0; font-size: 16px; line-height: 26px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.batch-list { display: grid; gap: 2px; }
+.batch-row { display: grid; grid-template-columns: 24px minmax(0, 1fr) 108px 40px; align-items: center; gap: 12px; width: 100%; padding: 12px 8px; border: 0; border-radius: 10px; background: transparent; color: var(--color-fg); text-align: left; }
+.batch-row:hover { background: var(--color-bg-subtle); }
+.batch-index { color: var(--color-fg-subtle); font-size: 12px; line-height: 18px; font-variant-numeric: tabular-nums; }
+.batch-body { min-width: 0; }
+.batch-question { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 14px; line-height: 22px; }
+.batch-meta { display: block; margin-top: 2px; color: var(--color-fg-muted); font-size: 12px; line-height: 18px; }
+.batch-state { display: flex; align-items: center; justify-content: flex-end; gap: 6px; color: var(--color-fg-muted); font-size: 12px; line-height: 18px; white-space: nowrap; }
+.batch-open { justify-self: end; color: var(--color-fg-muted); font-size: 12px; line-height: 18px; text-decoration: underline; }
+.batch-row:hover .batch-open { color: var(--color-fg); }
+.result-panel { position: sticky; top: 24px; max-height: calc(100vh - 48px); overflow-y: auto; overscroll-behavior: contain; display: grid; gap: 24px; padding: 20px; border: 1px solid var(--color-border); border-radius: 16px; background: var(--color-bg); }
+.panel-head h2 { margin: 0; font-size: 16px; line-height: 24px; font-weight: 600; }
+.panel-head p { margin: 4px 0 0; color: var(--color-fg-muted); font-size: 12px; line-height: 18px; }
+.panel-section { display: grid; gap: 12px; padding-top: 20px; border-top: 1px solid var(--color-border); }
+.panel-section h3 { margin: 0; color: var(--color-fg-muted); font-size: 12px; line-height: 18px; font-weight: 600; }
+.panel-meta { display: grid; gap: 8px; margin: 0; font-size: 13px; line-height: 20px; }
+.panel-meta > div { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.panel-meta dt { color: var(--color-fg-muted); }
+.panel-meta dd { margin: 0; text-align: right; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; }
+.score-card { display: grid; gap: 6px; padding: 12px 0; border-top: 1px solid var(--color-border); }
+.score-card:first-child { padding-top: 0; border-top: 0; }
+.score-card-head { display: flex; align-items: center; gap: 8px; min-height: 20px; }
+.score-card-head strong { font-size: 13px; line-height: 20px; font-weight: 600; }
+.score-value { margin-left: auto; color: var(--color-fg-muted); font-size: 13px; line-height: 20px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.score-value.done { color: var(--color-fg); font-weight: 600; }
+.score-text { margin: 0; color: var(--color-fg-muted); font-size: 13px; line-height: 20px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.score-note { margin: 0; color: var(--color-fg-subtle); font-size: 12px; line-height: 18px; }
+
+.search-field { position: relative; display: flex; align-items: center; }
+.search-field > svg { position: absolute; left: 10px; width: 16px; height: 16px; color: var(--color-fg-subtle); pointer-events: none; }
+.search-field input { width: 100%; height: 40px; padding: 0 12px 0 34px; border: 1px solid transparent; border-radius: var(--radius-sm); background: var(--color-bg-subtle); color: var(--color-fg); font-size: 13px; }
+.search-field input:hover { background: var(--color-bg-hover); }
+.search-field input::placeholder { color: var(--color-fg-placeholder); opacity: 1; }
+
+.primary-button, .secondary-button { min-height: 40px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 0 16px; border-radius: var(--radius-full); font-size: 14px; font-weight: 600; white-space: nowrap; }
+.primary-button { border: 1px solid var(--color-action); background: var(--color-action); color: var(--color-action-fg); }
+.primary-button:not(:disabled):hover { background: var(--color-action-hover); }
+.secondary-button { border: 1px solid var(--color-border); background: var(--color-bg); color: var(--color-fg); }
+.secondary-button:not(:disabled):hover { background: var(--color-bg-hover); }
+.primary-button:disabled, .secondary-button:disabled { border-color: var(--color-border); background: var(--color-bg-disabled); color: var(--color-fg-muted); }
+
+.picker-dialog { width: min(640px, calc(100% - 32px)); max-height: calc(100% - 32px); padding: 0; border: 1px solid var(--color-border); border-radius: 16px; background: var(--color-bg); color: var(--color-fg); }
+.picker-dialog::backdrop { background: var(--color-overlay); }
+.picker-content { max-height: calc(100vh - 80px); overflow: auto; padding: 24px; }
+.picker-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.picker-head h2 { margin: 0; font-size: 20px; line-height: 28px; font-weight: 600; }
+.picker-head p { margin: 8px 0 0; color: var(--color-fg-muted); font-size: 13px; line-height: 20px; }
+.picker-search { margin-top: 16px; }
+.picker-list { margin-top: 12px; }
+.picker-row { display: flex; align-items: flex-start; gap: 12px; width: 100%; padding: 12px; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--color-fg); text-align: left; }
+.picker-row:hover { background: var(--color-bg-subtle); }
+.picker-row.selected { background: var(--color-bg-selected); }
+.picker-check { flex: none; width: 16px; height: 16px; margin-top: 3px; display: inline-grid; place-content: center; border: 1px solid var(--color-fg-subtle); border-radius: 4px; background: var(--color-bg); transition: background var(--motion-fast) var(--ease-out), border-color var(--motion-fast) var(--ease-out); }
+.picker-check::before { content: ""; width: 9px; height: 9px; background: var(--color-action-fg); clip-path: polygon(14% 44%, 0 62%, 40% 100%, 100% 16%, 84% 0%, 39% 68%); transform: scale(0); transition: transform var(--motion-fast) var(--ease-out); }
+.picker-row.selected .picker-check { border-color: var(--color-action); background: var(--color-action); }
+.picker-row.selected .picker-check::before { transform: scale(1); }
+.picker-row.locked { cursor: default; }
+.picker-row.locked .picker-check { border-color: var(--color-fg-subtle); background: var(--color-bg-selected); }
+.picker-row.locked .picker-check::before { background: var(--color-fg-muted); transform: scale(1); }
+.picker-row.locked .picker-text { color: var(--color-fg-muted); }
+.picker-tag { align-self: center; margin-left: 8px; color: var(--color-fg-subtle); font-size: 11px; line-height: 16px; }
+.picker-body { flex: 1; min-width: 0; display: grid; gap: 4px; }
+.picker-meta { color: var(--color-fg-muted); font-size: 12px; line-height: 18px; font-variant-numeric: tabular-nums; }
+.picker-text { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: 14px; line-height: 22px; }
+.picker-empty { margin: 0; padding: 32px 12px; color: var(--color-fg-muted); font-size: 13px; text-align: center; }
+.picker-foot { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--color-border); }
+.picker-foot p { margin: 0; color: var(--color-fg-muted); font-size: 12px; line-height: 18px; }
+.picker-actions { display: flex; gap: 8px; }
+
+.toast-stack { position: fixed; z-index: 60; bottom: 24px; left: 50%; display: grid; gap: 8px; justify-items: center; width: max-content; max-width: calc(100% - 32px); transform: translateX(-50%); pointer-events: none; }.toast { display: flex; align-items: center; gap: 8px; max-width: 100%; padding: 10px 16px; border-radius: var(--radius-sm); background: var(--color-action); color: var(--color-action-fg); font-size: 13px; line-height: 20px; box-shadow: var(--elev-2); animation: toast-in 160ms var(--ease-out); }
+.toast::before { content: ""; width: 6px; height: 6px; flex: none; border-radius: 50%; background: currentColor; opacity: .55; }
+@keyframes toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+.proto-bar { position: fixed; z-index: 70; left: 16px; bottom: 16px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; max-width: calc(100% - 32px); padding: 8px 10px; border: 1px dashed var(--color-border); border-radius: var(--radius-md); background: var(--color-bg); box-shadow: var(--elev-2); }
+.proto-bar span { margin-right: 2px; color: var(--color-fg-subtle); font-size: 11px; line-height: 16px; }
+.proto-bar button { min-height: 28px; padding: 0 10px; border: 1px solid var(--color-border); border-radius: var(--radius-full); background: var(--color-bg); color: var(--color-fg-muted); font-size: 12px; line-height: 18px; }
+.proto-bar button:hover { background: var(--color-bg-hover); color: var(--color-fg); }
+.proto-bar button.selected { background: var(--color-bg-selected); color: var(--color-fg); font-weight: 600; }
+
+@media (max-width: 1199px) {
+  .task-layout { grid-template-columns: minmax(0, 1fr); gap: 32px; }
+  .result-panel { position: static; max-height: none; overflow: visible; }
+}
+@media (min-width: 768px) and (max-width: 1279px) { .workspace-header { padding-inline: 24px; } .stage-wrap { padding-inline: 24px; } }
+@media (max-width: 767px) {
+  .desktop-sidebar { display: none; }
+  .mobile-menu { display: inline-grid; margin-left: -8px; }
+  .workspace-header { height: 56px; padding: 0 16px; }
+  .stage-wrap { padding: 8px 16px 96px; }
+  .stage-wrap.testing { padding-top: 24px; }
+  .entry-intro h1 { font-size: 24px; line-height: 32px; }
+  .entry-intro p { margin-bottom: 24px; }
+  .composer { border-radius: 20px; }
+  .composer textarea { min-height: 120px; }
+  .source-note { display: none; }
+  .send-button { width: 44px; height: 44px; }
+  .msg-user { max-width: 100%; }
+  .batch-row { grid-template-columns: 20px minmax(0, 1fr) 92px; }
+  .batch-open { display: none; }
+  .picker-content { padding: 20px 16px; }
+  .picker-foot { flex-direction: column; align-items: stretch; gap: 12px; }
+  .picker-actions { justify-content: flex-end; }
+  .mobile-drawer[open] { display: block; position: fixed; inset: 0 auto 0 0; width: min(256px, 85vw); height: 100%; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; background: var(--color-bg-subtle); }
+  .mobile-drawer::backdrop { background: var(--color-overlay); }
+  .drawer-sidebar { width: 100%; min-height: 100%; }
+  .toast-stack { bottom: 88px; }
+}
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition-duration: 0s !important; animation-duration: 0s !important; } }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-grid" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="4" y="4" width="6" height="6" rx="1.4"/><rect x="14" y="4" width="6" height="6" rx="1.4"/><rect x="4" y="14" width="6" height="6" rx="1.4"/><rect x="14" y="14" width="6" height="6" rx="1.4"/></symbol>
+  <symbol id="i-book" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5.5A2.5 2.5 0 0 1 7.5 3H19v15.5H7.5A2.5 2.5 0 0 0 5 21V5.5Z"/><path d="M5 18.5A2.5 2.5 0 0 1 7.5 16H19"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 1.8"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+  <symbol id="i-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="m6 6 12 12M18 6 6 18"/></symbol>
+  <symbol id="i-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></symbol>
+  <symbol id="i-shuffle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h3.5c1.2 0 2.2.6 2.9 1.6L15 17c.7 1 1.7 1.6 2.9 1.6H21"/><path d="M3 17h3.5c1.2 0 2.2-.6 2.9-1.6l1.2-1.8"/><path d="M14 8.6l1-1.4c.7-1 1.7-1.6 2.9-1.6H21"/><path d="m18.4 3.6 2.4 2-2.4 2M18.4 16.6l2.4 2-2.4 2"/></symbol>
+  <symbol id="i-arrow-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M6 11l6-6 6 6"/></symbol>
+</svg>
+
+<div class="workspace">
+  <aside class="sidebar desktop-sidebar" aria-label="主导航">
+    <div class="sidebar-header">
+      <a class="brand" href="#" aria-label="Science 评测首页"><svg class="science-logo" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#1B2026"/><circle cx="16" cy="16" r="6.2" fill="none" stroke="#fff" stroke-width="1.8"/><circle cx="16" cy="16" r="1.8" fill="#fff"/><path d="M16 4.4v3M16 24.6v3M4.4 16h3M24.6 16h3" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/></svg><span>Science <b>评测</b></span></a>
+    </div>
+    <nav class="navigation" aria-label="工作空间">
+      <a class="nav-item" href="#"><svg><use href="#i-grid"/></svg><span>评测工作台</span></a>
+      <a class="nav-item" href="#"><svg><use href="#i-book"/></svg><span>题库</span></a>
+      <a class="nav-item active" href="#" aria-current="page"><svg><use href="#i-plus"/></svg><span>新建测评</span></a>
+      <a class="nav-item" href="#"><svg><use href="#i-clock"/></svg><span>运行记录</span></a>
+    </nav>
+    <div class="sidebar-section"><span>最近运行</span><p>创建后在这里显示最近一次运行</p></div>
+    <div class="sidebar-footer">
+      <div class="avatar" aria-hidden="true">李</div>
+      <div><strong>李伟</strong><small>研发测试</small></div>
+    </div>
+  </aside>
+
+  <dialog class="mobile-drawer" id="drawer" aria-label="主导航">
+    <div class="sidebar drawer-sidebar">
+      <div class="sidebar-header">
+        <span class="brand"><svg class="science-logo" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#1B2026"/><circle cx="16" cy="16" r="6.2" fill="none" stroke="#fff" stroke-width="1.8"/><circle cx="16" cy="16" r="1.8" fill="#fff"/><path d="M16 4.4v3M16 24.6v3M4.4 16h3M24.6 16h3" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/></svg><span>Science <b>评测</b></span></span>
+        <button class="icon-button" type="button" aria-label="关闭导航" onclick="document.getElementById('drawer').close()"><svg><use href="#i-close"/></svg></button>
+      </div>
+      <nav class="navigation" aria-label="工作空间">
+        <a class="nav-item" href="#"><svg><use href="#i-grid"/></svg><span>评测工作台</span></a>
+        <a class="nav-item" href="#"><svg><use href="#i-book"/></svg><span>题库</span></a>
+        <a class="nav-item active" href="#" aria-current="page"><svg><use href="#i-plus"/></svg><span>新建测评</span></a>
+        <a class="nav-item" href="#"><svg><use href="#i-clock"/></svg><span>运行记录</span></a>
+      </nav>
+    </div>
+  </dialog>
+
+  <div class="workspace-main">
+    <header class="workspace-header">
+      <button class="icon-button mobile-menu" type="button" aria-label="打开导航" onclick="document.getElementById('drawer').showModal()"><svg><use href="#i-menu"/></svg></button>
+      <div id="pageTitle">新建测评</div>
+      <div class="account">
+        <span class="account-avatar" aria-hidden="true">李<span class="account-dot"></span></span>
+      </div>
+    </header>
+
+    <main class="stage-wrap" id="stage">
+      <div class="stage-inner">
+        <section id="entry">
+          <div class="entry-intro">
+            <h1>要测评什么？</h1>
+            <p>选择服务，随机取一道题库题或直接输入，发起一次单题测评。</p>
+          </div>
+
+          <form class="composer" id="composer" data-disabled="false" novalidate>
+            <div class="queue" id="queue" hidden>
+              <div class="queue-head">
+                <span id="queueTitle">待发起 1 道</span>
+                <button type="button" class="text-button" id="queueClear">清空</button>
+              </div>
+              <div class="queue-list" id="queueList"></div>
+            </div>
+
+            <div class="source-row" id="sourceRow" hidden>
+              <span class="source-chip" id="sourceChip">
+                <svg aria-hidden="true"><use href="#i-book"/></svg>
+                <span id="sourceLabel">题库 · 固定题</span>
+                <button type="button" class="chip-clear" id="clearSource" aria-label="清除题库题目"><svg><use href="#i-close"/></svg></button>
+              </span>
+              <span class="source-note" id="sourceNote">不会修改题库原题</span>
+            </div>
+
+            <label class="sr-only" for="questionInput">题目内容</label>
+            <textarea id="questionInput" rows="3" maxlength="800" placeholder="输入要在 1110 上测评的题目，或从题库随机带入…"></textarea>
+
+            <div class="composer-bar">
+              <div class="composer-tools">
+                <div class="service-picker">
+                  <button type="button" class="service-trigger" id="serviceTrigger" aria-haspopup="listbox" aria-expanded="false" aria-controls="serviceMenu">
+                    <span id="serviceName">1110</span>
+                    <svg class="chevron" aria-hidden="true"><use href="#i-chevron"/></svg>
+                  </button>
+                  <div class="service-menu" id="serviceMenu" role="listbox" aria-label="选择服务" hidden>
+                    <button type="button" class="service-option selected" role="option" aria-selected="true" data-value="alpha-rsi">
+                      <span class="opt-check" aria-hidden="true"><svg><use href="#i-check"/></svg></span>
+                      <span>1110</span>
+                    </button>
+                    <button type="button" class="service-option" role="option" aria-selected="false" aria-disabled="true" disabled>
+                      <span class="opt-check" aria-hidden="true"><svg><use href="#i-check"/></svg></span>
+                      <span>合金材料</span><span class="opt-tag">未接入</span>
+                    </button>
+                    <button type="button" class="service-option" role="option" aria-selected="false" aria-disabled="true" disabled>
+                      <span class="opt-check" aria-hidden="true"><svg><use href="#i-check"/></svg></span>
+                      <span>文献</span><span class="opt-tag">未接入</span>
+                    </button>
+                    <button type="button" class="service-option" role="option" aria-selected="false" aria-disabled="true" disabled>
+                      <span class="opt-check" aria-hidden="true"><svg><use href="#i-check"/></svg></span>
+                      <span>航空文献</span><span class="opt-tag">未接入</span>
+                    </button>
+                    <button type="button" class="service-option" role="option" aria-selected="false" aria-disabled="true" disabled>
+                      <span class="opt-check" aria-hidden="true"><svg><use href="#i-check"/></svg></span>
+                      <span>综合任务</span><span class="opt-tag">未接入</span>
+                    </button>
+                    <button type="button" class="service-option" role="option" aria-selected="false" aria-disabled="true" disabled>
+                      <span class="opt-check" aria-hidden="true"><svg><use href="#i-check"/></svg></span>
+                      <span>新材料</span><span class="opt-tag">未接入</span>
+                    </button>
+                  </div>
+                </div>
+                <button type="button" class="tool-button" id="bankBtn">
+                  <svg aria-hidden="true"><use href="#i-book"/></svg><span>从题库选</span>
+                </button>
+                <button type="button" class="tool-button" id="randomBtn">
+                  <svg aria-hidden="true"><use href="#i-shuffle"/></svg><span id="randomLabel">随机一题</span>
+                </button>
+              </div>
+              <div class="composer-actions">
+                <button type="button" class="tool-button" id="queueAdd" hidden disabled>
+                  <svg aria-hidden="true"><use href="#i-plus"/></svg><span>加入待发起</span>
+                </button>
+                <span class="char-count" id="counter" hidden>0 / 500</span>
+                <button type="submit" class="send-button" id="sendBtn" aria-label="开始测评" disabled>
+                  <svg aria-hidden="true"><use href="#i-arrow-up"/></svg>
+                </button>
+              </div>
+            </div>
+          </form>
+
+          <p class="compose-error" id="composeError" hidden></p>
+          <p class="compose-hint" id="composeHint">一次运行只包含一道题 · 回答由 Markdown 机检、DeepSeek 与 Qwen 分别评分</p>
+        </section>
+
+        <section class="task-view" id="task" hidden>
+          <div class="task-head">
+            <div class="task-meta">
+              <span class="status-dot running" id="taskDot"></span>
+              <span id="taskStatus">运行中 · 1110 · 来自题库</span>
+            </div>
+            <button type="button" class="text-button" id="backBtn">返回运行记录</button>
+          </div>
+
+          <div class="task-layout">
+            <div class="chat" aria-label="测评对话">
+              <div class="msg-user" id="taskQuestion"></div>
+              <div class="msg-assistant">
+                <div class="msg-head">
+                  <strong>1110</strong>
+                  <span>回答</span>
+                  <span class="msg-state" id="answerState">流式输出中</span>
+                </div>
+                <p class="msg-body" id="answer"></p>
+              </div>
+            </div>
+
+            <aside class="result-panel" aria-labelledby="resultTitle">
+              <div class="panel-head">
+                <h2 id="resultTitle">测评结果</h2>
+                <p>运行结束不代表题目要求已完成</p>
+              </div>
+
+              <section class="panel-section">
+                <h3>运行信息</h3>
+                <dl class="panel-meta">
+                  <div><dt>服务</dt><dd>1110</dd></div>
+                  <div><dt>来源</dt><dd id="metaSource">题库 Q-1042</dd></div>
+                  <div><dt>数据集</dt><dd id="metaDataset">v2026.09</dd></div>
+                  <div><dt>运行 ID</dt><dd class="mono" id="metaRunId">R-20261029-001</dd></div>
+                </dl>
+              </section>
+
+              <section class="panel-section">
+                <h3>评分</h3>
+                <div class="score-list">
+                  <div class="score-card">
+                    <div class="score-card-head">
+                      <span class="status-dot" id="dotCheck"></span>
+                      <strong>Markdown 机检</strong>
+                      <span class="score-value" id="valueCheck">等待运行结束</span>
+                    </div>
+                    <p class="score-text" id="textCheck" hidden></p>
+                  </div>
+                  <div class="score-card">
+                    <div class="score-card-head">
+                      <span class="status-dot" id="dotDeep"></span>
+                      <strong>DeepSeek</strong>
+                      <span class="score-value" id="valueDeep">等待运行结束</span>
+                    </div>
+                    <p class="score-text" id="textDeep" hidden></p>
+                  </div>
+                  <div class="score-card">
+                    <div class="score-card-head">
+                      <span class="status-dot" id="dotQwen"></span>
+                      <strong>Qwen</strong>
+                      <span class="score-value" id="valueQwen">等待运行结束</span>
+                    </div>
+                    <p class="score-text" id="textQwen" hidden></p>
+                  </div>
+                </div>
+              </section>
+
+              <p class="score-note">示例评分与说明仅用于预览排版，非真实结果；实际失败、缺失或未配置会分别标注，不会显示为零分。</p>
+            </aside>
+          </div>
+        </section>
+
+        <section class="task-view" id="batch" hidden>
+          <div class="task-head">
+            <div class="task-meta">
+              <span class="status-dot running" id="batchDot"></span>
+              <span id="batchStatus">运行中 · 0/0 已完成</span>
+            </div>
+            <button type="button" class="text-button" id="batchBack">返回新建测评</button>
+          </div>
+
+          <div class="task-layout">
+            <div class="batch-list" id="batchList" aria-label="批次中的运行"></div>
+
+            <aside class="result-panel" aria-labelledby="batchPanelTitle">
+              <div class="panel-head">
+                <h2 id="batchPanelTitle">批次信息</h2>
+                <p>每条题目各自独立运行与评分，可逐条查看</p>
+              </div>
+
+              <section class="panel-section">
+                <h3>运行信息</h3>
+                <dl class="panel-meta">
+                  <div><dt>服务</dt><dd>1110</dd></div>
+                  <div><dt>题数</dt><dd id="batchCount">0</dd></div>
+                  <div><dt>批次 ID</dt><dd class="mono">B-20261029-01</dd></div>
+                  <div><dt>状态</dt><dd id="batchState">运行中</dd></div>
+                </dl>
+              </section>
+
+              <p class="score-note">批次不改变单次运行的含义：某一题失败或评分缺失，只影响该题。</p>
+            </aside>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+</div>
+
+<dialog class="picker-dialog" id="pickerDialog" aria-labelledby="pickerTitle">
+  <div class="picker-content">
+    <div class="picker-head">
+      <div>
+        <h2 id="pickerTitle">从题库选择</h2>
+        <p>服务 1110 · 只显示适用于该服务的题目</p>
+      </div>
+      <button type="button" class="icon-button" id="pickerClose" aria-label="关闭题库"><svg><use href="#i-close"/></svg></button>
+    </div>
+    <div class="search-field picker-search">
+      <svg aria-hidden="true"><use href="#i-search"/></svg>
+      <label class="sr-only" for="pickerSearch">搜索题目</label>
+      <input id="pickerSearch" type="search" placeholder="搜索题面或题号" autocomplete="off">
+    </div>
+    <div class="picker-list" id="pickerList" role="listbox" aria-label="题目列表"></div>
+    <div class="picker-foot">
+      <p id="pickerMeta">共 4 道可用题目</p>
+      <div class="picker-actions">
+        <button type="button" class="secondary-button" id="pickerCancel">取消</button>
+        <button type="button" class="primary-button" id="pickerConfirm" disabled>使用此题</button>
+      </div>
+    </div>
+  </div>
+</dialog>
+
+<div class="proto-bar" role="group" aria-label="原型状态">
+  <span>原型状态</span>
+  <button type="button" data-state="empty">初始</button>
+  <button type="button" data-state="bank">随机带入</button>
+  <button type="button" data-state="picker">选题弹窗</button>
+  <button type="button" data-state="queue">多选队列</button>
+  <button type="button" data-state="manual">直接输入</button>
+  <button type="button" data-state="overflow">超长</button>
+  <button type="button" data-state="submitting">创建中</button>
+  <button type="button" data-state="running">运行中（流式）</button>
+  <button type="button" data-state="scored">评分完成</button>
+  <button type="button" data-state="batch">批次运行</button>
+  <button type="button" data-state="failed">创建失败</button>
+</div>
+<div class="toast-stack" id="toasts" aria-live="polite"></div>
+
+<script>
+const $ = (sel) => document.querySelector(sel);
+const MAX = 500;
+const BANK = [
+  { id: 'Q-1042', text: '在标准大气压（101.325 kPa）下，纯水在 0 °C 时结冰。如果向水中加入少量 NaCl，冰点会如何变化？请结合依数性解释原因。', type: '固定题', version: 'v2026.09' },
+  { id: 'Q-0871', text: '请解释为什么晴天的天空呈蓝色，而日落时天空偏红，并从散射强度与光程角度说明两者差异。', type: '固定题', version: 'v2026.09' },
+  { id: 'Q-0956', text: '用伏安法测量一个约 200 Ω 的电阻时，电流表内接与外接分别会引入什么方向的系统误差？在什么条件下误差更小？', type: '固定题', version: 'v2026.08' },
+  { id: 'Q-1103', text: '在光合作用的光反应阶段，ATP 与 NADPH 分别在类囊体膜的哪一侧、通过什么过程生成？它们随后如何被暗反应利用？', type: '随机题', version: 'v2026.09' }
+];
+const SAMPLE_ANSWER = '加入少量 NaCl 后，水的冰点会降低，而不是升高。原因是溶质粒子占据了一部分水分子之间的位置，使液相的熵增大；在相同温度下，该溶液的化学势低于纯水，因此需要更低的温度才能与冰建立平衡。这一现象属于稀溶液的依数性，降低幅度与溶质粒子的质量摩尔浓度近似成正比，而与粒子种类无关。以上解释未核验具体数值。';
+
+const composer = $('#composer');
+const input = $('#questionInput');
+const counter = $('#counter');
+const sendBtn = $('#sendBtn');
+const randomBtn = $('#randomBtn');
+const randomLabel = $('#randomLabel');
+const serviceTrigger = $('#serviceTrigger');
+const serviceMenu = $('#serviceMenu');
+const serviceName = $('#serviceName');
+const sourceRow = $('#sourceRow');
+const sourceLabel = $('#sourceLabel');
+const sourceNote = $('#sourceNote');
+const bankBtn = $('#bankBtn');
+const pickerDialog = $('#pickerDialog');
+const pickerList = $('#pickerList');
+const pickerSearch = $('#pickerSearch');
+const pickerConfirm = $('#pickerConfirm');
+const pickerMeta = $('#pickerMeta');
+const composeError = $('#composeError');
+const composeHint = $('#composeHint');
+const stage = $('#stage');
+const entry = $('#entry');
+const task = $('#task');
+const batch = $('#batch');
+const batchList = $('#batchList');
+const batchStatus = $('#batchStatus');
+const batchDot = $('#batchDot');
+const batchState = $('#batchState');
+const batchCount = $('#batchCount');
+const queueEl = $('#queue');
+const queueList = $('#queueList');
+const queueTitle = $('#queueTitle');
+const queueAdd = $('#queueAdd');
+const answerEl = $('#answer');
+const taskQuestion = $('#taskQuestion');
+const taskStatus = $('#taskStatus');
+const taskDot = $('#taskDot');
+const answerState = $('#answerState');
+const HINT = '一次运行只包含一道题 · 回答由 Markdown 机检、DeepSeek 与 Qwen 分别评分';
+
+let bankMeta = null;
+let pickedIds = new Set();
+let queue = [];
+let queueSeq = 0;
+let batchItems = [];
+let inputValid = false;
+let taskOrigin = '直接输入';
+let busy = false;
+let streamTimer = null;
+let batchTimers = [];
+let returnToBatch = false;
+
+function toast(message) {
+  const stack = $('#toasts');
+  const node = document.createElement('div');
+  node.className = 'toast';
+  node.textContent = message;
+  stack.appendChild(node);
+  setTimeout(() => node.remove(), 3200);
+}
+
+function setBusy(value) {
+  busy = value;
+  composer.dataset.disabled = String(value);
+  input.disabled = value;
+  serviceTrigger.disabled = value;
+  randomBtn.disabled = value;
+  bankBtn.disabled = value;
+  queueAdd.disabled = value || !inputValid;
+  if (value) closeServiceMenu();
+  if (value && pickerDialog.open) pickerDialog.close();
+  updateSend();
+}
+
+function openServiceMenu() {
+  if (serviceTrigger.disabled) return;
+  serviceMenu.hidden = false;
+  serviceTrigger.setAttribute('aria-expanded', 'true');
+}
+
+function closeServiceMenu() {
+  serviceMenu.hidden = true;
+  serviceTrigger.setAttribute('aria-expanded', 'false');
+}
+
+serviceTrigger.addEventListener('click', (event) => {
+  event.stopPropagation();
+  if (serviceMenu.hidden) openServiceMenu(); else closeServiceMenu();
+});
+
+serviceTrigger.addEventListener('keydown', (event) => {
+  if (event.key === 'ArrowDown') {
+    event.preventDefault();
+    openServiceMenu();
+    const first = serviceMenu.querySelector('.service-option:not(:disabled)');
+    if (first) first.focus();
+  }
+  if (event.key === 'Escape') closeServiceMenu();
+});
+
+serviceMenu.addEventListener('click', (event) => {
+  const option = event.target.closest('.service-option');
+  if (!option || option.disabled) return;
+  serviceMenu.querySelectorAll('.service-option').forEach((item) => {
+    const on = item === option;
+    item.classList.toggle('selected', on);
+    item.setAttribute('aria-selected', String(on));
+  });
+  serviceName.textContent = option.querySelector('span:nth-of-type(2)').textContent;
+  closeServiceMenu();
+  serviceTrigger.focus();
+});
+
+document.addEventListener('click', (event) => {
+  if (!serviceMenu.hidden && !event.target.closest('.service-picker')) closeServiceMenu();
+});
+
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') closeServiceMenu();
+});
+
+const escapeHtml = (value) => value.replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+
+function updatePickerConfirm() {
+  const count = pickedIds.size;
+  pickerConfirm.textContent = count ? `加入 ${count} 道题` : '加入待发起';
+  pickerConfirm.disabled = count === 0;
+}
+
+function renderPicker(query) {
+  const keyword = query.trim().toLowerCase();
+  const items = BANK.filter((item) => !keyword || item.text.toLowerCase().includes(keyword) || item.id.toLowerCase().includes(keyword));
+  const queued = new Set(queue.filter((item) => item.origin === 'bank').map((item) => item.id));
+
+  pickerList.innerHTML = items.length
+    ? items.map((item) => {
+      const locked = queued.has(item.id);
+      const selected = !locked && pickedIds.has(item.id);
+      return `
+      <button type="button" class="picker-row${selected ? ' selected' : ''}${locked ? ' locked' : ''}" role="option" aria-selected="${selected || locked}"${locked ? ' aria-disabled="true"' : ''} data-id="${item.id}">
+        <span class="picker-check" aria-hidden="true"></span>
+        <span class="picker-body">
+          <span class="picker-meta">${item.id} · ${item.type} · 数据集 ${item.version}</span>
+          <span class="picker-text">${escapeHtml(item.text)}</span>
+        </span>
+        ${locked ? '<span class="picker-tag">已加入</span>' : ''}
+      </button>`;
+    }).join('')
+    : '<p class="picker-empty">没有匹配的题目。</p>';
+
+  pickerMeta.textContent = items.length ? `共 ${items.length} 道可用题目` : '0 道可用题目';
+  updatePickerConfirm();
+}
+
+function openPicker() {
+  pickedIds = new Set();
+  pickerSearch.value = '';
+  renderPicker('');
+  pickerDialog.showModal();
+  pickerSearch.focus();
+}
+
+bankBtn.addEventListener('click', openPicker);
+pickerSearch.addEventListener('input', () => renderPicker(pickerSearch.value));
+
+pickerList.addEventListener('click', (event) => {
+  const row = event.target.closest('.picker-row');
+  if (!row || row.classList.contains('locked')) return;
+  const id = row.dataset.id;
+  if (pickedIds.has(id)) pickedIds.delete(id); else pickedIds.add(id);
+  const on = pickedIds.has(id);
+  row.classList.toggle('selected', on);
+  row.setAttribute('aria-selected', String(on));
+  updatePickerConfirm();
+});
+
+pickerConfirm.addEventListener('click', () => {
+  const picks = BANK.filter((item) => pickedIds.has(item.id)).map(makeBankItem);
+  if (!picks.length) return;
+  addToQueue(picks);
+  pickerDialog.close();
+  toast(`已加入 ${picks.length} 道题到待发起`);
+  input.focus();
+});
+
+$('#pickerCancel').addEventListener('click', () => pickerDialog.close());
+$('#pickerClose').addEventListener('click', () => pickerDialog.close());
+pickerDialog.addEventListener('click', (event) => {
+  if (event.target === pickerDialog) pickerDialog.close();
+});
+
+function updateSend() {
+  if (busy) {
+    sendBtn.className = 'send-button';
+    sendBtn.innerHTML = '<span class="spinner" aria-hidden="true"></span>';
+    sendBtn.disabled = true;
+    queueAdd.hidden = queue.length === 0;
+    queueAdd.disabled = true;
+    return;
+  }
+  if (queue.length) {
+    sendBtn.className = 'primary-button send-batch';
+    sendBtn.textContent = `发起 ${queue.length} 个`;
+    sendBtn.disabled = false;
+    queueAdd.hidden = false;
+    queueAdd.disabled = !inputValid;
+  } else {
+    sendBtn.className = 'send-button';
+    sendBtn.innerHTML = '<svg aria-hidden="true"><use href="#i-arrow-up"/></svg>';
+    sendBtn.disabled = !inputValid;
+    queueAdd.hidden = true;
+  }
+}
+
+function updateHint() {
+  if (busy) return;
+  if (queue.length) {
+    composeHint.textContent = inputValid
+      ? '输入框中的题目尚未加入待发起'
+      : `待发起 ${queue.length} 条，发起后各自独立运行与评分`;
+    return;
+  }
+  if (!bankMeta) composeHint.textContent = HINT;
+}
+
+function validate() {
+  const length = input.value.length;
+  const trimmed = input.value.trim();
+  const over = length > MAX;
+
+  counter.hidden = length === 0;
+  counter.textContent = `${length} / ${MAX}`;
+  counter.classList.toggle('over', over);
+
+  let message = '';
+  if (over) message = `题目超出 ${length - MAX} 个字符，请精简后再发起。`;
+  else if (trimmed && trimmed.length < 8) message = '题目过短，至少需要 8 个字符。';
+  composeError.textContent = message;
+  composeError.hidden = !message;
+
+  inputValid = Boolean(trimmed) && !over && trimmed.length >= 8;
+  updateSend();
+  updateHint();
+}
+
+function setBank(pick) {
+  bankMeta = pick;
+  input.value = pick.text;
+  sourceRow.hidden = false;
+  sourceLabel.textContent = `题库 ${pick.id} · ${pick.type}`;
+  sourceNote.textContent = `数据集 ${pick.version} · 不会修改题库原题`;
+  randomLabel.textContent = '换一题';
+  composeHint.textContent = HINT;
+  validate();
+}
+
+function clearBank(keepText) {
+  bankMeta = null;
+  sourceRow.hidden = true;
+  randomLabel.textContent = '随机一题';
+  composeHint.textContent = HINT;
+  if (!keepText) input.value = '';
+  validate();
+}
+
+const makeBankItem = (item) => ({ origin: 'bank', id: item.id, text: item.text, type: item.type, version: item.version });
+const queueKey = (item) => (item.origin === 'bank' ? `bank:${item.id}` : item.key);
+
+function makeManualItem(text) {
+  queueSeq += 1;
+  return { origin: 'manual', key: `manual:${queueSeq}`, text };
+}
+
+function renderQueue() {
+  queueEl.hidden = queue.length === 0;
+  queueTitle.textContent = `待发起 ${queue.length} 道`;
+  queueList.innerHTML = queue.map((item, index) => `
+    <div class="queue-row">
+      <span class="queue-badge">${item.origin === 'bank' ? escapeHtml(item.id) : '直接输入'}</span>
+      <span class="queue-text" title="${escapeHtml(item.text)}">${escapeHtml(item.text)}</span>
+      <button type="button" class="chip-clear" data-remove="${index}" aria-label="移除第 ${index + 1} 条"><svg aria-hidden="true"><use href="#i-close"/></svg></button>
+    </div>`).join('');
+  updateSend();
+  updateHint();
+}
+
+function addToQueue(items) {
+  const existing = new Set(queue.map(queueKey));
+  items.forEach((item) => {
+    const key = queueKey(item);
+    if (existing.has(key)) return;
+    existing.add(key);
+    queue.push(item);
+  });
+  renderQueue();
+}
+
+function clearQueue() {
+  queue = [];
+  renderQueue();
+}
+
+queueList.addEventListener('click', (event) => {
+  const btn = event.target.closest('[data-remove]');
+  if (!btn) return;
+  queue.splice(Number(btn.dataset.remove), 1);
+  renderQueue();
+  validate();
+});
+
+$('#queueClear').addEventListener('click', () => {
+  clearQueue();
+  validate();
+});
+
+queueAdd.addEventListener('click', () => {
+  if (queueAdd.disabled) return;
+  addToQueue([makeManualItem(input.value.trim())]);
+  clearBank(false);
+  toast('已加入待发起');
+  input.focus();
+});
+
+function resetEntry() {
+  clearTimeout(streamTimer);
+  streamTimer = null;
+  clearBatchTimers();
+  returnToBatch = false;
+  closeServiceMenu();
+  if (pickerDialog.open) pickerDialog.close();
+  stage.classList.remove('testing');
+  $('#pageTitle').textContent = '新建测评';
+  task.hidden = true;
+  batch.hidden = true;
+  entry.hidden = false;
+  clearQueue();
+  clearBank(false);
+  setBusy(false);
+  composeError.hidden = true;
+  composeHint.textContent = HINT;
+}
+
+function resetTaskStatus() {
+  taskDot.className = 'status-dot running';
+  taskStatus.textContent = '运行中 · 1110';
+  answerState.textContent = '流式输出中';
+  answerEl.innerHTML = '';
+  ['Check', 'Deep', 'Qwen'].forEach(name => {
+    $(`#dot${name}`).className = 'status-dot';
+    const value = $(`#value${name}`);
+    value.textContent = '等待运行结束';
+    value.classList.remove('done');
+    const text = $(`#text${name}`);
+    text.textContent = '';
+    text.hidden = true;
+  });
+}
+
+const DEMO_SCORES = {
+  Check: {
+    value: '通过',
+    text: '发现 2 处 Markdown 结构提示：第 3 段与前文之间缺少空行；公式未使用行内代码包裹。机检只覆盖已有检查规则，不代表内容正确。'
+  },
+  Deep: {
+    value: '80 / 100',
+    text: '原分 4 / 5（按 ÷5×100 换算）。回答准确区分了冰点降低与化学势的关系，术语使用正确；对“降低幅度与浓度成正比”的表述未提及活度修正，浓溶液下可能不成立。'
+  },
+  Qwen: {
+    value: '60 / 100',
+    text: '原分 3 / 5（按 ÷5×100 换算）。主要结论正确，但对“液相熵增大”的解释过于简略，未说明溶质粒子数对依数性的影响，可读性一般。'
+  }
+};
+
+function applyDemoScores() {
+  Object.entries(DEMO_SCORES).forEach(([name, data]) => {
+    $(`#dot${name}`).className = 'status-dot done';
+    const value = $(`#value${name}`);
+    value.textContent = data.value;
+    value.classList.add('done');
+    const text = $(`#text${name}`);
+    text.textContent = data.text;
+    text.hidden = false;
+  });
+}
+
+function openTask(question, origin, dataset, options = {}) {
+  if (options.fromBatch) {
+    closeServiceMenu();
+    if (pickerDialog.open) pickerDialog.close();
+    clearTimeout(streamTimer);
+    streamTimer = null;
+  } else {
+    resetEntry();
+  }
+  entry.hidden = true;
+  batch.hidden = true;
+  task.hidden = false;
+  stage.classList.add('testing');
+  $('#pageTitle').textContent = '运行详情';
+  returnToBatch = Boolean(options.fromBatch);
+  $('#backBtn').textContent = returnToBatch ? '返回批次' : '返回运行记录';
+  taskQuestion.textContent = question;
+  taskOrigin = origin;
+  $('#metaSource').textContent = origin;
+  $('#metaDataset').textContent = dataset || '不适用（直接输入）';
+  resetTaskStatus();
+  taskStatus.textContent = `运行中 · 1110 · ${origin}`;
+
+  if (options.instant) {
+    answerEl.textContent = SAMPLE_ANSWER;
+    finishTask();
+    if (options.scored) applyDemoScores();
+    return;
+  }
+
+  let index = 0;
+  clearInterval(streamTimer);
+  streamTimer = setInterval(() => {
+    index = Math.min(index + 4, SAMPLE_ANSWER.length);
+    answerEl.textContent = SAMPLE_ANSWER.slice(0, index);
+    if (index >= SAMPLE_ANSWER.length) {
+      clearInterval(streamTimer);
+      streamTimer = null;
+      finishTask();
+    }
+  }, 36);
+}
+
+function finishTask() {
+  taskDot.className = 'status-dot done';
+  taskStatus.textContent = `已结束 · 1110 · ${taskOrigin}`;
+  answerState.textContent = '已完整输出';
+  ['Check', 'Deep', 'Qwen'].forEach(name => {
+    $(`#dot${name}`).className = 'status-dot running';
+    const value = $(`#value${name}`);
+    value.textContent = name === 'Check' ? '机检中' : '评分中';
+    value.classList.remove('done');
+    const text = $(`#text${name}`);
+    text.textContent = '评分完成后在此显示结论说明。';
+    text.hidden = false;
+  });
+}
+
+function setBatchRow(index, state, text) {
+  const row = batchList.querySelector(`.batch-row[data-index="${index}"]`);
+  if (!row) return;
+  const dot = row.querySelector('.status-dot');
+  dot.className = 'status-dot' + (state === 'running' ? ' running' : state === 'done' ? ' done' : '');
+  row.querySelector('.state-text').textContent = text;
+}
+
+function clearBatchTimers() {
+  batchTimers.forEach(clearTimeout);
+  batchTimers = [];
+}
+
+function runBatch(items) {
+  clearBatchTimers();
+  let current = 0;
+  const step = () => {
+    if (current >= items.length) {
+      batchDot.className = 'status-dot done';
+      batchStatus.textContent = `已结束 · ${items.length}/${items.length} 已完成`;
+      batchState.textContent = '已结束';
+      return;
+    }
+    setBatchRow(current, 'running', '运行中');
+    batchTimers.push(setTimeout(() => {
+      setBatchRow(current, 'done', '已结束');
+      current += 1;
+      batchStatus.textContent = `运行中 · ${current}/${items.length} 已完成`;
+      step();
+    }, 1600));
+  };
+  step();
+}
+
+function startBatch(items) {
+  resetEntry();
+  batchItems = items;
+  entry.hidden = true;
+  task.hidden = true;
+  batch.hidden = false;
+  stage.classList.add('testing');
+  $('#pageTitle').textContent = '批次详情';
+  batchCount.textContent = String(items.length);
+  batchState.textContent = '运行中';
+  batchDot.className = 'status-dot running';
+  batchStatus.textContent = `运行中 · 0/${items.length} 已完成`;
+  batchList.innerHTML = items.map((item, index) => `
+    <button type="button" class="batch-row" data-index="${index}">
+      <span class="batch-index">${index + 1}</span>
+      <span class="batch-body">
+        <span class="batch-question" title="${escapeHtml(item.text)}">${escapeHtml(item.text)}</span>
+        <span class="batch-meta">${item.origin === 'bank' ? `题库 ${escapeHtml(item.id)} · 数据集 ${escapeHtml(item.version)}` : '直接输入'}</span>
+      </span>
+      <span class="batch-state"><span class="status-dot"></span><span class="state-text">排队中</span></span>
+      <span class="batch-open">查看</span>
+    </button>`).join('');
+  runBatch(items);
+}
+
+batchList.addEventListener('click', (event) => {
+  const row = event.target.closest('.batch-row');
+  if (!row) return;
+  const item = batchItems[Number(row.dataset.index)];
+  if (!item) return;
+  openTask(
+    item.text,
+    item.origin === 'bank' ? `题库 ${item.id}` : '直接输入',
+    item.version,
+    { instant: true, fromBatch: true }
+  );
+});
+
+$('#batchBack').addEventListener('click', resetEntry);
+
+input.addEventListener('input', () => {
+  if (bankMeta) {
+    const original = bankMeta.text;
+    if (input.value !== original) {
+      bankMeta = null;
+      sourceRow.hidden = true;
+      randomLabel.textContent = '随机一题';
+      composeHint.textContent = '已编辑题目，将按直接输入运行，题库原题不受影响';
+    }
+  }
+  validate();
+});
+
+$('#clearSource').addEventListener('click', () => clearBank(false));
+
+randomBtn.addEventListener('click', () => {
+  const pool = BANK.filter(item => item.text !== input.value);
+  setBank(pool[Math.floor(Math.random() * pool.length)]);
+  input.focus();
+});
+
+composer.addEventListener('submit', (event) => {
+  event.preventDefault();
+  if (sendBtn.disabled || busy) return;
+  composeError.hidden = true;
+
+  if (queue.length) {
+    const items = queue.slice();
+    setBusy(true);
+    composeHint.textContent = `正在创建 ${items.length} 个测评，请勿关闭页面`;
+    setTimeout(() => {
+      setBusy(false);
+      queue = [];
+      renderQueue();
+      toast(`已创建 ${items.length} 个测评`);
+      startBatch(items);
+    }, 900);
+    return;
+  }
+
+  const question = input.value.trim();
+  const origin = bankMeta ? `题库 ${bankMeta.id}` : '直接输入';
+  const dataset = bankMeta ? bankMeta.version : null;
+  setBusy(true);
+  composeHint.textContent = '正在创建运行，请勿关闭页面';
+
+  setTimeout(() => {
+    setBusy(false);
+    toast('已创建运行 R-20261029-001');
+    openTask(question, origin, dataset);
+  }, 900);
+});
+
+$('#backBtn').addEventListener('click', () => {
+  if (returnToBatch) {
+    clearTimeout(streamTimer);
+    streamTimer = null;
+    task.hidden = true;
+    batch.hidden = false;
+    entry.hidden = true;
+    stage.classList.add('testing');
+    $('#pageTitle').textContent = '批次详情';
+    returnToBatch = false;
+    return;
+  }
+  resetEntry();
+});
+
+function setState(name) {
+  resetEntry();
+  document.querySelectorAll('.proto-bar button').forEach(button => {
+    button.classList.toggle('selected', button.dataset.state === name);
+  });
+
+  if (name === 'empty') {
+    // 默认空态
+  } else if (name === 'bank') {
+    setBank(BANK[0]);
+  } else if (name === 'manual') {
+    input.value = '请解释为什么在相同温度和压力下，二氧化碳在水中的溶解度显著高于氮气，并从分子间作用力的角度说明原因。';
+    validate();
+  } else if (name === 'overflow') {
+    input.value = '请解释为什么在相同温度和压力下，二氧化碳在水中的溶解度显著高于氮气。'.repeat(17);
+    validate();
+  } else if (name === 'submitting') {
+    setBank(BANK[2]);
+    setBusy(true);
+    composeHint.textContent = '正在创建运行，请勿关闭页面';
+  } else if (name === 'picker') {
+    openPicker();
+  } else if (name === 'queue') {
+    addToQueue([makeBankItem(BANK[0]), makeBankItem(BANK[1]), makeBankItem(BANK[2])]);
+    validate();
+  } else if (name === 'batch') {
+    startBatch([makeBankItem(BANK[0]), makeBankItem(BANK[1]), makeBankItem(BANK[2])]);
+  } else if (name === 'running') {
+    openTask(BANK[0].text, `题库 ${BANK[0].id}`, BANK[0].version);
+  } else if (name === 'scored') {
+    openTask(BANK[0].text, `题库 ${BANK[0].id}`, BANK[0].version, { instant: true, scored: true });
+  } else if (name === 'failed') {
+    input.value = '请解释为什么在相同温度和压力下，二氧化碳在水中的溶解度显著高于氮气，并从分子间作用力的角度说明原因。';
+    validate();
+    composeError.textContent = '创建失败：服务暂时不可用。题目已保留，可直接重试。';
+    composeError.hidden = false;
+  }
+}
+
+document.querySelectorAll('.proto-bar button').forEach(button => {
+  button.addEventListener('click', () => setState(button.dataset.state));
+});
+
+setState('empty');
+</script>
+</body>
+</html>

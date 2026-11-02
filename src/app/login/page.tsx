@@ -1,10 +1,12 @@
 import { LoginForm } from "@/components/login-form";
+import { ThemeSelect } from "@/components/theme-controls";
 import { Logo } from "@/components/logo";
 import Link from "next/link";
 
 export default function LoginPage() {
   return <main className="login-page">
-    <Link href="/" className="login-brand"><Logo /><span>Science <b>评测</b></span></Link>
+    <header className="login-header"><Link href="/" className="login-brand"><Logo /><span>Science <b>评测</b></span></Link>
+    <ThemeSelect /></header>
     <section className="login-content" aria-labelledby="login-title">
       <Logo className="login-mark" />
       <h1 id="login-title">欢迎回来</h1>

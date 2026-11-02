@@ -7,17 +7,31 @@
     "build": "next build",
     "start": "next start -p 6714",
     "lint": "eslint",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "test:markdown": "node --test test/answer-markdown.test.mjs",
+    "test:services": "node --test test/run-service-details.test.mjs test/unified-run-recovery.test.mjs test/evaluation-services.test.mjs test/unified-run-watch.test.mjs test/conversation-answer.test.mjs",
+    "test:scoring": "node --test test/scoring.test.mjs",
+    "test:theme": "node --test test/theme.test.mjs"
   },
   "dependencies": {
+    "@google/model-viewer": "^4.4.0",
+    "katex": "^0.16.22",
     "next": "16.3.0",
     "react": "19.2.3",
-    "react-dom": "19.2.3"
+    "react-dom": "19.2.3",
+    "react-markdown": "10",
+    "rehype-highlight": "^7.0.0",
+    "rehype-katex": "^7.0.1",
+    "remark-gfm": "^4.0.1",
+    "remark-math": "^6.0.0",
+    "three": "^0.183.0"
   },
   "devDependencies": {
     "@types/node": "20.19.37",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
+    "acorn": "^8.15.0",
+    "acorn-jsx": "^5.3.2",
     "eslint": "9.39.4",
     "eslint-config-next": "16.3.0",
     "typescript": "5.9.3"
