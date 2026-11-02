@@ -14,7 +14,7 @@ type HistoryItem = {
   quality?: { status?: string | null } | null;
 };
 
-type IconName = "plus" | "grid" | "book" | "clock" | "menu" | "close";
+type IconName = "plus" | "grid" | "book" | "clock" | "layers" | "menu" | "close";
 
 function Icon({ name }: { name: IconName }) {
   const paths: Record<IconName, ReactNode> = {
@@ -22,6 +22,7 @@ function Icon({ name }: { name: IconName }) {
     grid: <><rect x="4" y="4" width="6" height="6" rx="1" /><rect x="14" y="4" width="6" height="6" rx="1" /><rect x="4" y="14" width="6" height="6" rx="1" /><rect x="14" y="14" width="6" height="6" rx="1" /></>,
     book: <><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v17H6.5A2.5 2.5 0 0 1 4 17.5z" /><path d="M4 17.5A2.5 2.5 0 0 1 6.5 15H20" /></>,
     clock: <><circle cx="12" cy="12" r="8.5" /><path d="M12 7v5l3 2" /></>,
+    layers: <><path d="m12 3 8 4.5-8 4.5-8-4.5z" /><path d="m4 12 8 4.5 8-4.5" /><path d="m4 16.5 8 4.5 8-4.5" /></>,
     menu: <path d="M4 7h16M4 12h16M4 17h16" />,
     close: <path d="m6 6 12 12M18 6 6 18" />,
   };
@@ -47,11 +48,12 @@ function groupLabel(value: string | null) {
   return "更早";
 }
 
-function SidebarBody({ items, error, activeId, onNavigate }: {
+function SidebarBody({ items, error, activeId, onNavigate, preview = false }: {
   items: HistoryItem[];
   error: string;
   activeId: string | null;
   onNavigate?: () => void;
+  preview?: boolean;
 }) {
   const pathname = usePathname();
   const groups: { label: string; items: HistoryItem[] }[] = [];
@@ -107,26 +109,29 @@ function SidebarBody({ items, error, activeId, onNavigate }: {
       </div>
 
       <div className="chat-foot">
+        <Link className={`chat-foot-link${pathname.startsWith("/batches") || pathname.startsWith("/preview/batches") ? " active" : ""}`} href={preview ? "/preview/batches" : "/batches"} aria-current={pathname.startsWith("/batches") || pathname.startsWith("/preview/batches") ? "page" : undefined} onClick={onNavigate}><Icon name="layers" />测评批次</Link>
         <Link className={`chat-foot-link${pathname === "/runs" ? " active" : ""}`} href="/runs" aria-current={pathname === "/runs" ? "page" : undefined} onClick={onNavigate}><Icon name="clock" />运行记录</Link>
         <Link className={`chat-foot-link${pathname.startsWith("/daily-reports") ? " active" : ""}`} href="/daily-reports" aria-current={pathname.startsWith("/daily-reports") ? "page" : undefined} onClick={onNavigate}><Icon name="book" />每日总结</Link>
         <Link className={`chat-foot-link${pathname === "/question-bank" ? " active" : ""}`} href="/question-bank" aria-current={pathname === "/question-bank" ? "page" : undefined} onClick={onNavigate}><Icon name="book" />题库</Link>
+        <Link className={`chat-foot-link${pathname === "/standards" ? " active" : ""}`} href="/standards" aria-current={pathname === "/standards" ? "page" : undefined} onClick={onNavigate}><Icon name="grid" />评判标准助手</Link>
         <Link className={`chat-foot-link${pathname === "/scoring-rules" ? " active" : ""}`} href="/scoring-rules" aria-current={pathname === "/scoring-rules" ? "page" : undefined} onClick={onNavigate}><Icon name="grid" />评测规则</Link>
-        <div className="chat-account"><AccountMenu showName /></div>
+        {!preview && <div className="chat-account"><AccountMenu showName /></div>}
       </div>
     </>
   );
 }
 
-export function ChatShell({ children }: { children: ReactNode }) {
+export function ChatShell({ children, preview = false }: { children: ReactNode; preview?: boolean }) {
   const pathname = usePathname();
   const [sidebarWidth, setSidebarWidth] = useState(288);
   const [items, setItems] = useState<HistoryItem[]>([]);
-  const [historyError, setHistoryError] = useState("");
+  const [historyError, setHistoryError] = useState(preview ? "预览模式不读取运行历史。" : "");
   const drawer = useRef<HTMLDialogElement>(null);
   const activeId = pathname.startsWith("/runs/") ? pathname.split("/")[2] : null;
   const isEvaluate = pathname === "/evaluate";
 
   useEffect(() => {
+    if (preview) return;
     let active = true;
     const load = () => {
       fetch("/api/evaluation/unified/runs?origin=manual&page=1&pageSize=50", { cache: "no-store" })
@@ -137,14 +142,14 @@ export function ChatShell({ children }: { children: ReactNode }) {
     load();
     window.addEventListener("evaluation-unified-change", load);
     return () => { active = false; window.removeEventListener("evaluation-unified-change", load); };
-  }, [pathname]);
+  }, [pathname, preview]);
 
   const closeDrawer = () => drawer.current?.close();
 
   return (
     <div className="chat-shell">
       <aside className="chat-sidebar desktop-chat-sidebar" aria-label="运行历史" style={{ width: sidebarWidth }}>
-        <SidebarBody items={items} error={historyError} activeId={activeId} />
+        <SidebarBody items={items} error={historyError} activeId={activeId} preview={preview} />
         <div
           className="chat-resize"
           role="separator"
@@ -170,7 +175,7 @@ export function ChatShell({ children }: { children: ReactNode }) {
 
       <dialog className="chat-drawer" ref={drawer} aria-label="运行历史" onClick={(event) => { if (event.target === event.currentTarget) closeDrawer(); }}>
         <div className="chat-sidebar">
-          <SidebarBody items={items} error={historyError} activeId={activeId} onNavigate={closeDrawer} />
+          <SidebarBody items={items} error={historyError} activeId={activeId} onNavigate={closeDrawer} preview={preview} />
         </div>
       </dialog>
 
@@ -179,7 +184,7 @@ export function ChatShell({ children }: { children: ReactNode }) {
           <button type="button" className="icon-button" aria-label="打开运行历史" onClick={() => drawer.current?.showModal()}>
             <Icon name="menu" />
           </button>
-          <span>{isEvaluate ? "新建测评" : pathname === "/" ? "评测工作台" : pathname.startsWith("/daily-reports") ? "每日总结" : pathname === "/question-bank" ? "题库" : pathname === "/scoring-rules" ? "评测规则" : "运行记录"}</span>
+          <span>{isEvaluate ? "新建测评" : pathname === "/" ? "评测工作台" : pathname.startsWith("/daily-reports") ? "每日总结" : pathname.startsWith("/batches") || pathname.startsWith("/preview/batches") ? "测评批次" : pathname === "/question-bank" ? "题库" : pathname === "/standards" ? "评判标准助手" : pathname === "/scoring-rules" ? "评测规则" : "运行记录"}</span>
         </div>
         {children}
       </div>
