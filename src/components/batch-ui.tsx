@@ -40,6 +40,14 @@ export function formatMean(judge: JudgeSummary) {
   return formatScore(judge.mean);
 }
 
+export function judgeStateDescription(judge: JudgeSummary) {
+  const states: [number | undefined, string][] = [
+    [judge.ready, "有效"], [judge.provisional, "暂定"], [judge.pending, "评分中"],
+    [judge.failed, "评分失败"], [judge.unavailable, "未配置"], [judge.absent, "无评分"], [judge.invalid, "评分无效"],
+  ];
+  return states.filter(([count]) => count && count > 0).map(([count, label]) => `${label} ${count}`).join(" · ") || "暂无评分记录";
+}
+
 export function formatDelta(value: number | null | undefined) {
   if (typeof value !== "number" || !Number.isFinite(value)) return "—";
   if (value === 0) return "0.0";
@@ -97,7 +105,7 @@ export function ScorePair({ deepSeek, qwen }: { deepSeek: number | null; qwen: n
 }
 
 export function JudgeMeans({ scores }: { scores: { deepSeek: JudgeSummary; qwen: JudgeSummary } }) {
-  return <span className={styles.scorePair}><span>DS <b>{formatMean(scores.deepSeek)}</b></span><span>QW <b>{formatMean(scores.qwen)}</b></span></span>;
+  return <span className={styles.scorePair}><span>DS <b>{formatMean(scores.deepSeek)}</b>（{judgeStateDescription(scores.deepSeek)}）</span><span>QW <b>{formatMean(scores.qwen)}</b>（{judgeStateDescription(scores.qwen)}）</span></span>;
 }
 
 export function PreviewNote() {

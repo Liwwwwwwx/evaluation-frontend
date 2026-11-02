@@ -263,7 +263,7 @@ export function QuestionBank() {
       const current = sessionStorage.getItem("evaluation-unified-run");
       if (current) {
         const run = await jsonRequest(`/api/evaluation/unified/runs/${encodeURIComponent(current)}`);
-        if (["running", "scoring"].includes(run.status)) throw new Error("当前测评还未结束，请先返回查看。");
+        if (["queued", "running", "scoring"].includes(run.status)) throw new Error("当前测评还未结束，请先返回查看。");
       }
       sessionStorage.setItem("evaluation-selected-question", JSON.stringify(row));
       sessionStorage.removeItem("evaluation-unified-run");

@@ -42,18 +42,6 @@ export function StandardsAssistant() {
     } catch (reason) { setError(reason instanceof Error ? reason.message : "生成失败，请稍后重试。"); }
     finally { setBusy(false); }
   }
-  const generateRef = useRef(generate);
-  useEffect(() => { generateRef.current = generate; });
-  useEffect(() => {
-    const raw = sessionStorage.getItem("evaluation-standards-selected-question");
-    if (!raw) return;
-    sessionStorage.removeItem("evaluation-standards-selected-question");
-    try {
-      const value = JSON.parse(raw);
-      if (typeof value?.id !== "string" || typeof value?.datasetVersion !== "string" || typeof value?.question !== "string" || typeof value?.sourceType !== "string") throw new Error();
-      setTimeout(() => { setSelected(value); setQuestion(value.question); void generateRef.current(value.question); }, 0);
-    } catch { setTimeout(() => setError("题目信息无效，请重新选择。"), 0); }
-  }, []);
   function submit(event: FormEvent<HTMLFormElement>) { event.preventDefault(); void generate(question); }
   async function selectQuestion(value: Question) {
     const request = ++requestRef.current; setPickerOpen(false); setQuestion(value.question); setSelected(value); setSaved([]); setResult(null); setCurrentId(null); setNotice(""); setEditing(false); setError(""); setStorageBusy(true); scrollRef.current?.scrollTo({ top: 0 });
@@ -69,6 +57,18 @@ export function StandardsAssistant() {
     } catch (reason) { if (request === requestRef.current) setError(reason instanceof Error ? reason.message : "标准读取失败"); }
     finally { if (request === requestRef.current) setStorageBusy(false); }
   }
+  const selectQuestionRef = useRef(selectQuestion);
+  useEffect(() => { selectQuestionRef.current = selectQuestion; });
+  useEffect(() => {
+    const raw = sessionStorage.getItem("evaluation-standards-selected-question");
+    if (!raw) return;
+    sessionStorage.removeItem("evaluation-standards-selected-question");
+    try {
+      const value = JSON.parse(raw);
+      if (typeof value?.id !== "string" || typeof value?.datasetVersion !== "string" || typeof value?.question !== "string" || typeof value?.sourceType !== "string") throw new Error();
+      setTimeout(() => { void selectQuestionRef.current(value); }, 0);
+    } catch { setTimeout(() => setError("题目信息无效，请重新选择。"), 0); }
+  }, []);
   async function save() {
     if (!selected || !result || storageBusy) return;
     setStorageBusy(true); setError("");

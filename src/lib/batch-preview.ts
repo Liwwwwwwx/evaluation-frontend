@@ -271,17 +271,17 @@ const missionComparison: BatchComparison = {
   matchedQuestions: 8,
   thresholdPoints: 5,
   services: [
-    { serviceKey: "mission-material", label: "Mission 主服务", scoreDelta: { deepSeek: 2.0, qwen: 2.0 }, completionDelta: 0, failureDelta: -1, newFailureCount: 1, fixedCount: 2 },
+    { serviceKey: "mission-material", label: "Mission 主服务", scoreDelta: { deepSeek: 2.0, qwen: 2.0 }, completionDelta: 0, failureDelta: -2, newFailureCount: 0, fixedCount: 2 },
   ],
   questions: [
     { questionId: "mission-q-1", datasetVersion: "2026-11-02", question: "请比较氮化铝与氮化硼作为芯片封装散热填料的优缺点。", serviceKey: "mission-material", before: { score: 84, status: "done" }, after: { score: 61, status: "done" }, delta: -23, level: "regressed" },
-    { questionId: "mission-q-2", datasetVersion: "2026-11-02", question: "请给出高熵陶瓷粉体的合成路线与关键控制点。", serviceKey: "mission-material", before: { score: 78, status: "done" }, after: { score: 82, status: "done" }, delta: 4, level: "improved" },
+    { questionId: "mission-q-2", datasetVersion: "2026-11-02", question: "请给出高熵陶瓷粉体的合成路线与关键控制点。", serviceKey: "mission-material", before: { score: 78, status: "done" }, after: { score: 82, status: "done" }, delta: 4, level: "stable" },
     { questionId: "mission-q-3", datasetVersion: "2026-11-02", question: "请说明高温合金的失效模式及文献依据。", serviceKey: "mission-material", before: { score: 90, status: "done" }, after: { score: 88, status: "done" }, delta: -2, level: "stable" },
-    { questionId: "mission-q-4", datasetVersion: "2026-11-02", question: "请评估固态电解质材料的界面稳定性并给出改进方向。", serviceKey: "mission-material", before: { score: null, status: "error" }, after: { score: 58, status: "done" }, delta: null, level: "new_failure" },
+    { questionId: "mission-q-4", datasetVersion: "2026-11-02", question: "请评估固态电解质材料的界面稳定性并给出改进方向。", serviceKey: "mission-material", before: { score: null, status: "error" }, after: { score: 58, status: "done" }, delta: null, level: "fixed" },
     { questionId: "mission-q-5", datasetVersion: "2026-11-02", question: "请设计一种适用于 600°C 的轻质高强合金。", serviceKey: "mission-material", before: { score: 62, status: "done" }, after: { score: 74, status: "done" }, delta: 12, level: "improved" },
-    { questionId: "mission-q-6", datasetVersion: "2026-11-02", question: "请总结航空发动机热防护材料的研究进展。", serviceKey: "mission-material", before: { score: 55, status: "error" }, after: { score: 80, status: "done" }, delta: null, level: "fixed" },
+    { questionId: "mission-q-6", datasetVersion: "2026-11-02", question: "请总结航空发动机热防护材料的研究进展。", serviceKey: "mission-material", before: { score: null, status: "error" }, after: { score: 80, status: "done" }, delta: null, level: "fixed" },
     { questionId: "mission-q-7", datasetVersion: "2026-11-02", question: "请比较三种材料方案的适用条件和取舍。", serviceKey: "mission-material", before: { score: 70, status: "done" }, after: { score: 66, status: "done" }, delta: -4, level: "stable" },
-    { questionId: "mission-q-8", datasetVersion: "2026-11-02", question: "请给出材料表征方案与预期结果。", serviceKey: "mission-material", before: { score: 88, status: "done" }, after: { score: 91, status: "done" }, delta: 3, level: "improved" },
+    { questionId: "mission-q-8", datasetVersion: "2026-11-02", question: "请给出材料表征方案与预期结果。", serviceKey: "mission-material", before: { score: 88, status: "done" }, after: { score: 91, status: "done" }, delta: 3, level: "stable" },
   ],
 };
 

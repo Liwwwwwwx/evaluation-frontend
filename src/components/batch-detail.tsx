@@ -5,7 +5,7 @@ import { fetchBatchDetail, fetchBatchRuns } from "@/lib/batch-api";
 import { previewBatchDetails, previewBatchRuns } from "@/lib/batch-preview";
 import { serviceLabel, type BatchDetail, type RunBrief } from "@/lib/batch-types";
 import { BackLink, Button, EmptyState, Pagination, Select, StatusDot, Tabs, tabButtonId, tabPanelId } from "@/components/ui";
-import { BatchStatus, executionLabel, executionTone, formatDateTime, formatElapsed, formatMean, formatScore, JudgeMeans, lowestScore, PreviewNote, ScorePair, sourceLabel } from "@/components/batch-ui";
+import { BatchStatus, executionLabel, executionTone, formatDateTime, formatElapsed, formatMean, formatScore, judgeStateDescription, JudgeMeans, lowestScore, PreviewNote, ScorePair, sourceLabel } from "@/components/batch-ui";
 import styles from "./batches.module.css";
 
 const PAGE_SIZE = 20;
@@ -19,8 +19,11 @@ function previewRuns(batchId: string, service: string, execution: ExecutionFilte
   filtered.sort((left, right) => {
     if (sort === "startedAtAsc") return Date.parse(left.startedAt) - Date.parse(right.startedAt);
     if (sort === "startedAtDesc") return Date.parse(right.startedAt) - Date.parse(left.startedAt);
-    const l = lowestScore(left) ?? 101;
-    const r = lowestScore(right) ?? 101;
+    const l = lowestScore(left);
+    const r = lowestScore(right);
+    if (l === null && r === null) return 0;
+    if (l === null) return 1;
+    if (r === null) return -1;
     return sort === "scoreDesc" ? r - l : l - r;
   });
   const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
@@ -129,8 +132,8 @@ export function BatchDetailPage({ batchId, basePath, preview = false }: { batchI
       <Metric label="执行完成" value={String(detail.totals.completed)} sub={`未完成 ${detail.totals.unfinished}`} />
       <Metric label="失败" value={String(detail.totals.failed)} sub="执行失败，不计零分" />
       <Metric label="超时" value={String(detail.totals.timeout)} sub="未确认远端已取消" />
-      <Metric label="DeepSeek 均分" value={formatMean(detail.scores.deepSeek)} sub={`${detail.scores.deepSeek.count} 条有效评分`} />
-      <Metric label="千问均分" value={formatMean(detail.scores.qwen)} sub={`${detail.scores.qwen.count} 条有效评分`} />
+      <Metric label="DeepSeek 均分" value={formatMean(detail.scores.deepSeek)} sub={judgeStateDescription(detail.scores.deepSeek)} />
+      <Metric label="千问均分" value={formatMean(detail.scores.qwen)} sub={judgeStateDescription(detail.scores.qwen)} />
     </div>
 
     <Tabs
@@ -156,7 +159,7 @@ export function BatchDetailPage({ batchId, basePath, preview = false }: { batchI
             <span className={styles.serviceScores}><JudgeMeans scores={item.scores} /></span>
             <span className={styles.serviceIssues}>
               {low ? <span className={styles.issueLine}><span className={styles.issueLabel}>低分</span>{low.question} · {formatScore(lowestScore(low))}</span> : <span className={styles.issueLine}><span className={styles.issueOk}>低分</span>本次未发现</span>}
-              {failure ? <span className={styles.issueLine}><span className={styles.issueLabel}>失败</span>{failure.question} · {failure.error}</span> : <span className={styles.issueLine}><span className={styles.issueOk}>失败</span>本次未发现</span>}
+              {failure ? <span className={styles.issueLine}><span className={styles.issueLabel}>{failure.execution === "timeout" ? "超时" : "失败"}</span>{failure.question} · {failure.error}</span> : <span className={styles.issueLine}><span className={styles.issueOk}>失败/超时</span>本次未发现</span>}
             </span>
             <span className={styles.serviceArrow} aria-hidden="true">›</span>
           </button>;
