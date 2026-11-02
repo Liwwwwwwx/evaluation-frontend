@@ -25,3 +25,11 @@ corepack yarn dev
 
 - 登录和题库使用独立测评后端，共享 Science Admin 的账号和权限；运行记录与评测代理仍指向旧管理端，不能使用新的测评登录会话，等待逐步迁移。
 - 项目不包含凭据、真实评测数据或生产部署配置；模型评分不等于科学真实性验证。
+
+## CI/CD 与服务器部署
+
+`dev` 开发，经 PR 检查合入 `main` 后自动部署。CI 执行 lint、全部前端测试及生产构建；产物使用 Next standalone，包含 public 和 static。部署目标 `http://36.103.177.195:6714`，独立 systemd 服务 `science-evaluation-frontend`；后端通过服务器回环地址代理。
+
+服务器私有环境设置 `EVALUATION_ALLOW_HTTP=true` 以按当前要求支持 HTTP 登录；默认仍使用生产 Secure Cookie，HTTPS 请求始终保持 Secure。仅允许回环后端使用 HTTP，远程后端仍必须 HTTPS。
+
+GitHub `production` 环境配置 `DEPLOY_SSH_KEY`、`DEPLOY_KNOWN_HOSTS` secrets 及 `DEPLOY_HOST`、`DEPLOY_USER` variables；应用凭据不进入 CI。服务安装、发布锁、健康回滚及运维见后端仓库 `ops/README.md`。只部署新平台，不修改旧管理端。

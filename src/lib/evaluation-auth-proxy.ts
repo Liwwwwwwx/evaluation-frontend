@@ -8,7 +8,7 @@ export function backendOrigin() {
   if (!configured && process.env.NODE_ENV === "production") throw new Error("测评认证服务地址未配置");
   const url = new URL(configured || "http://127.0.0.1:7714");
   const local = ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
-  if (url.username || url.password || url.pathname !== "/" || url.search || url.hash || (url.protocol !== "https:" && !(url.protocol === "http:" && local && process.env.NODE_ENV !== "production"))) throw new Error("测评认证服务地址无效");
+  if (url.username || url.password || url.pathname !== "/" || url.search || url.hash || (url.protocol !== "https:" && !(url.protocol === "http:" && local))) throw new Error("测评认证服务地址无效");
   return url.origin;
 }
 
@@ -40,9 +40,9 @@ export async function proxyEvaluationAuth(request: NextRequest, action: "login" 
       const match = cookie.match(/^evaluation_session=([A-Za-z0-9_-]*)(?:;|$)/i);
       if (!match) continue;
       const age = cookie.match(/(?:^|;)\s*max-age=(\d+)/i);
-      response.cookies.set(sessionCookie, match[1], { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/", maxAge: age ? Number(age[1]) : undefined });
+      response.cookies.set(sessionCookie, match[1], { httpOnly: true, secure: request.nextUrl.protocol === "https:" || (process.env.NODE_ENV === "production" && process.env.EVALUATION_ALLOW_HTTP !== "true"), sameSite: "lax", path: "/", maxAge: age ? Number(age[1]) : undefined });
     }
-    if (upstream.ok && action !== "me") response.cookies.set(oldCookie, "", { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/", maxAge: 0 });
+    if (upstream.ok && action !== "me") response.cookies.set(oldCookie, "", { httpOnly: true, secure: request.nextUrl.protocol === "https:" || (process.env.NODE_ENV === "production" && process.env.EVALUATION_ALLOW_HTTP !== "true"), sameSite: "lax", path: "/", maxAge: 0 });
     return response;
   } catch { return NextResponse.json({ ok: false, error: { code: "SERVICE_UNAVAILABLE", message: "无法连接认证服务，请稍后重试。" } }, { status: 503, headers: { "Cache-Control": "no-store" } }); }
 }
