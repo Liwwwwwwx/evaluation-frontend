@@ -9,6 +9,8 @@ export async function GET(request: NextRequest) {
   const pageSize = Number(params.get("pageSize"));
   const q = (params.get("q") || "").trim().slice(0, 100);
   const domain = (params.get("domain") || "").trim();
+  const questionId = (params.get("questionId") || "").trim().slice(0, 200);
+  const datasetVersion = (params.get("datasetVersion") || "").trim().slice(0, 100);
   const from = (params.get("from") || "").trim();
   const to = (params.get("to") || "").trim();
   const datePattern = /^\d{4}-\d{2}-\d{2}$/;
@@ -17,6 +19,8 @@ export async function GET(request: NextRequest) {
   if (origin) query.set("origin", origin);
   if (q) query.set("q", q);
   if (domain) query.set("domain", domain);
+  if (questionId) query.set("questionId", questionId);
+  if (datasetVersion) query.set("datasetVersion", datasetVersion);
   if (from) query.set("from", from);
   if (to) query.set("to", to);
   return proxyUnified(request, `/api/evaluation/unified/runs?${query}`);

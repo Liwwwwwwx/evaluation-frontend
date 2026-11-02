@@ -5,6 +5,7 @@ import { RunServiceDetails } from "@/components/run-service-details";
 import { UnifiedScores } from "@/components/unified-scores";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { ConversationAnswer } from "@/components/conversation-answer";
+import { Button, Dialog, EmptyState, InlineAlert, Pagination, Select } from "@/components/ui";
 import { createUnifiedRun } from "@/lib/unified-run-request";
 import { watchLiveUnifiedRun } from "@/lib/unified-run-watch";
 import { availableEvaluationServices, evaluationServiceCatalog, isEvaluationService, preferredEvaluationService } from "@/lib/evaluation-services";
@@ -93,7 +94,6 @@ export function Evaluate() {
   const [reload, setReload] = useState(0);
   const [picked, setPicked] = useState<BankQuestion | null>(null);
 
-  const dialog = useRef<HTMLDialogElement>(null);
   const menuWrap = useRef<HTMLDivElement>(null);
 
   const trimmed = draft.trim();
@@ -185,13 +185,6 @@ export function Evaluate() {
     stopRecovery.current = stop;
     return () => { stop(); if (stopRecovery.current === stop) stopRecovery.current = null; };
   }, [submitting, recoveryRetry]);
-
-  useEffect(() => {
-    const node = dialog.current;
-    if (!node) return;
-    if (pickerOpen && !node.open) node.showModal();
-    if (!pickerOpen && node.open) node.close();
-  }, [pickerOpen]);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -297,7 +290,7 @@ export function Evaluate() {
     ? `题目超过 ${max} 个字符，请精简后再发起。`
     : trimmed && trimmed.length < min ? `题目过短，至少需要 ${min} 个字符。` : "";
 
-  if (run) return <div className="chat-view"><div className="chat-top"><h1>运行详情</h1><span className={`run-dot ${run.status === "done" ? "done" : run.status === "error" ? "error" : "running"}`} /><span>{run.status === "done" ? "已结束" : run.status === "error" ? "失败" : run.status === "scoring" ? "评分中" : run.status === "queued" ? "排队中" : "运行中"} · {services.find((item) => item.key === run.service)?.label || run.service}</span></div><div className="chat-scroll"><div className="chat-scroll-inner"><div className="run-layout"><div className="run-chat" tabIndex={0} role="region" aria-label="对话内容"><p className="run-question">{run.question}</p><section className="run-answer-block"><div className="run-answer-head"><strong>{services.find((item) => item.key === run.service)?.label || run.service}</strong><span>回答</span></div><div className="run-answer"><ConversationAnswer content={run.answer} run={run.result} streaming={run.executionStatus === "running" || (!run.executionStatus && run.status === "running")} /></div><RunServiceDetails run={run.result} runId={run.id} canReply={run.canReply} snapshotOnly={run.snapshotOnly} />{run.truncated && <p className="run-score-note">恢复的回答已截断。</p>}{submitError && <div role="alert"><p className="eval-error">{submitError}</p><button type="button" className="secondary-button" onClick={() => setRecoveryRetry(value => value + 1)}>重试读取运行</button></div>}</section></div><aside className="run-panel"><div className="run-panel-head"><h2>评分</h2></div>{run.snapshotOnly && ["queued", "running", "scoring"].includes(run.status) && <p className="run-score-note">显示的是已保存的快照，当前进程不能确认任务是否仍在执行或排队；请先核对运行记录。</p>}{run.scoreError && <p className="run-score-note">{run.scoreError}</p>}<UnifiedScores scores={run.scores} run={run.result} executionStatus={run.executionStatus || "running"} /><button type="button" className="secondary-button" disabled={submitting && !run.id} onClick={resetRun}>新建测评</button></aside></div></div></div></div>;
+  if (run) return <div className="chat-view"><div className="chat-top"><h1>运行详情</h1><span className={`run-dot ${run.status === "done" ? "done" : run.status === "error" ? "error" : "running"}`} /><span>{run.status === "done" ? "已结束" : run.status === "error" ? "失败" : run.status === "scoring" ? "评分中" : run.status === "queued" ? "排队中" : "运行中"} · {services.find((item) => item.key === run.service)?.label || run.service}</span></div><div className="chat-scroll"><div className="chat-scroll-inner"><div className="run-layout"><div className="run-chat" tabIndex={0} role="region" aria-label="对话内容"><p className="run-question">{run.question}</p><section className="run-answer-block"><div className="run-answer-head"><strong>{services.find((item) => item.key === run.service)?.label || run.service}</strong><span>回答</span></div><div className="run-answer"><ConversationAnswer content={run.answer} run={run.result} streaming={run.executionStatus === "running" || (!run.executionStatus && run.status === "running")} /></div><RunServiceDetails run={run.result} runId={run.id} canReply={run.canReply} snapshotOnly={run.snapshotOnly} />{run.truncated && <p className="run-score-note">恢复的回答已截断。</p>}{submitError && <InlineAlert tone="danger" className="eval-alert" action={<Button type="button" variant="secondary" size="sm" onClick={() => setRecoveryRetry(value => value + 1)}>重试读取运行</Button>}>{submitError}</InlineAlert>}</section></div><aside className="run-panel"><div className="run-panel-head"><h2>评分</h2></div>{run.snapshotOnly && ["queued", "running", "scoring"].includes(run.status) && <p className="run-score-note">显示的是已保存的快照，当前进程不能确认任务是否仍在执行或排队；请先核对运行记录。</p>}{run.scoreError && <p className="run-score-note">{run.scoreError}</p>}<UnifiedScores scores={run.scores} run={run.result} executionStatus={run.executionStatus || "running"} /><Button type="button" variant="secondary" disabled={submitting && !run.id} onClick={resetRun}>新建测评</Button></aside></div></div></div></div>;
 
   return (
     <main className="eval-page">
@@ -390,89 +383,70 @@ export function Evaluate() {
           </div>
         </form>
 
-        {hasPendingRequest && <div className="eval-pending-recovery"><p>上次提交可能已创建任务，请先核对运行记录。允许新建不会取消已发出的运行。</p><div className="run-review-actions"><a href="/runs" target="_blank" rel="noopener noreferrer">查看运行记录</a><button type="button" className="secondary-button" disabled={busy} onClick={() => { sessionStorage.removeItem("evaluation-unified-pending"); setHasPendingRequest(false); setSubmitError(""); if (unsupportedPending) { setService(preferredEvaluationService(services, "mission-material")); setSource(null); setDraft(""); } }}>已核对记录，允许新建</button></div></div>}
-        {submitError && runId.current && !run && <button type="button" className="secondary-button" onClick={() => setRecoveryRetry(value => value + 1)}>重试读取运行</button>}
+        {hasPendingRequest && <div className="eval-pending-recovery"><p>上次提交可能已创建任务，请先核对运行记录。允许新建不会取消已发出的运行。</p><div className="run-review-actions"><Button href="/runs" target="_blank" rel="noopener noreferrer" variant="ghost" size="sm">查看运行记录</Button><Button type="button" variant="secondary" disabled={busy} onClick={() => { sessionStorage.removeItem("evaluation-unified-pending"); setHasPendingRequest(false); setSubmitError(""); if (unsupportedPending) { setService(preferredEvaluationService(services, "mission-material")); setSource(null); setDraft(""); } }}>已核对记录，允许新建</Button></div></div>}
+        {submitError && runId.current && !run && <Button type="button" variant="secondary" onClick={() => setRecoveryRetry(value => value + 1)}>重试读取运行</Button>}
         {submitError ? (
-          <p className="eval-error" role="alert">{submitError}</p>
+          <InlineAlert tone="danger" className="eval-alert">{submitError}</InlineAlert>
         ) : draftError ? (
-          <p className="eval-error">{draftError}</p>
+          <InlineAlert tone="danger" className="eval-alert">{draftError}</InlineAlert>
         ) : null}
         <p className="eval-hint">{recovering ? "正在恢复最近一次运行…" : submitting ? "正在创建运行，请勿重复提交。" : "每次运行保留题目、回答及评分状态。"}</p>
       </div>
 
-      <dialog className="eval-dialog" ref={dialog} onClose={() => setPickerOpen(false)} onClick={(event) => { if (event.target === event.currentTarget) setPickerOpen(false); }} aria-labelledby="eval-picker-title">
-        <div className="eval-dialog-body">
-          <div className="eval-dialog-head">
-            <div>
-              <h2 id="eval-picker-title">从题库选择</h2>
-              <p>选择领域和题型；仅显示可在当前服务执行且不带专属评分规则的题目</p>
-            </div>
-            <button type="button" className="icon-button" aria-label="关闭题库" onClick={() => setPickerOpen(false)}>
-              <Icon name="close" />
-            </button>
-          </div>
-
-          <div className="import-fields">
-            <label>领域<select value={domain} onChange={event => { setDomain(event.target.value); setPage(0); setPicked(null); }}><option value="">全部领域</option><option value="unclassified">未分类</option>{Object.entries(questionDomains).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
-            <label>题型<select value={bankSource} onChange={event => { setBankSource(event.target.value); setPage(0); setPicked(null); }}><option value="">固定题和随机题</option><option value="fixed">固定题</option><option value="random">随机题</option></select></label>
-          </div>
-          <div className="search-field eval-search">
-            <Icon name="search" />
-            <label className="sr-only" htmlFor="eval-search">搜索题目</label>
-            <input id="eval-search" type="search" value={input} placeholder="搜索题面" autoComplete="off" onChange={(event) => setInput(event.target.value)} />
-          </div>
-
-          {loading ? (
-            <p className="eval-dialog-state">正在加载题目…</p>
-          ) : loadError ? (
-            <div className="eval-dialog-state">
-              <p>{loadError}</p>
-              <button type="button" className="secondary-button" onClick={() => setReload((value) => value + 1)}>重试</button>
-            </div>
-          ) : rows.length === 0 ? (
-            <p className="eval-dialog-state">{search ? "没有找到符合条件的题目。" : "当前条件下没有可用题目。"}</p>
-          ) : (
-            <div className="eval-options" role="listbox" aria-label="题目列表">
-              {rows.map((row) => {
-                const key = `${row.id}|${row.datasetVersion}`;
-                const selected = picked?.id === row.id && picked?.datasetVersion === row.datasetVersion;
-                return (
-                  <button
-                    key={key}
-                    type="button"
-                    className="eval-option"
-                    role="option"
-                    aria-selected={selected}
-                    onClick={() => setPicked(selected ? null : row)}
-                  >
-                    <span className="eval-check" aria-hidden="true" />
-                    <span className="eval-option-body">
-                      <span className="eval-option-meta">{questionDomains[row.domainKey || ""] || "未分类"} · {row.sourceType === "random" ? "随机题" : "固定题"} · 数据集 {row.datasetVersion}</span>
-                      <span className="eval-option-text">{row.question}</span>
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-
-          {pages > 1 && (
-            <div className="eval-pager">
-              <button type="button" disabled={page === 0 || loading} onClick={() => setPage((value) => Math.max(0, value - 1))}>上一页</button>
-              <span>{page + 1} / {pages}</span>
-              <button type="button" disabled={page + 1 >= pages || loading} onClick={() => setPage((value) => value + 1)}>下一页</button>
-            </div>
-          )}
-
-          <div className="eval-dialog-foot">
-            <p>{loading ? "正在加载…" : `共 ${total} 道可用题目`}</p>
-            <div className="eval-dialog-actions">
-              <button type="button" className="secondary-button" onClick={() => setPickerOpen(false)}>取消</button>
-              <button type="button" className="primary-button" disabled={!picked} onClick={usePicked}>使用此题</button>
-            </div>
-          </div>
+      <Dialog
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        title="从题库选择"
+        description="选择领域和题型；仅显示可在当前服务执行且不带专属评分规则的题目"
+        footerStart={<p>{loading ? "正在加载…" : `共 ${total} 道可用题目`}</p>}
+        footer={<>
+          <Button type="button" variant="secondary" onClick={() => setPickerOpen(false)}>取消</Button>
+          <Button type="button" variant="primary" disabled={!picked} onClick={usePicked}>使用此题</Button>
+        </>}
+      >
+        <div className="import-fields">
+          <Select block label="领域" value={domain} onChange={(value) => { setDomain(value); setPage(0); setPicked(null); }} options={[{ value: "", label: "全部领域" }, { value: "unclassified", label: "未分类" }, ...Object.entries(questionDomains).map(([key, label]) => ({ value: key, label }))]} />
+          <Select block label="题型" value={bankSource} onChange={(value) => { setBankSource(value); setPage(0); setPicked(null); }} options={[{ value: "", label: "固定题和随机题" }, { value: "fixed", label: "固定题" }, { value: "random", label: "随机题" }]} />
         </div>
-      </dialog>
+        <div className="search-field eval-search">
+          <Icon name="search" />
+          <label className="sr-only" htmlFor="eval-search">搜索题目</label>
+          <input id="eval-search" type="search" value={input} placeholder="搜索题面" autoComplete="off" onChange={(event) => setInput(event.target.value)} />
+        </div>
+
+        {loading ? (
+          <EmptyState compact state="loading" title="正在加载题目…" />
+        ) : loadError ? (
+          <EmptyState compact state="error" title={loadError} action={<Button type="button" variant="secondary" onClick={() => setReload((value) => value + 1)}>重试</Button>} />
+        ) : rows.length === 0 ? (
+          <EmptyState compact state="empty" title={search ? "没有找到符合条件的题目。" : "当前条件下没有可用题目。"} />
+        ) : (
+          <div className="eval-options" role="listbox" aria-label="题目列表">
+            {rows.map((row) => {
+              const key = `${row.id}|${row.datasetVersion}`;
+              const selected = picked?.id === row.id && picked?.datasetVersion === row.datasetVersion;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  className="eval-option"
+                  role="option"
+                  aria-selected={selected}
+                  onClick={() => setPicked(selected ? null : row)}
+                >
+                  <span className="eval-check" aria-hidden="true" />
+                  <span className="eval-option-body">
+                    <span className="eval-option-meta">{questionDomains[row.domainKey || ""] || "未分类"} · {row.sourceType === "random" ? "随机题" : "固定题"} · 数据集 {row.datasetVersion}</span>
+                    <span className="eval-option-text">{row.question}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {pages > 1 && <Pagination page={page + 1} pages={pages} total={total} pageSize={PAGE_SIZE} disabled={loading} onPageChange={(next) => setPage(next - 1)} />}
+      </Dialog>
     </main>
   );
 }

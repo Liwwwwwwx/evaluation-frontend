@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AnswerMarkdown } from "@/components/answer-markdown";
+import { BackLink, Button, EmptyState, InlineAlert, Pagination } from "@/components/ui";
 import styles from "./daily-reports.module.css";
 
 type Item = { date: string; status: string; analysisState: string; total: number; completed: number; unfinished: number; updatedAt: string };
@@ -45,16 +46,16 @@ export function DailyReportList() {
     finally { setSubmitting(false); }
   }
   return <main className={styles.page}>
-    <header className={styles.header}><div><h1>每日总结</h1><p>汇总夜间自动测评，查看各服务表现与主要问题。</p></div><button className="secondary-button" onClick={() => setRetry(v => v + 1)}>刷新</button></header>
-    {error && <p className={styles.message} role="alert">{error}</p>}
-    {!data && !error && <p role="status">正在读取每日总结…</p>}
+    <header className={styles.header}><div><h1>每日总结</h1><p>汇总夜间自动测评，查看各服务表现与主要问题。</p></div><Button variant="secondary" onClick={() => setRetry(v => v + 1)}>刷新</Button></header>
+    {error && <InlineAlert tone="danger" action={<Button type="button" variant="secondary" onClick={() => setRetry(v => v + 1)}>重试</Button>}>{error}</InlineAlert>}
+    {!data && !error && <EmptyState state="loading" title="正在读取每日总结…" />}
     {data && <>
       <p className={styles.muted}>自动汇总{data.enabled ? "已启用" : "暂停"} · 优先使用 {data.preferred === "qwen" ? "千问" : "DeepSeek"}{!data.configured && " · 汇总模型未配置"}</p>
-      {!data.storageReady ? <p className={styles.message} role="status">每日报告存储尚未启用，需要先完成数据库迁移。</p> : <>
-        {data.canGenerate && <form className={styles.form} onSubmit={event => { event.preventDefault(); void submit(); }}><label>测评日期<input type="date" value={date} required onChange={event => setDate(event.target.value)} /></label><button className="primary-button" disabled={!date || submitting}>{submitting ? "正在提交…" : "生成该日总结"}</button></form>}
+      {!data.storageReady ? <InlineAlert tone="warning">每日报告存储尚未启用，需要先完成数据库迁移。</InlineAlert> : <>
+        {data.canGenerate && <form className={styles.form} onSubmit={event => { event.preventDefault(); void submit(); }}><label>测评日期<input type="date" value={date} required onChange={event => setDate(event.target.value)} /></label><Button type="submit" variant="primary" disabled={!date || submitting}>{submitting ? "正在提交…" : "生成该日总结"}</Button></form>}
         <p className={styles.muted}>日期按北京时间当晚 22:00 起的测评归属。仅统计已保存的自动运行；迟到结果会在自动汇总启用后更新。</p>
-        {data.items.length === 0 ? <p className={styles.empty}>暂无每日总结。自动测评结束后会生成报告，也可在具备权限时选择日期生成。</p> : <ul className={styles.list}>{data.items.map(item => <li key={item.date}><Link href={`/daily-reports/${item.date}`}><strong>{item.date}</strong><span>{states[item.status] || "状态未知"} · {analysisStates[item.analysisState] || "状态未知"}</span><span>已记录 {item.total} 次 · 执行完成 {item.completed} 次 · 未完成 {item.unfinished} 次</span></Link></li>)}</ul>}
-        {data.total > 20 && <div className={styles.pagination}><button className="secondary-button" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>上一页</button><span>第 {page} / {Math.ceil(data.total / 20)} 页</span><button className="secondary-button" disabled={page * 20 >= data.total} onClick={() => setPage(p => p + 1)}>下一页</button></div>}
+        {data.items.length === 0 ? <EmptyState state="empty" title="暂无每日总结。" description="自动测评结束后会生成报告，也可在具备权限时选择日期生成。" /> : <ul className={styles.list}>{data.items.map(item => <li key={item.date}><Link href={`/daily-reports/${item.date}`}><strong>{item.date}</strong><span>{states[item.status] || "状态未知"} · {analysisStates[item.analysisState] || "状态未知"}</span><span>已记录 {item.total} 次 · 执行完成 {item.completed} 次 · 未完成 {item.unfinished} 次</span></Link></li>)}</ul>}
+        {data.total > 0 && <Pagination page={page} pages={Math.ceil(data.total / 20)} total={data.total} pageSize={20} onPageChange={setPage} />}
       </>}
     </>}
   </main>;
@@ -85,15 +86,20 @@ export function DailyReportDetail({ date, pending = false }: { date: string; pen
     finally { setSubmitting(false); }
   }
   return <main className={`${styles.page} ${styles.reading}`}>
-    <Link className={styles.back} href="/daily-reports">返回每日总结</Link>
-    <header className={styles.header}><h1>{date} 每日测评总结</h1>{data?.status === "ready" && data.markdown && <a className="secondary-button" href={`${base}/${date}/markdown`}>下载 Markdown</a>}</header>
-    {error && <p className={styles.message} role="alert">{error} <button className="secondary-button" onClick={() => setRetry(v => v + 1)}>重试读取</button></p>}
-    {!data && !error && <p role="status">{pending ? "正在等待总结生成…" : "正在读取总结…"}</p>}
+    <header className={styles.header}>
+      <div><h1>{date} 每日测评总结</h1></div>
+      <div className={styles.headerActions}>
+        <BackLink href="/daily-reports">返回每日总结</BackLink>
+        {data?.status === "ready" && data.markdown && <a className="secondary-button" href={`${base}/${date}/markdown`}>下载 Markdown</a>}
+      </div>
+    </header>
+    {error && <InlineAlert tone="danger" action={<Button type="button" variant="secondary" onClick={() => setRetry(v => v + 1)}>重试读取</Button>}>{error}</InlineAlert>}
+    {!data && !error && <EmptyState state="loading" title={pending ? "正在等待总结生成…" : "正在读取总结…"} />}
     {data && <>
       <p className={styles.muted} role="status">{states[data.status] || "状态未知"} · {analysisStates[data.analysisState] || "状态未知"}{data.model && ` · ${data.model}`}</p>
       {data.status === "generating" && <p>正在汇总已有测评结果，旧版内容暂不展示。</p>}
-      {data.status === "failed" && <p className={styles.message}>生成过程已中断，可重试总结。</p>}
-      {data.canGenerate && data.status !== "generating" && (data.analysisState !== "ready" || data.status === "failed") && <button className="primary-button" disabled={submitting} onClick={() => void resubmit()}>{submitting ? "正在提交…" : "重试智能总结"}</button>}
+      {data.status === "failed" && <InlineAlert tone="warning">生成过程已中断，可重试总结。</InlineAlert>}
+      {data.canGenerate && data.status !== "generating" && (data.analysisState !== "ready" || data.status === "failed") && <Button variant="primary" disabled={submitting} onClick={() => void resubmit()}>{submitting ? "正在提交…" : "重试智能总结"}</Button>}
       {data.status === "ready" && data.markdown && <article className={`${styles.report} run-answer`}><AnswerMarkdown content={data.markdown.replace(/^# [^\n]+\n/, "")} /></article>}
     </>}
   </main>;

@@ -3,15 +3,17 @@ import { createRequestKey } from "@/lib/request-key";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AnswerMarkdown } from "@/components/answer-markdown";
 import { ScoringRuleForm } from "@/components/scoring-rule-form";
+import { Badge, Button, EmptyState, InlineAlert, Select, StatusDot, Tabs, type StatusTone } from "@/components/ui";
 import { requestRules, ruleDocument, stateNames, validateRuleForm, type RuleCatalog, type RuleFormValue, type RuleSnapshot, type ScoringRule } from "@/lib/scoring-rules";
 const base = "/api/evaluation/rules";
 const message = (error: unknown) => error instanceof Error ? error.message : "操作失败，请稍后重试。";
 const actionNames: Record<string, string> = { created: "新建", saved: "保存", published: "发布", activated: "生效", archived: "归档" };
-const tabs = [["content", "评分与交付"], ["efficiency", "阶段效率"], ["preview", "完整文档"]] as const;
+const tabs = [
+  { value: "content", label: "评分与交付" },
+  { value: "efficiency", label: "阶段效率" },
+  { value: "preview", label: "完整文档" },
+];
 function formOf(rule: RuleSnapshot | ScoringRule): RuleFormValue { return {name:rule.name,changeNote:"changeNote" in rule ? rule.changeNote : "",config:structuredClone(rule.config)}; }
-function ChevronIcon() {
-  return <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>;
-}
 export function ScoringRules() {
   const [catalog,setCatalog] = useState<RuleCatalog | null>(null);
   const [selected,setSelected] = useState<RuleSnapshot | ScoringRule | null>(null);
@@ -73,17 +75,18 @@ export function ScoringRules() {
   const published = !!selected && "status" in selected && selected.status === "published";
   const status = creating ? "draft" : selected?.id === "builtin-v1" ? "builtin" : selected && "status" in selected ? selected.status : "builtin";
   const statusLabel = creating ? "草稿" : selected?.id === "builtin-v1" ? "内置模板" : selected && "status" in selected ? stateNames[selected.status] : "";
+  const statusTone: StatusTone = creating || status === "draft" ? "warning" : status === "published" ? "success" : "neutral";
   const isActive = !!selected && !!catalog && selected.id === catalog.active.id;
   const showSavebar = !!(catalog?.canWrite && selected && form && (editable || (published && !isActive)));
   const barState = creating ? "新草稿尚未保存" : dirty ? "有未保存的修改" : draft ? "草稿已保存" : "查看已发布版本";
   return <main className="rules-page"><div className={`rules-scroll${showSavebar ? " with-savebar" : ""}`} role="region" aria-label="规则编辑内容" tabIndex={0}>
     <header className="rules-page-head">
       <div><h1>评测规则</h1><p>维护内容、交付体验与阶段效率标准。每次运行保留自己的规则快照。</p></div>
-      {catalog?.canWrite && <button type="button" className={editable ? "secondary-button" : "primary-button"} disabled={busy || loading || creating} onClick={copy}>复制为新草稿</button>}
+      {catalog?.canWrite && <Button type="button" variant={editable ? "secondary" : "primary"} disabled={busy || loading || creating} onClick={copy}>复制为新草稿</Button>}
     </header>
-    {error && <div className="rules-feedback error" role="alert"><span className="rules-feedback-mark" aria-hidden="true" /><p>{error}</p>{reloadable && <button type="button" className="secondary-button" disabled={loading || busy} onClick={() => {if(!dirty || window.confirm("重新读取会放弃当前未保存输入。需要保留时可先复制为新草稿，继续读取？"))void load(selected?.id);}}>重新读取</button>}</div>}
-    {notice && <div className="rules-feedback notice" role="status"><span className="rules-feedback-mark" aria-hidden="true" /><p>{notice}</p></div>}
-    {loading && !catalog ? <div className="rules-state" role="status"><span className="rules-spinner" aria-hidden="true" /><p>正在读取规则…</p></div> : catalog && selected && form && <>
+    {error && <InlineAlert tone="danger" className="rules-feedback" action={reloadable ? <Button type="button" variant="secondary" size="sm" disabled={loading || busy} onClick={() => {if(!dirty || window.confirm("重新读取会放弃当前未保存输入。需要保留时可先复制为新草稿，继续读取？"))void load(selected?.id);}}>重新读取</Button> : undefined}>{error}</InlineAlert>}
+    {notice && <InlineAlert tone="success" className="rules-feedback">{notice}</InlineAlert>}
+    {loading && !catalog ? <EmptyState state="loading" title="正在读取规则…" /> : catalog && selected && form && <>
       <section className="rules-context" aria-label="当前生效规则与版本">
         <div className="rules-context-main">
           <div className="rules-active-line">
@@ -97,40 +100,27 @@ export function ScoringRules() {
           {!catalog.canWrite && <p className="rules-readonly-note">{catalog.message || "当前为只读模式；维护需要写权限及规则写入开关。"}</p>}
         </div>
         <div className="rules-context-actions">
-          <label className="rules-select">
-            <span className="rules-select-label">查看版本</span>
-            <span className="rules-select-control">
-              <select value={creating ? "__new-draft__" : selected.id} disabled={busy || loading || creating} onChange={e => switchTo(e.target.value)}>
-                {creating && <option value="__new-draft__">新草稿 · 未保存</option>}
-                <option value="builtin-v1">内置模板 · 默认评分规则</option>
-                {catalog.items.map(r => <option key={r.id} value={r.id}>v{r.version} · {r.name}</option>)}
-              </select>
-              <ChevronIcon />
-            </span>
-          </label>
+          <Select
+            block
+            label="查看版本"
+            value={creating ? "__new-draft__" : selected.id}
+            disabled={busy || loading || creating}
+            onChange={switchTo}
+            options={[
+              ...(creating ? [{ value: "__new-draft__", label: "新草稿 · 未保存" }] : []),
+              { value: "builtin-v1", label: "内置模板 · 默认评分规则" },
+              ...catalog.items.map(r => ({ value: r.id, label: `v${r.version} · ${r.name}` })),
+            ]}
+          />
           <div className="rules-version-meta">
-            <span className="rules-status" data-status={status}><span className="rules-status-dot" aria-hidden="true" />{statusLabel}</span>
-            {isActive && !creating && <span className="rules-active-badge">生效中</span>}
-            {dirty && !creating && <span className="rules-dirty-badge">未保存修改</span>}
-            <button type="button" className="rules-export" onClick={download}>导出 Markdown</button>
+            <StatusDot tone={statusTone}>{statusLabel}</StatusDot>
+            {isActive && !creating && <Badge tone="neutral">生效中</Badge>}
+            {dirty && !creating && <Badge tone="warning">未保存修改</Badge>}
+            <Button type="button" variant="ghost" size="sm" className="rules-export" onClick={download}>导出 Markdown</Button>
           </div>
         </div>
       </section>
-      <div className="rules-tabs" role="tablist" aria-label="规则内容" onKeyDown={event => {
-        const index = tabs.findIndex(([key]) => key === tab);
-        let next = -1;
-        if (event.key === "ArrowRight") next = (index + 1) % tabs.length;
-        else if (event.key === "ArrowLeft") next = (index - 1 + tabs.length) % tabs.length;
-        else if (event.key === "Home") next = 0;
-        else if (event.key === "End") next = tabs.length - 1;
-        if (next < 0) return;
-        event.preventDefault();
-        const key = tabs[next][0];
-        setTab(key);
-        requestAnimationFrame(() => document.getElementById(`rules-tab-${key}`)?.focus());
-      }}>
-        {tabs.map(([key,label]) => <button key={key} id={`rules-tab-${key}`} type="button" role="tab" aria-selected={tab === key} aria-controls={`rules-panel-${key}`} tabIndex={tab === key ? 0 : -1} onClick={() => setTab(key)}>{label}</button>)}
-      </div>
+      <Tabs variant="underline" ariaLabel="规则内容" idBase="rules" items={tabs} value={tab} onChange={setTab} />
       <section className="rules-panel" id="rules-panel-content" role="tabpanel" aria-labelledby="rules-tab-content" hidden={tab !== "content"}>
         <ScoringRuleForm value={form} onChange={setForm} tab="content" disabled={!editable || busy || loading} />
       </section>
@@ -138,7 +128,7 @@ export function ScoringRules() {
         <ScoringRuleForm value={form} onChange={setForm} tab="efficiency" disabled={!editable || busy || loading} />
       </section>
       <section className="rules-document" id="rules-panel-preview" role="tabpanel" aria-labelledby="rules-tab-preview" hidden={tab !== "preview"}>
-        <div className="rules-document-head"><span className="rules-status" data-status={status}><span className="rules-status-dot" aria-hidden="true" />{statusLabel}</span><p>{creating || dirty ? "当前编辑内容预览，尚未发布。" : "由本版结构化配置和说明生成。"}</p></div>
+        <div className="rules-document-head"><StatusDot tone={statusTone}>{statusLabel}</StatusDot><p>{creating || dirty ? "当前编辑内容预览，尚未发布。" : "由本版结构化配置和说明生成。"}</p></div>
         <article className="rules-document-paper"><div className="run-answer rules-document-body"><AnswerMarkdown content={ruleDocument({...selected,...form},{draft:creating || dirty || !!draft})} /></div></article>
       </section>
       {catalog.events && catalog.events.length > 0 && <details className="rules-audit">
@@ -153,12 +143,12 @@ export function ScoringRules() {
     </>}
   </div>{showSavebar && selected && form && catalog && <div className="rules-savebar" role="group" aria-label="保存与发布操作">
     <div className="rules-savebar-state">
-      <span className={`rules-savebar-label${creating || dirty ? " dirty" : ""}`}><span className="rules-status-dot" aria-hidden="true" />{barState}</span>
+      <StatusDot tone={creating || dirty ? "warning" : "success"}>{barState}</StatusDot>
       <span className="rules-savebar-note">生效版本用于新运行；重新评分沿用该运行的原规则。</span>
     </div>
     <div className="rules-savebar-actions">
-      {editable && <>{dirty && <button type="button" className="rules-text-button" disabled={busy} onClick={() => {if(window.confirm("放弃未保存修改？"))choose(selected);}}>放弃修改</button>}{(dirty || creating) && <button type="button" className="primary-button" disabled={busy || loading} onClick={() => void mutate("save")}>{busy ? "处理中…" : "保存草稿"}</button>}{draft && !creating && <button type="button" className={dirty ? "secondary-button" : "primary-button"} disabled={busy || dirty || loading} onClick={() => void mutate("publish")}>发布版本</button>}{!dirty && !creating && <button type="button" className="rules-text-button" disabled={busy || loading} onClick={() => void mutate("archive")}>归档版本</button>}</>}
-      {published && !isActive && <><button type="button" className="primary-button" disabled={busy || loading} onClick={() => void mutate("activate")}>设为生效</button><button type="button" className="rules-text-button" disabled={busy || loading} onClick={() => void mutate("archive")}>归档版本</button></>}
+      {editable && <>{dirty && <Button type="button" variant="ghost" size="sm" disabled={busy} onClick={() => {if(window.confirm("放弃未保存修改？"))choose(selected);}}>放弃修改</Button>}{(dirty || creating) && <Button type="button" variant="primary" disabled={busy || loading} onClick={() => void mutate("save")}>{busy ? "处理中…" : "保存草稿"}</Button>}{draft && !creating && <Button type="button" variant={dirty ? "secondary" : "primary"} disabled={busy || dirty || loading} onClick={() => void mutate("publish")}>发布版本</Button>}{!dirty && !creating && <Button type="button" variant="ghost" size="sm" disabled={busy || loading} onClick={() => void mutate("archive")}>归档版本</Button>}</>}
+      {published && !isActive && <><Button type="button" variant="primary" disabled={busy || loading} onClick={() => void mutate("activate")}>设为生效</Button><Button type="button" variant="ghost" size="sm" disabled={busy || loading} onClick={() => void mutate("archive")}>归档版本</Button></>}
     </div>
   </div>}</main>;
 }
