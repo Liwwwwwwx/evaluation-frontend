@@ -267,6 +267,8 @@ a.nav-item.active:hover { background: var(--color-bg-selected); }
 .bank-dialog-actions > div { display: flex; gap: 8px; }
 .delete-hint { color: var(--color-fg-muted); font-size: 12px; line-height: 18px; }
 .form-error { margin: 12px 0 0; color: var(--color-danger); font-size: 13px; line-height: 20px; }
+.form-alert { margin-top: 12px; }
+.bank-source-panel { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .detail-question { margin: 20px 0 0; max-height: 44vh; overflow: auto; padding: 16px; border-radius: var(--radius-sm); background: var(--color-bg-subtle); font-size: 16px; line-height: 26px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .detail-meta { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 24px; margin: 20px 0 0; padding-top: 16px; border-top: 1px solid var(--color-border); font-size: 13px; line-height: 20px; }
 .detail-meta dt { color: var(--color-fg-muted); font-size: 12px; line-height: 18px; }
@@ -371,6 +373,7 @@ a.nav-item.active:hover { background: var(--color-bg-selected); }
 .eval-chip button svg { width: 12px; height: 12px; }
 .eval-note { color: var(--color-fg-muted); font-size: 12px; line-height: 18px; }
 .eval-error { margin: 10px 2px 0; color: var(--color-danger); font-size: 13px; line-height: 20px; }
+.eval-alert { margin: 10px 2px 0; }
 .eval-hint { margin: 12px 2px 0; color: var(--color-fg-muted); font-size: 12px; line-height: 18px; text-align: center; }
 .eval-dialog { width: min(640px, calc(100% - 32px)); max-height: calc(100% - 32px); padding: 0; border: 1px solid var(--color-border); border-radius: 16px; background: var(--color-bg); color: var(--color-fg); }
 .eval-dialog::backdrop { background: var(--color-overlay); }
@@ -821,8 +824,7 @@ a.nav-item.active:hover { background: var(--color-bg-selected); }
 .login-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 24px 32px 0; }
 .login-header .login-brand { margin: 0; }
 .theme-select { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; color: var(--color-fg-muted); font-size: 13px; line-height: 20px; }
-.theme-select svg { width: 20px; height: 20px; }
-.theme-select select { min-height: 44px; max-width: 112px; padding: 0 4px; border: 0; background: transparent; color: var(--color-fg); font: inherit; cursor: pointer; }
+.theme-select > svg { width: 20px; height: 20px; }
 @media (max-width: 767px) {
   .login-header { padding: 16px 24px 0; }
 }

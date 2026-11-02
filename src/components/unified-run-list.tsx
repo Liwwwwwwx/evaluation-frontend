@@ -3,6 +3,7 @@ import { createRequestKey } from "@/lib/request-key";
 
 import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import { ScoreSummary, type ScoreSummaryValue } from "@/components/score-summary";
+import { Button, EmptyState, Pagination, StatusDot, ToastStack, useToasts, type StatusTone, type ToastTone } from "@/components/ui";
 import { questionDomains } from "@/lib/question-domains";
 import { buildRunMarkdown, runMarkdownFilename } from "@/lib/run-markdown";
 import Link from "next/link";
@@ -20,10 +21,10 @@ function dateLabel(value: string | null) {
   if (Number.isNaN(date.getTime())) return "未知";
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
-function dotClass(status: string) {
-  if (status === "done") return "done";
-  if (status === "error") return "error";
-  return status === "running" || status === "scoring" ? "running" : "";
+function statusTone(status: string): StatusTone {
+  if (status === "done") return "success";
+  if (status === "error") return "danger";
+  return status === "running" || status === "scoring" ? "info" : "neutral";
 }
 function domainLabel(key?: string | null) { return questionDomains[key || ""] || "未分类"; }
 
@@ -38,7 +39,7 @@ function RunRow({ run, menuOpen, onMenu }: { run: Run; menuOpen: boolean; onMenu
       <strong className="run-row-question">{run.question || "未命名题目"}</strong>
       <span className="run-row-meta">{service} · {domainLabel(run.domainKey)} · {origin}<span className="run-row-inline-time"> · {started}</span></span>
     </span>
-    <span className="run-row-status"><i className={`run-dot ${dotClass(run.status)}`} aria-hidden="true" /><span>{status}</span></span>
+    <span className="run-row-status"><StatusDot tone={statusTone(run.status)}>{status}</StatusDot></span>
     <span className="run-row-score"><ScoreSummary scores={run.scores} /></span>
     <time className="run-row-time" dateTime={run.startedAt || undefined}>{started}</time>
     <span className="run-row-actions">
@@ -62,11 +63,10 @@ export function UnifiedRunList() {
   const [filterOpen, setFilterOpen] = useState(false);
   const [menu, setMenu] = useState<MenuState | null>(null);
   const [rescoring, setRescoring] = useState<string | null>(null);
-  const [notice, setNotice] = useState<{ message: string; error?: boolean } | null>(null);
+  const { toasts, push: pushToast, dismiss: dismissToast } = useToasts();
   const filterRef = useRef<HTMLDivElement>(null);
   const filterButton = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
-  const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     const timer = setTimeout(() => { setSearch(query.trim()); setPage(1); }, 250);
     return () => clearTimeout(timer);
@@ -111,15 +111,12 @@ export function UnifiedRunList() {
     const frame = requestAnimationFrame(() => menuRef.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus());
     return () => cancelAnimationFrame(frame);
   }, [menu]);
-  useEffect(() => () => { if (noticeTimer.current) clearTimeout(noticeTimer.current); }, []);
   const pages = Math.max(1, Math.ceil((data?.total || 0) / 20));
   const filtersActive = Boolean(search || domain || from || to);
   const hasChips = Boolean(domain || from || to);
   const filterCount = (domain ? 1 : 0) + (from || to ? 1 : 0);
-  function notify(message: string, error = false) {
-    setNotice({ message, error });
-    if (noticeTimer.current) clearTimeout(noticeTimer.current);
-    noticeTimer.current = setTimeout(() => setNotice(null), error ? 4200 : 2400);
+  function notify(message: string, tone: ToastTone = "success") {
+    pushToast(tone, message);
   }
   function clearSearch() { setQuery(""); setSearch(""); setPage(1); }
   function resetFilters() { setQuery(""); setSearch(""); setDomain(""); setFrom(""); setTo(""); setPage(1); }
@@ -135,7 +132,7 @@ export function UnifiedRunList() {
   async function copyQuestion(run: Run) {
     setMenu(null);
     try { await navigator.clipboard.writeText(run.question); notify("题目已复制到剪贴板。"); }
-    catch { notify("无法访问剪贴板，请打开详情后手动复制。", true); }
+    catch { notify("无法访问剪贴板，请打开详情后手动复制。", "error"); }
   }
   async function rescore(run: Run) {
     setMenu(null);
@@ -147,12 +144,12 @@ export function UnifiedRunList() {
       if (!response.ok) throw new Error(typeof data.error === "string" ? data.error : data.error?.message || "无法发起重评，请重试。");
       notify("已提交重新评分。");
       setRetry((value) => value + 1);
-    } catch (err) { notify(err instanceof Error ? err.message : "结果未知，请用原请求重试。", true); }
+    } catch (err) { notify(err instanceof Error ? err.message : "结果未知，请用原请求重试。", "error"); }
     finally { setRescoring(null); }
   }
   async function exportMarkdown(run: Run) {
     setMenu(null);
-    notify("正在准备导出…");
+    notify("正在准备导出…", "info");
     try {
       const response = await fetch(`/api/evaluation/unified/runs/${encodeURIComponent(run.runId)}`, { cache: "no-store" });
       const snapshot = await response.json().catch(() => ({}));
@@ -164,9 +161,9 @@ export function UnifiedRunList() {
       document.body.append(link); link.click(); link.remove();
       window.setTimeout(() => URL.revokeObjectURL(url), 1000);
       notify("已导出 Markdown。");
-    } catch (err) { notify(err instanceof Error ? err.message : "导出失败，请重试。", true); }
+    } catch (err) { notify(err instanceof Error ? err.message : "导出失败，请重试。", "error"); }
   }
-  return <section className="runs-list-page" aria-labelledby="runs-title"><header className="runs-list-header"><div><h1 id="runs-title">运行记录</h1><p>统一流式对话和自动化运行记录，点击任意一条查看详情。</p></div><Link href="/evaluate" className="primary-button">新建测评</Link></header>
+  return <section className="runs-list-page" aria-labelledby="runs-title"><header className="runs-list-header"><div><h1 id="runs-title">运行记录</h1><p>统一流式对话和自动化运行记录，点击任意一条查看详情。</p></div><Button href="/evaluate" variant="primary">新建测评</Button></header>
     <div className="runs-toolbar">
       <div className="runs-search">
         <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.4-3.4" /></svg>
@@ -186,22 +183,22 @@ export function UnifiedRunList() {
             <input type="date" value={to} min={from || undefined} aria-label="结束日期" onChange={(event) => { setTo(event.target.value); setPage(1); }} />
           </div></div>
           <div className="runs-filter-group"><span className="runs-filter-label">领域</span><div className="runs-domain-options" role="group" aria-label="领域">{domainOptions.map(([key, label]) => <button key={key} type="button" className="runs-domain-option" aria-pressed={domain === key} onClick={() => { setDomain(key); setPage(1); }}>{label}</button>)}</div></div>
-          <div className="runs-filter-foot"><button type="button" className="runs-reset" onClick={resetFilters}>清除全部</button><button type="button" className="secondary-button" onClick={() => setFilterOpen(false)}>完成</button></div>
+          <div className="runs-filter-foot"><Button type="button" variant="ghost" size="sm" onClick={resetFilters}>清除全部</Button><Button type="button" variant="secondary" onClick={() => setFilterOpen(false)}>完成</Button></div>
         </div>}
       </div>
-      {filtersActive && <button type="button" className="runs-reset" onClick={resetFilters}>重置</button>}
+      {filtersActive && <Button type="button" variant="ghost" size="sm" onClick={resetFilters}>重置</Button>}
     </div>
     {hasChips && <div className="runs-filter-chips">
       {(from || to) && <span className="runs-filter-chip"><span>日期 {from || "不限"} 至 {to || "不限"}</span><button type="button" aria-label="清除日期筛选" onClick={() => { setFrom(""); setTo(""); setPage(1); }}><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M6 6l12 12M18 6 6 18" /></svg></button></span>}
       {domain && <span className="runs-filter-chip"><span>{domain === "unclassified" ? "未分类" : domainLabel(domain)}</span><button type="button" aria-label="清除领域筛选" onClick={() => { setDomain(""); setPage(1); }}><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M6 6l12 12M18 6 6 18" /></svg></button></span>}
     </div>}
-    {error ? <div className="bank-state"><p role="alert">{error}</p><button type="button" className="secondary-button" onClick={() => setRetry((value) => value + 1)}>重试</button></div> : !data ? <div className="bank-state">正在读取运行记录…</div> : data.total === 0 ? <div className="bank-state"><p>{filtersActive ? "没有匹配的运行记录。" : "暂无统一运行记录。"}</p>{filtersActive && <button type="button" className="secondary-button" onClick={resetFilters}>清除筛选</button>}</div> : <><div className="runs-list-wrap"><div className="runs-list-head" aria-hidden="true"><span>题目</span><span>状态</span><span>评分</span><span>开始时间</span><span>操作</span></div><ul className="runs-list" aria-label="运行记录">{data.items.map((run) => <RunRow key={run.runId} run={run} menuOpen={menu?.run.runId === run.runId} onMenu={toggleMenu} />)}</ul></div><footer className="bank-footer"><span>共 {data.total} 条</span><div className="bank-pager"><button type="button" className="secondary-button" disabled={page <= 1} onClick={() => { setData(null); setPage(page - 1); }}>上一页</button><span>{page} / {pages}</span><button type="button" className="secondary-button" disabled={page >= pages} onClick={() => { setData(null); setPage(page + 1); }}>下一页</button></div></footer></>}
+    {error ? <EmptyState state="error" title={error} action={<Button type="button" variant="secondary" onClick={() => setRetry((value) => value + 1)}>重试</Button>} /> : !data ? <EmptyState state="loading" title="正在读取运行记录…" /> : data.total === 0 ? <EmptyState state="empty" title={filtersActive ? "没有匹配的运行记录。" : "暂无统一运行记录。"} action={filtersActive ? <Button type="button" variant="secondary" onClick={resetFilters}>清除筛选</Button> : undefined} /> : <><div className="runs-list-wrap"><div className="runs-list-head" aria-hidden="true"><span>题目</span><span>状态</span><span>评分</span><span>开始时间</span><span>操作</span></div><ul className="runs-list" aria-label="运行记录">{data.items.map((run) => <RunRow key={run.runId} run={run} menuOpen={menu?.run.runId === run.runId} onMenu={toggleMenu} />)}</ul></div><Pagination page={page} pages={pages} total={data.total} pageSize={20} onPageChange={(next) => { setData(null); setPage(next); }} /></>}
     {menu && <div ref={menuRef} className="run-action-menu" role="menu" style={{ top: menu.top, left: menu.left }}>
       <Link className="run-action-item" role="menuitem" href={`/runs/${menu.run.runId}`} onClick={() => setMenu(null)}><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14m-6-6 6 6-6 6" /></svg><span>查看详情</span></Link>
       <button type="button" className="run-action-item" role="menuitem" onClick={() => void copyQuestion(menu.run)}><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15V5h10" /></svg><span>复制题目</span></button>
       {menu.run.canRescore && <button type="button" className="run-action-item" role="menuitem" disabled={rescoring === menu.run.runId} onClick={() => void rescore(menu.run)}><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M20 7v5h-5M4 17v-5h5" /><path d="M6.1 7a7 7 0 0 1 11.6-1L20 9M4 15l2.3 3A7 7 0 0 0 17.9 17" /></svg><span>{rescoring === menu.run.runId ? "正在提交…" : "重新评分"}</span></button>}
       <button type="button" className="run-action-item" role="menuitem" onClick={() => void exportMarkdown(menu.run)}><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M12 4v11m-4-4 4 4 4-4M5 20h14" /></svg><span>导出 Markdown</span></button>
     </div>}
-    {notice && <div className="toast-stack"><div className={`toast${notice.error ? " error" : ""}`} role="status">{notice.message}</div></div>}
+    {toasts.length > 0 && <ToastStack toasts={toasts} onDismiss={dismissToast} />}
   </section>;
 }
