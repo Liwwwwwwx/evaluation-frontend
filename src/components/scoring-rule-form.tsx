@@ -1,5 +1,6 @@
 "use client";
 import { dimensionNames, type RuleFormValue, type PhaseRule } from "@/lib/scoring-rules";
+import { Button } from "@/components/ui";
 
 const clamp = (value: number) => Number.isFinite(value) ? Math.max(0, Math.min(100, value)) : 0;
 
@@ -94,14 +95,14 @@ export function ScoringRuleForm({ value, onChange, disabled, tab }: { value: Rul
       <datalist id="rule-service-keys">{["*","literature","literature-aircraft","alloy","synthesis","new-material","mission-material"].map(key => <option key={key} value={key} />)}</datalist>
       {c.efficiencyRules.length === 0 ? <div className="rules-empty-card">
         <p>当前没有阶段阈值。过程耗时仍会保留，但不会判定阶段超时。</p>
-        {!disabled && <button type="button" className="secondary-button" onClick={() => config({efficiencyRules:[{serviceKey:"*",phaseKey:"new-stage",label:"新阶段",warningSeconds:60,criticalSeconds:180}]})}>添加阶段阈值</button>}
+        {!disabled && <Button type="button" variant="secondary" onClick={() => config({efficiencyRules:[{serviceKey:"*",phaseKey:"new-stage",label:"新阶段",warningSeconds:60,criticalSeconds:180}]})}>添加阶段阈值</Button>}
       </div> : <div className="rules-phase-list">
         {c.efficiencyRules.map((r,index) => {
           const ratio = Number.isFinite(r.warningSeconds) && Number.isFinite(r.criticalSeconds) && r.criticalSeconds > 0 ? Math.min(100, Math.max(0, r.warningSeconds / r.criticalSeconds * 100)) : null;
           return <article className="rules-phase" key={index}>
             <header className="rules-phase-head">
               <div className="rules-phase-title"><span className="rules-phase-index">阶段 {index + 1}</span><h3>{r.label.trim() || "未命名阶段"}</h3></div>
-              {!disabled && <button type="button" className="rules-text-button" onClick={() => config({efficiencyRules:c.efficiencyRules.filter((_,i) => i !== index)})}>移除此项</button>}
+              {!disabled && <Button type="button" variant="ghost" size="sm" onClick={() => config({efficiencyRules:c.efficiencyRules.filter((_,i) => i !== index)})}>移除此项</Button>}
             </header>
             <div className="rules-phase-grid">
               <label className="rules-field">阶段名称<input maxLength={80} value={r.label} placeholder="例如：团队查询" onChange={e => phase(index,{label:e.target.value})} /></label>

@@ -1,5 +1,6 @@
 "use client";
 import { useTheme } from "@/components/theme-provider";
+import { Select } from "@/components/ui";
 import { normalizeTheme, type ThemePreference } from "@/lib/theme";
 const options: { value: ThemePreference; label: string }[] = [{ value: "light", label: "浅色" }, { value: "dark", label: "深色" }, { value: "system", label: "跟随系统" }];
 export function ThemeIcon({ value }: { value: ThemePreference }) {
@@ -12,5 +13,5 @@ export function ThemeMenuItems({ onSelect }: { onSelect?: () => void }) {
 }
 export function ThemeSelect() {
   const { preference, setPreference } = useTheme();
-  return <label className="theme-select"><ThemeIcon value={preference} /><span className="sr-only">外观</span><select aria-label="外观" value={preference} onChange={event => setPreference(normalizeTheme(event.target.value))}>{options.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>;
+  return <div className="theme-select"><ThemeIcon value={preference} /><Select variant="bare" hideLabel label="外观" value={preference} options={options} onChange={value => setPreference(normalizeTheme(value))} /></div>;
 }
