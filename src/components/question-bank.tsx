@@ -67,7 +67,7 @@ function formatDateTime(value?: string | null) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
-const serviceNames: Record<string, string> = { "mission-material": "Mission_ScienceMaterial（主服务）", literature: "文献检索", "literature-aircraft": "航空文献", alloy: "合金材料", synthesis: "合成制备", "new-material": "新材料" };
+const serviceNames: Record<string, string> = { "mission-material": "Mission 主服务", literature: "文献检索", "literature-aircraft": "航空文献", alloy: "合金材料", synthesis: "合成制备", "new-material": "新材料" };
 function QuestionScores({ rows, state }: { rows: QuestionScoreRow[]; state: string }) {
   if (state !== "ready") return <span className="run-score-note">{state === "failed" ? "评分读取失败" : "读取中…"}</span>;
   if (!rows.length) return <span className="run-score-note">未评分</span>;

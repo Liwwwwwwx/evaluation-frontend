@@ -1,5 +1,5 @@
-import { WorkspaceHome } from "@/components/workspace";
+import { redirect } from "next/navigation";
 
 export default function Home() {
-  return <WorkspaceHome />;
+  redirect("/evaluate");
 }

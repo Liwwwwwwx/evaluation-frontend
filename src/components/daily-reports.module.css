@@ -1,0 +1,27 @@
+.page { width: 100%; max-width: 1200px; margin: 0 auto; padding: 32px; overflow-wrap: anywhere; color: var(--color-fg); }
+.reading { max-width: 832px; }
+.header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 32px; }
+.header h1 { margin: 0; font-size: 28px; line-height: 36px; font-weight: 600; }
+.header p, .muted { color: var(--color-fg-muted); font-size: 13px; line-height: 20px; }
+.header p { margin: 8px 0 0; }
+.header a { text-decoration: none; flex-shrink: 0; }
+.page button, .header a { min-height: 44px; }
+.form { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 16px; margin: 24px 0; }
+.form label { display: grid; gap: 8px; font-size: 14px; }
+.form input { min-height: 44px; padding: 8px 12px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); color: var(--color-fg); background: var(--color-bg-elevated); }
+.message { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding: 12px 0; border-left: 2px solid var(--color-warning); padding-left: 16px; font-size: 14px; line-height: 22px; }
+.empty { margin: 32px 0; padding: 24px 0; border-top: 1px solid var(--color-border); font-size: 14px; line-height: 22px; }
+.list { padding: 0; margin: 24px 0; list-style: none; border-top: 1px solid var(--color-border); }
+.list li { border-bottom: 1px solid var(--color-border); }
+.list a { display: grid; gap: 8px; padding: 16px 8px; text-decoration: none; color: var(--color-fg); }
+.list a:hover { background: var(--color-bg-hover); }
+.list strong { font-size: 16px; line-height: 24px; font-variant-numeric: tabular-nums; }
+.list span { font-size: 13px; line-height: 20px; color: var(--color-fg-muted); font-variant-numeric: tabular-nums; }
+.pagination { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 13px; }
+.back { display: inline-block; min-height: 44px; color: var(--color-fg-muted); font-size: 13px; }
+.report { margin-top: 24px; }
+.report :global(table) { min-width: 560px; }
+.report :global(th) { white-space: nowrap; }
+.page a:focus-visible, .page button:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+@media (max-width: 1279px) { .page { padding: 24px; } }
+@media (max-width: 767px) { .page { padding: 24px 16px; } .header { align-items: flex-start; flex-wrap: wrap; } .header h1 { font-size: 24px; line-height: 32px; } }
