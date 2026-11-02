@@ -93,6 +93,7 @@
 *::-webkit-scrollbar-thumb:hover { background-image: linear-gradient(var(--color-scrollbar-hover), var(--color-scrollbar-hover)); }
 *::-webkit-scrollbar-track { background: transparent; }
 html, body { min-height: 100%; margin: 0; background: var(--color-bg); }
+body:has(.chat-shell) { height: 100dvh; overflow: hidden; }
 body { color: var(--color-fg); background: var(--color-bg); font: 14px/22px -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; -webkit-font-smoothing: antialiased; }
 a { color: inherit; text-decoration: none; }
 button, input, textarea { font: inherit; }
@@ -424,7 +425,7 @@ a.nav-item.active:hover { background: var(--color-bg-selected); }
 }
 
 /* 运行记录：历史侧栏 + 会话 */
-.chat-shell { height: 100dvh; min-height: 0; overflow: hidden; display: flex; background: var(--color-bg); }
+.chat-shell { height: 100dvh; min-height: 0; overflow: hidden; overscroll-behavior: none; display: flex; background: var(--color-bg); }
 .chat-sidebar { position: relative; width: 288px; flex: none; min-height: 0; display: flex; flex-direction: column; background: var(--color-bg-subtle); padding: 12px 8px 8px; }
 .chat-resize { position: absolute; z-index: 1; top: 0; right: -4px; bottom: 0; width: 8px; cursor: col-resize; touch-action: none; }
 .chat-resize:hover, .chat-resize:focus-visible { background: var(--color-border); }
@@ -854,7 +855,7 @@ a.nav-item.active:hover { background: var(--color-bg-selected); }
 
 /* 规则管理：以文档式阅读为主，状态、版本和编辑动作分区呈现。 */
 .rules-page { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; width: 100%; max-width: 980px; margin: 0 auto; container-type: inline-size; }
-.rules-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 40px 32px 48px; }
+.rules-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 40px 32px 48px; }
 .rules-scroll.with-savebar { padding-bottom: 128px; }
 .rules-scroll:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -2px; }
 .rules-page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; margin-bottom: 32px; }
