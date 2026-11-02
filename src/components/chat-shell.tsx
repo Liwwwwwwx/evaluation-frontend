@@ -112,9 +112,8 @@ function SidebarBody({ items, error, activeId, onNavigate, preview = false }: {
         <Link className={`chat-foot-link${pathname.startsWith("/batches") || pathname.startsWith("/preview/batches") ? " active" : ""}`} href={preview ? "/preview/batches" : "/batches"} aria-current={pathname.startsWith("/batches") || pathname.startsWith("/preview/batches") ? "page" : undefined} onClick={onNavigate}><Icon name="layers" />测评批次</Link>
         <Link className={`chat-foot-link${pathname === "/runs" ? " active" : ""}`} href="/runs" aria-current={pathname === "/runs" ? "page" : undefined} onClick={onNavigate}><Icon name="clock" />运行记录</Link>
         <Link className={`chat-foot-link${pathname.startsWith("/daily-reports") ? " active" : ""}`} href="/daily-reports" aria-current={pathname.startsWith("/daily-reports") ? "page" : undefined} onClick={onNavigate}><Icon name="book" />每日总结</Link>
-        <Link className={`chat-foot-link${pathname === "/question-bank" ? " active" : ""}`} href="/question-bank" aria-current={pathname === "/question-bank" ? "page" : undefined} onClick={onNavigate}><Icon name="book" />题库</Link>
-        <Link className={`chat-foot-link${pathname === "/standards" ? " active" : ""}`} href="/standards" aria-current={pathname === "/standards" ? "page" : undefined} onClick={onNavigate}><Icon name="grid" />评判标准助手</Link>
-        <Link className={`chat-foot-link${pathname === "/scoring-rules" ? " active" : ""}`} href="/scoring-rules" aria-current={pathname === "/scoring-rules" ? "page" : undefined} onClick={onNavigate}><Icon name="grid" />评测规则</Link>
+        <Link className={`chat-foot-link${pathname.startsWith("/question-bank") ? " active" : ""}`} href="/question-bank" aria-current={pathname.startsWith("/question-bank") ? "page" : undefined} onClick={onNavigate}><Icon name="book" />题库</Link>
+        <Link className={`chat-foot-link${pathname === "/standards" || pathname === "/scoring-rules" ? " active" : ""}`} href="/standards" aria-current={pathname === "/standards" || pathname === "/scoring-rules" ? "page" : undefined} onClick={onNavigate}><Icon name="grid" />评判标准</Link>
         {!preview && <div className="chat-account"><AccountMenu showName /></div>}
       </div>
     </>
@@ -184,7 +183,7 @@ export function ChatShell({ children, preview = false }: { children: ReactNode; 
           <button type="button" className="icon-button" aria-label="打开运行历史" onClick={() => drawer.current?.showModal()}>
             <Icon name="menu" />
           </button>
-          <span>{isEvaluate ? "新建测评" : pathname === "/" ? "评测工作台" : pathname.startsWith("/daily-reports") ? "每日总结" : pathname.startsWith("/batches") || pathname.startsWith("/preview/batches") ? "测评批次" : pathname === "/question-bank" ? "题库" : pathname === "/standards" ? "评判标准助手" : pathname === "/scoring-rules" ? "评测规则" : "运行记录"}</span>
+          <span>{isEvaluate ? "新建测评" : pathname === "/" ? "评测工作台" : pathname.startsWith("/daily-reports") ? "每日总结" : pathname.startsWith("/batches") || pathname.startsWith("/preview/batches") ? "测评批次" : pathname.startsWith("/question-bank") ? "题库" : pathname === "/standards" || pathname === "/scoring-rules" ? "评判标准" : "运行记录"}</span>
         </div>
         {children}
       </div>

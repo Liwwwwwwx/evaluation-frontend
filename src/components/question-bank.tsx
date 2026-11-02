@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
 import Link from "next/link";
-import { ScoreSummary, type ScoreSummaryValue } from "@/components/score-summary";
+import { type ScoreSummaryValue } from "@/components/score-summary";
 import { useRouter } from "next/navigation";
 import { Button, Checkbox, ConfirmDialog, Dialog, EmptyState, InlineAlert, Input, Pagination, Select, Tabs, Textarea, ToastStack, useToasts, tabButtonId, tabPanelId } from "@/components/ui";
 import { questionDomains as domains } from "@/lib/question-domains";
@@ -11,7 +11,8 @@ import { parseXlsxFirstSheet } from "@/lib/xlsx-parser";
 type Question = { id: string; question: string; domainKey?: string | null; serviceKey: string | null; criteria?: unknown; sourceType: string; datasetVersion: string; createdAt?: string | null };
 type QuestionScoreRow = { questionId: string; datasetVersion: string; runId: string; serviceKey: string; startedAt?: string; scores: ScoreSummaryValue };
 type Draft = { domainKey: string; question: string };
-type IconName = "search" | "close" | "trash" | "copy" | "chevron";
+type RowMenu = { row: Question; top: number; left: number; trigger: HTMLButtonElement };
+type IconName = "search" | "close" | "trash" | "copy" | "chevron" | "more";
 
 
 const pageSize = 20;
@@ -24,6 +25,7 @@ function Icon({ name }: { name: IconName }) {
     trash: <><path d="M4 7h16M9 7V5h6v2M6.5 7l.9 13h9.2l.9-13" /><path d="M10.5 11v5.5M13.5 11v5.5" /></>,
     copy: <><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M15 9V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h3" /></>,
     chevron: <path d="m6 9 6 6 6-6" />,
+    more: <><circle cx="5" cy="12" r="1.6" fill="currentColor" stroke="none" /><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none" /><circle cx="19" cy="12" r="1.6" fill="currentColor" stroke="none" /></>,
   };
   return <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">{paths[name]}</svg>;
 }
@@ -69,12 +71,57 @@ function formatDateTime(value?: string | null) {
 }
 
 const serviceNames: Record<string, string> = { "mission-material": "Mission 主服务", literature: "文献检索", "literature-aircraft": "航空文献", alloy: "合金材料", synthesis: "合成制备", "new-material": "新材料" };
+const shortServiceNames: Record<string, string> = { "mission-material": "Mission", literature: "文献", "literature-aircraft": "航空", alloy: "合金", synthesis: "合成", "new-material": "新材料" };
+const scoreStateNames: Record<string, string> = { pending: "评分中", failed: "评分失败", unavailable: "未配置", absent: "无评分", skipped: "不适用" };
+const taskStateNames: Record<string, string> = { partial: "部分完成", failed: "未完成", unclear: "无法确认" };
+
+function scoreText(item: ScoreSummaryValue[string] | undefined) {
+  if (!item) return "—";
+  if (item.status === "ready") return typeof item.total === "number" && Number.isFinite(item.total) && item.total >= 0 && item.total <= 100 ? `${item.total}${item.provisional ? "*" : ""}` : "数据异常";
+  return scoreStateNames[item.status || ""] || (item.status ? "状态未知" : "未评分");
+}
+
+function scoreDetail(item: ScoreSummaryValue[string] | undefined) {
+  if (!item) return "无评分";
+  if (item.status === "ready" && typeof item.total === "number" && Number.isFinite(item.total) && item.total >= 0 && item.total <= 100) return `${item.total} / 100${item.provisional ? "（参考）" : ""}`;
+  return scoreText(item);
+}
+
+function taskText(row: QuestionScoreRow) {
+  const statuses = [row.scores.deepSeekScore?.taskStatus, row.scores.qwenScore?.taskStatus].filter(Boolean);
+  for (const key of ["failed", "partial", "unclear"]) if (statuses.includes(key)) return taskStateNames[key];
+  return "";
+}
+
+function ScoreLine({ row }: { row: QuestionScoreRow }) {
+  const deepSeek = row.scores.deepSeekScore;
+  const qwen = row.scores.qwenScore;
+  const items = [deepSeek, qwen].filter(Boolean);
+  const summary = !items.length ? "未评分"
+    : items.every((item) => item.status === "skipped") ? "不适用"
+      : items.every((item) => item.status === "pending") ? "评分中"
+        : `DS ${scoreText(deepSeek)} · QW ${scoreText(qwen)}`;
+  const task = taskText(row);
+  const service = serviceNames[row.serviceKey] || row.serviceKey;
+  const full = `${service} · DeepSeek ${scoreDetail(deepSeek)} · 千问 ${scoreDetail(qwen)}${task ? ` · ${task}` : ""}`;
+  return <Link className="score-bank-line" href={`/runs/${row.runId}`} title={full}>
+    <span className="score-bank-service">{shortServiceNames[row.serviceKey] || service}</span>
+    <span className="score-bank-values">{summary}</span>
+    {task && <span className="score-bank-task">{task}</span>}
+  </Link>;
+}
+
 function QuestionScores({ rows, state }: { rows: QuestionScoreRow[]; state: string }) {
   if (state !== "ready") return <span className="run-score-note">{state === "failed" ? "评分读取失败" : "读取中…"}</span>;
   if (!rows.length) return <span className="run-score-note">未评分</span>;
   const ordered = [...rows].sort((a,b) => (Date.parse(b.startedAt || "") || 0) - (Date.parse(a.startedAt || "") || 0) || b.runId.localeCompare(a.runId));
-  const link = (row: QuestionScoreRow) => <Link key={row.runId} className="score-bank-link" href={`/runs/${row.runId}`}><span>{serviceNames[row.serviceKey] || row.serviceKey}</span><ScoreSummary scores={row.scores} /></Link>;
-  return <>{link(ordered[0])}{ordered.length > 1 && <details className="score-bank-others"><summary>其他服务（{ordered.length - 1}）</summary>{ordered.slice(1).map(link)}</details>}</>;
+  return <div className="score-bank-cell">
+    <ScoreLine row={ordered[0]} />
+    {ordered.length > 1 && <details className="score-bank-more">
+      <summary>+{ordered.length - 1}</summary>
+      <div className="score-bank-more-list">{ordered.slice(1).map((row) => <ScoreLine key={row.runId} row={row} />)}</div>
+    </details>}
+  </div>;
 }
 
 export function QuestionBank() {
@@ -100,6 +147,8 @@ export function QuestionBank() {
   const [importTarget, setImportTarget] = useState<"fixed" | "random">("fixed");
   const [importOpen, setImportOpen] = useState(false);
   const [importError, setImportError] = useState(""); const [importing, setImporting] = useState(false);
+  const [rowMenu, setRowMenu] = useState<RowMenu | null>(null);
+  const rowMenuRef = useRef<HTMLDivElement>(null);
   const requestId = useRef(0);
 
   useEffect(() => { const controller = new AbortController(); jsonRequest("/api/question-bank/access", { signal: controller.signal }).then((data) => setWrite(canWrite(data.access?.permissions))).catch(() => { if (!controller.signal.aborted) { setWrite(false); setPermissionError("无法确认导入权限，请刷新页面重试。"); } }).finally(() => { if (!controller.signal.aborted) setPermissionReady(true); }); return () => controller.abort(); }, []);
@@ -129,10 +178,53 @@ export function QuestionBank() {
   const allSelected = rows.length > 0 && rows.every((row) => Object.hasOwn(selected, rowKey(row)));
   const someSelected = rows.some((row) => Object.hasOwn(selected, rowKey(row)));
 
+  function openDetail(row: Question) {
+    router.push(`/question-bank/${encodeURIComponent(row.id)}?datasetVersion=${encodeURIComponent(row.datasetVersion)}`);
+  }
+  function openRowMenu(event: ReactMouseEvent<HTMLButtonElement>, row: Question) {
+    event.stopPropagation();
+    const rect = event.currentTarget.getBoundingClientRect();
+    const width = 180;
+    setRowMenu({ row, top: Math.min(rect.bottom + 6, window.innerHeight - 180), left: Math.max(8, Math.min(window.innerWidth - width - 8, rect.right - width)), trigger: event.currentTarget });
+  }
+  function closeRowMenu(restoreFocus = false) {
+    const trigger = rowMenu?.trigger;
+    setRowMenu(null);
+    if (restoreFocus) trigger?.focus();
+  }
   function toggleRow(row: Question) { setSelected((current) => { const next = { ...current }; const key = rowKey(row); if (Object.hasOwn(next, key)) delete next[key]; else next[key] = row; return next; }); }
   function toggleAll() { setSelected((current) => { if (allSelected) { const next = { ...current }; rows.forEach((row) => delete next[rowKey(row)]); return next; } const next = { ...current }; rows.forEach((row) => { next[rowKey(row)] = row; }); return next; }); }
   function clearFilters() { setInput(""); setSearch(""); setService(""); setPage(0); }
   useEffect(() => { const timer = setTimeout(() => { setSearch(input.trim()); setPage(0); }, 250); return () => clearTimeout(timer); }, [input]);
+  useEffect(() => {
+    if (!rowMenu) return;
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target as Element | null;
+      if (rowMenuRef.current?.contains(target as Node) || target?.closest?.(".bank-row-more")) return;
+      setRowMenu(null);
+    };
+    const onKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      const trigger = rowMenu.trigger;
+      setRowMenu(null);
+      trigger.focus();
+    };
+    const onScroll = () => setRowMenu(null);
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    window.addEventListener("scroll", onScroll, true);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("scroll", onScroll, true);
+    };
+  }, [rowMenu]);
+  useEffect(() => {
+    if (!rowMenu) return;
+    const frame = requestAnimationFrame(() => rowMenuRef.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus());
+    return () => cancelAnimationFrame(frame);
+  }, [rowMenu]);
 
   function askDelete(target: Question[]) { if (!target.length) return; setDeleteError(""); setConfirmRows(target); }
   function shiftPage(removed: number) {
@@ -182,6 +274,12 @@ export function QuestionBank() {
   async function copyQuestion(text: string) {
     try { await navigator.clipboard.writeText(text); toast("success", "题目已复制到剪贴板。"); }
     catch { toast("error", "无法访问剪贴板，请手动选择文本复制。"); }
+  }
+  function generateStandards(row: Question) {
+    try {
+      sessionStorage.setItem("evaluation-standards-selected-question", JSON.stringify({ id: row.id, datasetVersion: row.datasetVersion, question: row.question, domainKey: row.domainKey || null, sourceType: row.sourceType }));
+      router.push("/standards");
+    } catch { toast("error", "无法带入题目，请在评判标准页面重新选择。"); }
   }
 
   function openImport(mode: "manual" | "excel" | "generate") { setImportTarget(source); setImportMode(mode); setDrafts([]); setDraftQuestion(""); setImportError(""); setImportOpen(true); }
@@ -277,11 +375,11 @@ export function QuestionBank() {
             const key = rowKey(row); const checked = Object.hasOwn(selected, key);
             return <tr key={key} className={checked ? "selected" : ""}>
               {canManage && <td className="col-check"><Checkbox checked={checked} onChange={() => toggleRow(row)} aria-label={`选择题目：${row.question.slice(0, 24)}`} /></td>}
-              <td className="col-question"><button type="button" className="row-question" title={row.question} onClick={() => { setDetail(row); setDetailDomain(row.domainKey || ""); setEditMode(false); setEditError(""); setEditText(row.question); }}>{row.question}</button></td>
+              <td className="col-question"><button type="button" className="row-question" title={row.question} onClick={() => openDetail(row)}>{row.question}</button></td>
               <td className="col-service">{domainLabel(row)}</td>
               <td className="col-time">{formatDate(row.createdAt)}</td>
               <td className="col-score"><QuestionScores rows={scoreRows.filter(v => v.questionId === row.id && v.datasetVersion === row.datasetVersion)} state={scoresState} /></td>
-              <td className="col-action">{canManage && <button type="button" className="icon-button row-delete" aria-label="删除该题目" onClick={() => askDelete([row])}><Icon name="trash" /></button>}</td>
+              <td className="col-action"><button type="button" className="icon-button bank-row-more" aria-label={`更多操作：${row.question.slice(0, 24)}`} aria-haspopup="menu" aria-expanded={rowMenu?.row === row} onClick={(event) => openRowMenu(event, row)}><Icon name="more" /></button></td>
             </tr>;
           })}</tbody>
         </table>
@@ -304,6 +402,7 @@ export function QuestionBank() {
       description={detail ? `${domainLabel(detail)} · ${detail.sourceType === "random" ? "随机题" : "固定题"}` : undefined}
       footerStart={detail ? <Button type="button" variant="secondary" onClick={() => void copyQuestion(detail.question)}><Icon name="copy" />复制题目</Button> : undefined}
       footer={detail ? <>
+        {!editMode && <Button type="button" variant="secondary" onClick={() => generateStandards(detail)}>生成评判标准</Button>}
         {["fixed", "random"].includes(detail.sourceType) && !detail.criteria && (!detail.serviceKey || ["mission-material", "literature", "literature-aircraft", "alloy", "synthesis", "new-material"].includes(detail.serviceKey)) && !editMode && <Button type="button" variant="secondary" disabled={quickBusy} onClick={() => void prepareEvaluation(detail)}>{quickBusy ? "正在准备…" : "使用这道题测评"}</Button>}
         {canManage && (editMode ? <Button type="button" variant="primary" disabled={editBusy} onClick={() => void saveEdit()}>{editBusy ? "保存中…" : "保存修改"}</Button> : <Button type="button" variant="secondary" disabled={domainBusy} onClick={() => setEditMode(true)}>编辑</Button>)}
         {canManage && !editMode && <Button type="button" variant="danger" disabled={domainBusy} onClick={() => { setDetail(null); askDelete([detail]); }}>删除</Button>}
@@ -392,6 +491,12 @@ export function QuestionBank() {
         {drafts.length > 0 && <div className="import-preview"><h3>保存预览 · {drafts.length} 条</h3>{drafts.map((item, index) => <div className="preview-row" key={`${index}-${item.domainKey}`}><span>{domains[item.domainKey]}</span><p>{item.question}</p><Button type="button" variant="ghost" size="sm" disabled={importing} onClick={() => setDrafts(drafts.filter((_, i) => i !== index))}>移除</Button></div>)}</div>}
       </div>
     </Dialog>
+
+    {rowMenu && <div ref={rowMenuRef} className="run-action-menu" role="menu" style={{ top: rowMenu.top, left: rowMenu.left }}>
+      <button type="button" className="run-action-item" role="menuitem" onClick={() => { closeRowMenu(); openDetail(rowMenu.row); }}><Icon name="search" /><span>查看详情</span></button>
+      <button type="button" className="run-action-item" role="menuitem" onClick={() => { const row = rowMenu.row; closeRowMenu(); generateStandards(row); }}><Icon name="copy" /><span>生成评判标准</span></button>
+      {canManage && <button type="button" className="run-action-item" role="menuitem" onClick={() => { const row = rowMenu.row; closeRowMenu(); askDelete([row]); }}><Icon name="trash" /><span>删除</span></button>}
+    </div>}
 
     <ToastStack toasts={toasts} onDismiss={dismissToast} />
   </section>;

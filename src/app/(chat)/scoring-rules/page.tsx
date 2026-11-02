@@ -1,2 +1,2 @@
-import { ScoringRules } from "@/components/scoring-rules";
-export default function ScoringRulesPage() { return <ScoringRules />; }
+import { StandardsWorkspace } from "@/components/standards-workspace";
+export default function ScoringRulesPage() { return <StandardsWorkspace initialTab="rules" />; }

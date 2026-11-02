@@ -1,3 +1,3 @@
-import { StandardsAssistant } from "@/components/standards-assistant";
+import { StandardsWorkspace } from "@/components/standards-workspace";
 
-export default function StandardsPage() { return <StandardsAssistant />; }
+export default function StandardsPage() { return <StandardsWorkspace initialTab="generate" />; }

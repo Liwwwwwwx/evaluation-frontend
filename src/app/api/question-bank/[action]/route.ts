@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { backendOrigin } from "@/lib/evaluation-auth-proxy";
 
-const methods: Record<string, string> = { access: "GET", questions: "GET", import: "POST", "random-save": "POST", generate: "POST", domain: "PUT", update: "PUT", delete: "DELETE" };
+const methods: Record<string, string> = { access: "GET", questions: "GET", question: "GET", import: "POST", "random-save": "POST", generate: "POST", domain: "PUT", update: "PUT", delete: "DELETE" };
 
 async function proxy(request: NextRequest, action: string) {
   if (!Object.hasOwn(methods, action) || request.method !== methods[action]) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -13,6 +13,7 @@ async function proxy(request: NextRequest, action: string) {
   try {
     const url = new URL(`/api/question-bank/${action}`, backendOrigin());
     if (action === "questions") for (const key of ["service", "runnableFor", "domain", "source", "status", "search", "limit", "offset"]) { const value = request.nextUrl.searchParams.get(key); if (value) url.searchParams.set(key, value); }
+    if (action === "question") for (const key of ["id", "datasetVersion"]) { const value = request.nextUrl.searchParams.get(key); if (value) url.searchParams.set(key, value); }
     const headers = new Headers({ Accept: "application/json", Cookie: `evaluation_session=${session}` });
     let body: string | undefined;
     if (request.method !== "GET") {

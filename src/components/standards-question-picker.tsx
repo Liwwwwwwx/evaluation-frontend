@@ -5,9 +5,9 @@ import { Button, Dialog, Pagination } from "@/components/ui";
 import { questionDomains } from "@/lib/question-domains";
 import styles from "./standards-assistant.module.css";
 
-type Question = { id: string; datasetVersion: string; question: string; domainKey: string | null; sourceType: string };
+export type Question = { id: string; datasetVersion: string; question: string; domainKey: string | null; sourceType: string };
 const pageSize = 20;
-export function StandardsQuestionPicker({ open, onClose, onSelect }: { open: boolean; onClose: () => void; onSelect: (question: string) => void }) {
+export function StandardsQuestionPicker({ open, onClose, onSelect }: { open: boolean; onClose: () => void; onSelect: (question: Question) => void }) {
   const [input, setInput] = useState(""); const [search, setSearch] = useState("");
   const [source, setSource] = useState(""); const [page, setPage] = useState(1);
   const [items, setItems] = useState<Question[]>([]); const [total, setTotal] = useState(0);
@@ -36,7 +36,7 @@ export function StandardsQuestionPicker({ open, onClose, onSelect }: { open: boo
         <label>题目类型<select value={source} onChange={event => { setSource(event.target.value); setPage(1); }}><option value="">全部题目</option><option value="fixed">固定题</option><option value="random">随机题</option></select></label>
       </div>
       <div className={styles.questionList} aria-live="polite">
-        {loading ? <p>正在读取题库…</p> : error ? <div role="alert"><p>{error}</p><Button variant="secondary" onClick={() => setAttempt(value => value + 1)}>重试</Button></div> : items.length ? items.map(item => <button type="button" className={styles.questionRow} key={`${item.id}:${item.datasetVersion}`} onClick={() => onSelect(item.question)}><span>{item.question}</span><small>{questionDomains[item.domainKey || ""] || "未分类"} · {item.sourceType === "fixed" ? "固定题" : item.sourceType === "random" ? "随机题" : "题目"} · 选择并生成</small></button>) : <p>没有找到符合条件的题目。</p>}
+        {loading ? <p>正在读取题库…</p> : error ? <div role="alert"><p>{error}</p><Button variant="secondary" onClick={() => setAttempt(value => value + 1)}>重试</Button></div> : items.length ? items.map(item => <button type="button" className={styles.questionRow} key={`${item.id}:${item.datasetVersion}`} onClick={() => onSelect(item)}><span>{item.question}</span><small>{questionDomains[item.domainKey || ""] || "未分类"} · {item.sourceType === "fixed" ? "固定题" : item.sourceType === "random" ? "随机题" : "题目"} · 选择</small></button>) : <p>没有找到符合条件的题目。</p>}
       </div>
       <Pagination page={page} pages={Math.max(1, Math.ceil(total / pageSize))} total={total} pageSize={pageSize} disabled={loading} onPageChange={setPage} />
     </div>
