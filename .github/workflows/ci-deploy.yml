@@ -28,9 +28,9 @@ jobs:
       - run: node --test test/*.test.mjs
       - run: yarn build
       - name: Package standalone release
-        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         run: |
-          cp -r public .next/standalone/
+          test -f .next/standalone/server.js
+          if [ -d public ]; then cp -r public .next/standalone/; fi
           cp -r .next/static .next/standalone/.next/
           tar -czf /tmp/deploy.tgz -C .next/standalone .
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
