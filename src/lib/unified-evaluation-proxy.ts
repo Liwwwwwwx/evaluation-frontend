@@ -11,6 +11,8 @@ export async function proxyUnified(request: NextRequest, path: string, options: 
   const origin = host ? `${request.nextUrl.protocol}//${host}` : "";
   const headers = new Headers({ Accept: path.endsWith("/events") ? "text/event-stream" : "application/json" });
   if (session) headers.set("Cookie", `evaluation_session=${session}`);
+  // 令牌头对 GET 与 POST 一视同仁地转发，凭据是否有效始终由后端判定。
+  if (authorization) headers.set("Authorization", authorization);
   let body: string | undefined;
   if (request.method === "POST") {
     if (!authorization) {
@@ -21,8 +23,7 @@ export async function proxyUnified(request: NextRequest, path: string, options: 
     if (!request.headers.get("content-type")?.toLowerCase().startsWith("application/json")) return NextResponse.json({ error: "请求格式无效" }, { status: 415 });
     body = await request.text();
     if (Buffer.byteLength(body) > (options.maxBodyBytes || 16 * 1024)) return NextResponse.json({ error: "请求内容过大" }, { status: 413 });
-    if (authorization) headers.set("Authorization", authorization);
-    else headers.set("Origin", origin);
+    if (!authorization) headers.set("Origin", origin);
     headers.set("Content-Type", "application/json");
     if (!authorization) headers.set("Idempotency-Key", request.headers.get("Idempotency-Key") || "");
   }
