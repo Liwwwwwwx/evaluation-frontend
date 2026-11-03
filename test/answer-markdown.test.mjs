@@ -70,6 +70,24 @@ test('表格可横向滚动，非法公式降级为原文而不是错误堆栈',
   assert.match(html, /unsupportedcommand/); assert.doesNotMatch(html, /color:#cc0000|KaTeX parse error/);
 });
 
+test('HTML 表格、中文加粗和单行块公式按 XIMUALPHA 的结构渲染', () => {
+  const html = render('<table><thead><tr><th>样本</th><th>结果</th></tr></thead><tbody><tr><td>A</td><td>通过</td></tr></tbody></table>\n\n**中文加粗**\n\n$$\\frac{a}{b}$$');
+  assert.match(html, /<table>/);
+  assert.match(html, /<strong>中文加粗<\/strong>/);
+  assert.match(html, /katex-display/);
+  assert.match(html, /class="run-table-wrap"/);
+});
+
+test('代码块使用语言/状态工具条，未闭合围栏在流式阶段降级为代码块', () => {
+  const complete = render('```python\nprint(1)\n```');
+  assert.match(complete, /code-block-lang">PYTHON/);
+  assert.match(complete, /代码已完成/);
+  assert.match(complete, /data-variant="code"/);
+  const streaming = render('前言\n\n```python\nprint(1)', true);
+  assert.match(streaming, /代码生成中/);
+  assert.doesNotMatch(streaming, /```python/);
+});
+
 test('逐段流式输入与最终完整输入使用同一套基础规则', () => {
   const source = '[start]正文\n\n\\[a^2+b^2=c^2\\]\n\n<think>不显示的思考</think>\n<<<PAPER_START:RAW_LITERATURE>>>文献内容<<<PAPER_END:RAW_LITERATURE>>>[end]';
   for (let i = 1; i <= source.length; i++) assert.doesNotThrow(() => render(source.slice(0, i), true));

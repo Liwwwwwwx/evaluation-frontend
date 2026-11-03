@@ -854,13 +854,14 @@
 .dialogFooter {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 12px;
   margin-top: 24px;
 }
 
 .dialogFooterStart {
   min-width: 0;
+  margin-right: auto;
   color: var(--color-fg-muted);
   font-size: 12px;
   line-height: 18px;
@@ -957,6 +958,10 @@
     flex-direction: column-reverse;
     align-items: stretch;
     gap: 12px;
+  }
+
+  .dialogFooterStart {
+    margin-right: 0;
   }
 
   .dialogActions {

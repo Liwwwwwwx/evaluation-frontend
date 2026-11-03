@@ -63,11 +63,15 @@ export function watchLiveUnifiedRun(runId: string, {
           ended = true;
           update({ ...current, status: typeof data.status === "string" ? data.status : current.status,
             executionStatus: typeof data.executionStatus === "string" ? data.executionStatus : current.executionStatus,
-            scoringStatus: typeof data.scoringStatus === "string" ? data.scoringStatus : current.scoringStatus });
+            scoringStatus: typeof data.scoringStatus === "string" ? data.scoringStatus : current.scoringStatus, canEnd: false });
         } else if (event === "error") {
           ended = true;
+          if (data.code === "UNIFIED_EVAL_ENDED") {
+            update({ ...current, status: "cancelled", executionStatus: "cancelled", canEnd: false, canReply: false });
+            return;
+          }
           const persistenceError = data.code === "UNIFIED_EVAL_PERSISTENCE_FAILED";
-          update({ ...current, status: persistenceError ? current.status : "error", persistenceError });
+          update({ ...current, status: persistenceError ? current.status : "error", canEnd: false, persistenceError });
           onError(typeof data.message === "string" ? data.message : "运行读取失败。", true);
         }
       }, { onActivity: touchIdle });

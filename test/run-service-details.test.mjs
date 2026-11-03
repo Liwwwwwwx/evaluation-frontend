@@ -6,16 +6,36 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 
 const sourceCache = new Map();
+// 样式导入替换为空对象桩：渲染断言只关心结构，不关心 CSS 模块。
+const cssStub = `data:text/javascript;base64,${Buffer.from('export default {}').toString('base64')}`;
+// next/link 无法从 data: 模块按包导出解析；被测组件不渲染链接按钮，用空组件桩替代。
+const linkStub = `data:text/javascript;base64,${Buffer.from('export default () => null').toString('base64')}`;
+function resolveModule(base, specifier) {
+  for (const suffix of ['.tsx', '.ts', '/index.ts']) {
+    const candidate = new URL(specifier + suffix, base);
+    if (fs.existsSync(candidate)) return candidate;
+  }
+  return null;
+}
 function loadSource(relative) {
   const file = new URL(relative, import.meta.url);
   if (sourceCache.has(file.href)) return sourceCache.get(file.href);
   const source = fs.readFileSync(file, 'utf8');
   const compiled = ts.transpileModule(source, { compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText;
   const code = compiled.replace(/from "([^"]+)"/g, (_, specifier) => {
-    if (!specifier.startsWith('@/')) return `from "${import.meta.resolve(specifier)}"`;
-    const root = '../src/' + specifier.slice(2);
-    const path = fs.existsSync(new URL(root + '.tsx', import.meta.url)) ? root + '.tsx' : root + '.ts';
-    return `from "${loadSource(path)}"`;
+    if (specifier.endsWith('.css')) return `from "${cssStub}"`;
+    if (specifier === 'next/link') return `from "${linkStub}"`;
+    if (specifier.startsWith('@/')) {
+      const resolved = resolveModule(new URL('../src/', import.meta.url), specifier.slice(2));
+      if (!resolved) throw new Error(`无法解析 ${specifier}`);
+      return `from "${loadSource(resolved.href)}"`;
+    }
+    if (specifier.startsWith('.')) {
+      const resolved = resolveModule(file, specifier);
+      if (!resolved) throw new Error(`无法从 ${file.href} 解析 ${specifier}`);
+      return `from "${loadSource(resolved.href)}"`;
+    }
+    return `from "${import.meta.resolve(specifier)}"`;
   });
   const url = `data:text/javascript;base64,${Buffer.from(code).toString('base64')}`;
   sourceCache.set(file.href, url); return url;
@@ -40,7 +60,7 @@ test('确认表单不把服务建议预填为用户答复，只在可答复时�
 
 test('产物链接拒绝脚本、凭据和HTML注入，结构化内容按文本展示', () => {
   const html = render({ artifacts: [{ name: '<script>危险</script>', url: 'https://example.com/model.glb' }, { url: 'javascript:alert(1)' }, { url: 'https://user:password@example.com/a' }], result: { message: '<img src=x onerror=alert(1)>' } });
-  assert.match(html, /https:\/\/example.com\/model.glb/); assert.match(html, /noopener noreferrer/);
+  assert.match(html, /服务产物 · 1 项/); assert.match(html, /预览 &lt;script&gt;危险&lt;\/script&gt;/);
   assert.doesNotMatch(html, /javascript:|password@|<script>|<img src=x/);
 });
 

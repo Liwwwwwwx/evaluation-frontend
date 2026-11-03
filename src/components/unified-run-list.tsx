@@ -6,12 +6,12 @@ import { ScoreSummary, type ScoreSummaryValue } from "@/components/score-summary
 import { Button, EmptyState, Pagination, StatusDot, ToastStack, useToasts, type StatusTone, type ToastTone } from "@/components/ui";
 import { questionDomains } from "@/lib/question-domains";
 import { buildRunMarkdown, runMarkdownFilename } from "@/lib/run-markdown";
+import { isUncertainRun, runStatusLabel } from "@/lib/run-status";
 import Link from "next/link";
 
-type Run = { runId: string; serviceKey: string; origin: string; question: string; status: string; startedAt: string | null; domainKey?: string | null; canRescore?: boolean; scores?: ScoreSummaryValue };
+type Run = { runId: string; serviceKey: string; origin: string; question: string; status: string; recoveryState?: string; startedAt: string | null; domainKey?: string | null; canRescore?: boolean; scores?: ScoreSummaryValue };
 type MenuState = { run: Run; top: number; left: number; trigger: HTMLButtonElement };
 const names: Record<string, string> = { "mission-material": "Mission 主服务", "alpha-rsi": "1110", alloy: "合金材料", literature: "文献检索", "literature-aircraft": "航空文献", synthesis: "合成制备", "new-material": "新材料" };
-const statuses: Record<string, string> = { queued: "排队中", running: "运行中", scoring: "评分中", done: "已结束", error: "失败" };
 const origins: Record<string, string> = { manual: "人工对话", automation: "自动化", legacy: "其他入口" };
 const domainOptions: [string, string][] = [["", "全部领域"], ["unclassified", "未分类"], ...Object.entries(questionDomains)];
 function pad(value: number) { return String(value).padStart(2, "0"); }
@@ -32,14 +32,15 @@ function RunRow({ run, menuOpen, onMenu }: { run: Run; menuOpen: boolean; onMenu
   const started = dateLabel(run.startedAt);
   const service = names[run.serviceKey] || run.serviceKey;
   const origin = origins[run.origin] || "未知";
-  const status = statuses[run.status] || "状态未知";
+  const uncertain = isUncertainRun(run.status, run.recoveryState);
+  const status = runStatusLabel(run.status, run.recoveryState);
   return <li className="run-row">
     <Link className="run-row-link" href={`/runs/${run.runId}`} title={run.question} aria-label={`查看运行：${run.question}`} />
     <span className="run-row-main">
       <strong className="run-row-question">{run.question || "未命名题目"}</strong>
       <span className="run-row-meta">{service} · {domainLabel(run.domainKey)} · {origin}<span className="run-row-inline-time"> · {started}</span></span>
     </span>
-    <span className="run-row-status"><StatusDot tone={statusTone(run.status)}>{status}</StatusDot></span>
+    <span className="run-row-status"><StatusDot tone={uncertain ? "neutral" : statusTone(run.status)}>{status}</StatusDot></span>
     <span className="run-row-score"><ScoreSummary scores={run.scores} /></span>
     <time className="run-row-time" dateTime={run.startedAt || undefined}>{started}</time>
     <span className="run-row-actions">
