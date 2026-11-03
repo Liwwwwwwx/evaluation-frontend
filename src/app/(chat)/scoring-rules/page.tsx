@@ -1,2 +1,5 @@
-import { StandardsWorkspace } from "@/components/standards-workspace";
-export default function ScoringRulesPage() { return <StandardsWorkspace initialTab="rules" />; }
+import { redirect } from "next/navigation";
+
+export default function ScoringRulesPage() {
+  redirect("/standards");
+}

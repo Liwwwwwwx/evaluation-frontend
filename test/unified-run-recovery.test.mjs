@@ -12,6 +12,7 @@ async function source(path) {
   return import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
 }
 const { createUnifiedRun } = await source('../src/lib/unified-run-request.ts');
+const { requestRerun } = await source('../src/lib/rerun-request.ts');
 const { watchUnifiedRun } = await source('../src/lib/unified-run-poll.ts');
 const id = '11111111-1111-4111-8111-111111111111';
 const pendingKey = 'evaluation-unified-pending';
@@ -19,6 +20,27 @@ const question = JSON.stringify({ serviceKey: 'literature', question: '检索芯
 const flush = () => new Promise(resolve => setImmediate(resolve));
 function memoryStorage() { const map = new Map(); return { getItem: key => map.get(key) || null, setItem: (key, value) => map.set(key, value), removeItem: key => map.delete(key) }; }
 function run(status = 'running') { return { runId: id, serviceKey: 'literature', question: '原题', answer: '已保存正文', status }; }
+
+test('重新测评提交不确定时沿用原键，成功后刷新不会重复创建', async () => {
+  const storage = memoryStorage(); const keys = [];
+  const request = async (url, init) => { assert.equal(url, `/api/evaluation/unified/runs/${id}/rerun`); assert.equal(init.body, '{}'); keys.push(init.headers['Idempotency-Key']); if (keys.length === 1) throw Error('断网'); return Response.json({ runId: '22222222-2222-4222-8222-222222222222' }); };
+  await assert.rejects(requestRerun(id,{storage,request}), /断网/);
+  assert.equal(await requestRerun(id,{storage,request}), '22222222-2222-4222-8222-222222222222');
+  assert.equal(keys[0],keys[1]);
+  assert.equal(await requestRerun(id,{storage,request}), '22222222-2222-4222-8222-222222222222');
+  assert.equal(keys.length,2);
+});
+test('重新测评明确拒绝不保留首次请求，未知结果与损坏状态不能换键重发', async () => {
+  const storage=memoryStorage();
+  await assert.rejects(requestRerun(id,{storage,request:async()=>Response.json({error:'无权限'},{status:403})}), /无权限/);
+  assert.equal(storage.getItem(`evaluation-rerun:${id}`),null);
+  await assert.rejects(requestRerun(id,{storage,request:async()=>Response.json({})}));
+  const pending=storage.getItem(`evaluation-rerun:${id}`);
+  await assert.rejects(requestRerun(id,{storage,request:async()=>Response.json({error:'暂不可提交'},{status:403})}));
+  assert.equal(storage.getItem(`evaluation-rerun:${id}`),pending);
+  storage.setItem(`evaluation-rerun:${id}`,'{}');
+  await assert.rejects(requestRerun(id,{storage,request:async()=>{throw Error('不应发起请求');}}), /无法读取/);
+});
 
 test('首次创建明确拒绝后可更换题目，不把拒绝当未知结果', async () => {
   for (const status of [400, 401, 403, 404, 409, 413, 415, 429, 503]) {

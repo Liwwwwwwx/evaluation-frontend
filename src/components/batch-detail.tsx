@@ -136,14 +136,36 @@ export function BatchDetailPage({ batchId, basePath, preview = false }: { batchI
       <Metric label="千问均分" value={formatMean(detail.scores.qwen)} sub={judgeStateDescription(detail.scores.qwen)} />
     </div>
 
-    <Tabs
-      variant="pill"
-      ariaLabel="批次视图"
-      idBase="batch-view"
-      value={tab}
-      onChange={(value) => setTab(value as Tab)}
-      items={[{ value: "services", label: "服务概览" }, { value: "problems", label: "问题清单" }]}
-    />
+    <div className={styles.viewBar}>
+      <Tabs
+        variant="pill"
+        ariaLabel="批次视图"
+        idBase="batch-view"
+        value={tab}
+        onChange={(value) => setTab(value as Tab)}
+        items={[{ value: "services", label: "服务概览" }, { value: "problems", label: "问题清单" }]}
+      />
+      {tab === "problems" && <div className={styles.runsToolbar}>
+        <Select label="服务" value={service} onChange={(value) => { setService(value); setPage(1); }} options={[
+          { value: "", label: "全部服务" },
+          ...detail.services.map((item) => ({ value: item.serviceKey, label: item.label })),
+        ]} />
+        <Select label="执行" value={execution} onChange={(value) => { setExecution(value as ExecutionFilter); setPage(1); }} options={[
+          { value: "", label: "全部状态" },
+          { value: "completed", label: "已完成" },
+          { value: "failed", label: "失败" },
+          { value: "timeout", label: "超时" },
+          { value: "unfinished", label: "未完成" },
+        ]} />
+        <Select label="排序" value={sort} onChange={(value) => { setSort(value as Sort); setPage(1); }} options={[
+          { value: "scoreAsc", label: "分数从低到高" },
+          { value: "scoreDesc", label: "分数从高到低" },
+          { value: "startedAtDesc", label: "开始时间倒序" },
+          { value: "startedAtAsc", label: "开始时间正序" },
+        ]} />
+        {filtersActive && <Button variant="ghost" size="sm" onClick={() => { setService(""); setExecution(""); setPage(1); }}>清除筛选</Button>}
+      </div>}
+    </div>
 
     {tab === "services" ? <div className={styles.tabPanel} id={tabPanelId("batch-view", "services")} role="tabpanel" aria-labelledby={tabButtonId("batch-view", "services")}>
       <div className={styles.serviceList}>
@@ -167,39 +189,22 @@ export function BatchDetailPage({ batchId, basePath, preview = false }: { batchI
       </div>
       <p className={styles.coverage}>{detail.coverage.note} 计划 {detail.coverage.planned}，已持久化 {detail.coverage.persisted}，缺少 {detail.coverage.missing}。</p>
     </div> : <div className={styles.tabPanel} id={tabPanelId("batch-view", "problems")} role="tabpanel" aria-labelledby={tabButtonId("batch-view", "problems")}>
-      <div className={styles.runsToolbar}>
-        <Select label="服务" value={service} onChange={(value) => { setService(value); setPage(1); }} options={[
-          { value: "", label: "全部服务" },
-          ...detail.services.map((item) => ({ value: item.serviceKey, label: item.label })),
-        ]} />
-        <Select label="执行" value={execution} onChange={(value) => { setExecution(value as ExecutionFilter); setPage(1); }} options={[
-          { value: "", label: "全部状态" },
-          { value: "completed", label: "已完成" },
-          { value: "failed", label: "失败" },
-          { value: "timeout", label: "超时" },
-          { value: "unfinished", label: "未完成" },
-        ]} />
-        <Select label="排序" value={sort} onChange={(value) => { setSort(value as Sort); setPage(1); }} options={[
-          { value: "scoreAsc", label: "分数从低到高" },
-          { value: "scoreDesc", label: "分数从高到低" },
-          { value: "startedAtDesc", label: "开始时间倒序" },
-          { value: "startedAtAsc", label: "开始时间正序" },
-        ]} />
-        {filtersActive && <Button variant="ghost" size="sm" onClick={() => { setService(""); setExecution(""); setPage(1); }}>清除筛选</Button>}
-      </div>
       {runsError ? <EmptyState state="error" title="无法读取批次运行" description={runsError} action={<Button variant="secondary" onClick={() => setRunsRetry((value) => value + 1)}>重试</Button>} /> : !runsData ? <EmptyState state="loading" title="正在读取运行记录…" /> : pageRuns.length === 0 ? <EmptyState state="empty" title="没有匹配的运行记录。" action={filtersActive ? <Button variant="secondary" onClick={() => { setService(""); setExecution(""); setPage(1); }}>清除筛选</Button> : undefined} /> : <>
         <div className={styles.runsListWrap}>
           <div className={styles.runsHead} aria-hidden="true"><span>题目</span><span>服务</span><span>状态</span><span>评分</span><span>耗时</span><span>开始时间</span><span /></div>
           <ul className={styles.runsList} aria-label="批次运行">
-            {pageRuns.map((run) => <li key={run.runId} className={styles.runsRow}>
-              <span className={styles.runQuestion}><strong className={styles.runQuestionTitle}>{run.question}</strong><span className={styles.runMeta}>{run.questionId} · {run.datasetVersion}</span><span className={styles.mobileMeta}>{serviceLabel(run.serviceKey)} · 耗时 {formatElapsed(run.elapsedMs)}</span></span>
+            {pageRuns.map((run) => {
+              const meta = [run.questionId, run.datasetVersion].filter(Boolean).join(" · ");
+              return <li key={run.runId} className={styles.runsRow}>
+              <span className={styles.runQuestion}><strong className={styles.runQuestionTitle} title={run.question}>{run.question}</strong>{meta && <span className={styles.runMeta}>{meta}</span>}<span className={styles.mobileMeta}>{serviceLabel(run.serviceKey)} · 耗时 {formatElapsed(run.elapsedMs)}</span></span>
               <span className={`${styles.runCellMuted} ${styles.runService}`}>{serviceLabel(run.serviceKey)}</span>
               <span className={styles.runStatus}><StatusDot tone={executionTone(run.execution)}>{executionLabel(run.execution)}</StatusDot></span>
               <span className={styles.runScores}><ScorePair deepSeek={run.scores.deepSeek} qwen={run.scores.qwen} /></span>
               <span className={styles.runTime}>{formatElapsed(run.elapsedMs)}</span>
               <span className={styles.runTime}>{formatDateTime(run.startedAt)}</span>
               <span className={styles.runActions}>{preview ? <button type="button" className={styles.runAction} disabled title="界面预览：单题详情待接入">查看</button> : <Button href={`/runs/${run.runId}`} variant="ghost" size="sm">查看</Button>}</span>
-            </li>)}
+              </li>;
+            })}
           </ul>
         </div>
         <Pagination page={safePage} pages={pages} total={runsData.total} pageSize={PAGE_SIZE} onPageChange={setPage} />

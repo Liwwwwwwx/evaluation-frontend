@@ -6,6 +6,7 @@ import { previewBatches } from "@/lib/batch-preview";
 import { fetchBatchList } from "@/lib/batch-api";
 import type { BatchSource, BatchState, BatchSummary } from "@/lib/batch-types";
 import { Button, EmptyState, Pagination, Select, Tabs } from "@/components/ui";
+import { DailyReportList } from "@/components/daily-reports";
 import { BatchStatus, formatDate, formatDateTime, JudgeMeans, PreviewNote, sourceLabel, stateLabel } from "@/components/batch-ui";
 import styles from "./batches.module.css";
 
@@ -18,8 +19,11 @@ const sourceTabs = [
 ];
 
 type ListData = { items: BatchSummary[]; total: number; storageReady: boolean };
+type ViewTab = "batches" | "reports";
+const viewTabs: { value: ViewTab; label: string }[] = [{ value: "batches", label: "批次" }, { value: "reports", label: "测评日报" }];
 
-export function BatchListPage({ basePath, preview = false }: { basePath: string; preview?: boolean }) {
+export function BatchListPage({ basePath, preview = false, initialTab = "batches" }: { basePath: string; preview?: boolean; initialTab?: ViewTab }) {
+  const [tab, setTab] = useState<ViewTab>(initialTab);
   const [source, setSource] = useState<"all" | BatchSource>("all");
   const [state, setState] = useState<"all" | BatchState>("all");
   const [page, setPage] = useState(1);
@@ -69,17 +73,21 @@ export function BatchListPage({ basePath, preview = false }: { basePath: string;
     <header className={styles.header}>
       <div>
         <h1 id="batches-title">测评批次</h1>
-        <p>夜间自动测评批次，按日期倒序。点开一批可以按服务查看完成情况和问题题目。</p>
+        <p>{tab === "batches" ? "夜间自动测评批次，按日期倒序。点开一批可以按服务查看完成情况和问题题目。" : "夜间测评的智能日报，按日期汇总各服务表现与主要问题。"}</p>
       </div>
     </header>
     <div className={styles.toolbar}>
-      <Tabs variant="pill" ariaLabel="批次来源" items={sourceTabs} value={source} onChange={(value) => changeSource(value as "all" | BatchSource)} />
-      <Select label="状态" value={state} onChange={(value) => changeState(value as "all" | BatchState)} options={[
-        { value: "all", label: "全部状态" },
-        ...(["done", "partial", "running", "failed"] as BatchState[]).map((value) => ({ value, label: stateLabel(value) })),
-      ]} />
-      {filtersActive && <Button variant="ghost" size="sm" onClick={reset}>清除筛选</Button>}
+      <Tabs variant="pill" ariaLabel="测评批次视图" className={styles.viewTabs} items={preview ? [viewTabs[0]] : viewTabs} value={tab} onChange={(value) => setTab(value as ViewTab)} />
+      {tab === "batches" && <>
+        <Tabs variant="pill" ariaLabel="批次来源" items={sourceTabs} value={source} onChange={(value) => changeSource(value as "all" | BatchSource)} />
+        <Select label="状态" value={state} onChange={(value) => changeState(value as "all" | BatchState)} options={[
+          { value: "all", label: "全部状态" },
+          ...(["done", "partial", "running", "failed"] as BatchState[]).map((value) => ({ value, label: stateLabel(value) })),
+        ]} />
+        {filtersActive && <Button variant="ghost" size="sm" onClick={reset}>清除筛选</Button>}
+      </>}
     </div>
+    {tab === "reports" ? <DailyReportList embedded /> : <>
     <p className={styles.summaryLine}>
       {error ? "批次列表暂不可用。" : !data ? "正在读取批次…" : data.total ? `共 ${data.total} 个批次${items[0] ? ` · 当前页最近 ${formatDate(items[0].date)} · ${sourceLabel(items[0].source)}` : ""}` : filtersActive ? "没有匹配的批次。" : "暂无测评批次。"}
     </p>
@@ -109,6 +117,7 @@ export function BatchListPage({ basePath, preview = false }: { basePath: string;
         </ul>
       </div>
       <Pagination page={safePage} pages={pages} total={data.total} pageSize={PAGE_SIZE} onPageChange={setPage} />
+    </>}
     </>}
   </main>;
 }

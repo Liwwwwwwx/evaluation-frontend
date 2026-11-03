@@ -7,7 +7,7 @@ import styles from "./standards-assistant.module.css";
 
 export type Question = { id: string; datasetVersion: string; question: string; domainKey: string | null; sourceType: string };
 const pageSize = 20;
-export function StandardsQuestionPicker({ open, onClose, onSelect }: { open: boolean; onClose: () => void; onSelect: (question: Question) => void }) {
+export function StandardsQuestionPicker({ open, onClose, onSelect, description = "选择一道题后直接生成测评标准。" }: { open: boolean; onClose: () => void; onSelect: (question: Question) => void; description?: string }) {
   const [input, setInput] = useState(""); const [search, setSearch] = useState("");
   const [source, setSource] = useState(""); const [page, setPage] = useState(1);
   const [items, setItems] = useState<Question[]>([]); const [total, setTotal] = useState(0);
@@ -29,7 +29,7 @@ export function StandardsQuestionPicker({ open, onClose, onSelect }: { open: boo
     }, 0);
     return () => { clearTimeout(timer); controller.abort(); };
   }, [open, search, source, page, attempt]);
-  return <Dialog open={open} onClose={onClose} title="从题库选择" description="选择一道题后直接生成评判标准。">
+  return <Dialog open={open} onClose={onClose} title="从题库选择" description={description}>
     <div className={styles.picker}>
       <div className={styles.filters}>
         <label>搜索题目<input type="search" value={input} maxLength={500} onChange={event => setInput(event.target.value)} placeholder="输入题目关键词" /></label>

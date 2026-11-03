@@ -3,12 +3,17 @@
 import { questionDomains } from "@/lib/question-domains";
 import { RunServiceDetails } from "@/components/run-service-details";
 import { UnifiedScores } from "@/components/unified-scores";
+import { EndRunButton } from "@/components/end-run-button";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { ConversationAnswer } from "@/components/conversation-answer";
 import { Button, Dialog, EmptyState, InlineAlert, Pagination, Select } from "@/components/ui";
 import { createUnifiedRun } from "@/lib/unified-run-request";
 import { watchLiveUnifiedRun } from "@/lib/unified-run-watch";
 import { availableEvaluationServices, evaluationServiceCatalog, isEvaluationService, preferredEvaluationService } from "@/lib/evaluation-services";
+import { isRunOutputActive, useFollowRunOutput } from "@/lib/use-follow-run-output";
+import { RunCopyButton } from "@/components/run-copy-button";
+import { copyableRunAnswer } from "@/lib/copy-run-answer";
+import { isUncertainRun, runStatusLabel } from "@/lib/run-status";
 
 type BankQuestion = {
   id: string;
@@ -68,7 +73,10 @@ export function Evaluate() {
   const [randomBusy, setRandomBusy] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
-  const [run, setRun] = useState<{ id: string; question: string; service: string; answer: string; status: string; executionStatus?: string; scoringStatus?: string; result: unknown; scores: unknown; scoreError: string; truncated: boolean; snapshotOnly?: boolean; canReply?: boolean } | null>(null);
+  const [run, setRun] = useState<{ id: string; question: string; service: string; answer: string; status: string; executionStatus?: string; scoringStatus?: string; result: unknown; scores: unknown; scoreError: string; truncated: boolean; snapshotOnly?: boolean; canReply?: boolean; canEnd?: boolean } | null>(null);
+  const uncertain = isUncertainRun(run?.status, run?.snapshotOnly ? "snapshot_only" : undefined);
+  const following = !uncertain && isRunOutputActive(run?.status, run?.executionStatus);
+  const conversationRef = useFollowRunOutput(run?.id, following, run?.answer, run?.result);
   const [recovering, setRecovering] = useState(false);
   const runId = useRef("");
   const stopRecovery = useRef<(() => void) | null>(null);
@@ -172,7 +180,7 @@ export function Evaluate() {
     const stop = watchLiveUnifiedRun(id, {
       onData: data => {
         if (runId.current !== id) return;
-        setRun({ id, question: data.question || "", service: data.serviceKey || "", answer: data.answer || "", status: data.status || "unknown", executionStatus: data.executionStatus, scoringStatus: data.scoringStatus, result: data.run, scores: data.scores || null, scoreError: data.scoreError || "", truncated: data.answerTruncated === true, snapshotOnly: data.recoveryState === "snapshot_only", canReply: data.canReply === true });
+        setRun({ id, question: data.question || "", service: data.serviceKey || "", answer: data.answer || "", status: data.status || "unknown", executionStatus: data.executionStatus, scoringStatus: data.scoringStatus, result: data.run, scores: data.scores || null, scoreError: data.scoreError || "", truncated: data.answerTruncated === true, snapshotOnly: data.recoveryState === "snapshot_only", canReply: data.canReply === true, canEnd: data.canEnd === true });
         setSubmitError(data.persistenceError === true ? "记录保存失败；请稍后读取原运行，不要重复发起。" : "");
         setRecovering(false);
       },
@@ -290,7 +298,7 @@ export function Evaluate() {
     ? `题目超过 ${max} 个字符，请精简后再发起。`
     : trimmed && trimmed.length < min ? `题目过短，至少需要 ${min} 个字符。` : "";
 
-  if (run) return <div className="chat-view"><div className="chat-top"><h1>运行详情</h1><span className={`run-dot ${run.status === "done" ? "done" : run.status === "error" ? "error" : "running"}`} /><span>{run.status === "done" ? "已结束" : run.status === "error" ? "失败" : run.status === "scoring" ? "评分中" : run.status === "queued" ? "排队中" : "运行中"} · {services.find((item) => item.key === run.service)?.label || run.service}</span></div><div className="chat-scroll"><div className="chat-scroll-inner"><div className="run-layout"><div className="run-chat" tabIndex={0} role="region" aria-label="对话内容"><p className="run-question">{run.question}</p><section className="run-answer-block"><div className="run-answer-head"><strong>{services.find((item) => item.key === run.service)?.label || run.service}</strong><span>回答</span></div><div className="run-answer"><ConversationAnswer content={run.answer} run={run.result} streaming={run.executionStatus === "running" || (!run.executionStatus && run.status === "running")} /></div><RunServiceDetails run={run.result} runId={run.id} canReply={run.canReply} snapshotOnly={run.snapshotOnly} />{run.truncated && <p className="run-score-note">恢复的回答已截断。</p>}{submitError && <InlineAlert tone="danger" className="eval-alert" action={<Button type="button" variant="secondary" size="sm" onClick={() => setRecoveryRetry(value => value + 1)}>重试读取运行</Button>}>{submitError}</InlineAlert>}</section></div><aside className="run-panel"><div className="run-panel-head"><h2>评分</h2></div>{run.snapshotOnly && ["queued", "running", "scoring"].includes(run.status) && <p className="run-score-note">显示的是已保存的快照，当前进程不能确认任务是否仍在执行或排队；请先核对运行记录。</p>}{run.scoreError && <p className="run-score-note">{run.scoreError}</p>}<UnifiedScores scores={run.scores} run={run.result} executionStatus={run.executionStatus || "running"} /><Button type="button" variant="secondary" disabled={submitting && !run.id} onClick={resetRun}>新建测评</Button></aside></div></div></div></div>;
+  if (run) return <div className="chat-view"><div className="chat-top"><h1>运行详情</h1><span className={`run-dot ${run.status === "done" ? "done" : run.status === "cancelled" ? "cancelled" : run.status === "error" ? "error" : uncertain ? "" : "running"}`} /><span>{runStatusLabel(run.status, run.snapshotOnly ? "snapshot_only" : undefined)} · {services.find((item) => item.key === run.service)?.label || run.service}</span>{run.canEnd && <div className="run-detail-actions"><EndRunButton runId={run.id} onEnded={() => setRecoveryRetry(value => value + 1)} /></div>}</div><div className="chat-scroll"><div className="chat-scroll-inner"><div className="run-layout"><div ref={conversationRef} className="run-chat" tabIndex={0} role="region" aria-label="对话内容"><div className="run-question-wrap"><p className="run-question">{run.question}</p><RunCopyButton label="提问" getText={() => run.question} /></div><section className="run-answer-block"><div className="run-answer-head"><strong>{services.find((item) => item.key === run.service)?.label || run.service}</strong><span>回答</span><RunCopyButton label="回答" getText={() => copyableRunAnswer(run.answer, run.result, following)} /></div><div className="run-answer"><ConversationAnswer content={run.answer} run={run.result} streaming={!uncertain && (run.executionStatus === "running" || (!run.executionStatus && run.status === "running"))} uncertain={uncertain} /></div><RunServiceDetails run={run.result} runId={run.id} canReply={run.canReply} snapshotOnly={run.snapshotOnly} />{run.truncated && <p className="run-score-note">恢复的回答已截断。</p>}{submitError && <InlineAlert tone="danger" className="eval-alert" action={<Button type="button" variant="secondary" size="sm" onClick={() => setRecoveryRetry(value => value + 1)}>重试读取运行</Button>}>{submitError}</InlineAlert>}</section></div><aside className="run-panel"><div className="run-panel-head"><h2>评分</h2></div>{uncertain && <p className="run-score-note">这是已保存的运行快照，当前进程无法确认远端任务是否仍在执行，也无法结束它；已保存的内容仍可查看。</p>}{run.scoreError && <p className="run-score-note">{run.scoreError}</p>}{uncertain && (["queued", "running"].includes(run.executionStatus || run.status) || !run.scores) ? <p className="run-score-note">当前没有可确认的评分结果。</p> : <UnifiedScores scores={run.scores} run={run.result} executionStatus={run.executionStatus || "running"} />}<Button type="button" variant="secondary" disabled={submitting && !run.id} onClick={resetRun}>新建测评</Button></aside></div></div></div></div>;
 
   return (
     <main className="eval-page">

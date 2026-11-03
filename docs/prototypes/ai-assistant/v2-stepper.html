@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>测评助手 · 方案二 · 三步工作台</title>
+<link rel="stylesheet" href="base.css">
+<style>
+  .pagebar { align-items: flex-start; }
+  .pagebar .tabs { border: 0; padding-top: 8px; }
+  .shell { width: min(100% - 48px, 980px); margin: 0 auto; padding: 26px 0 72px; }
+  .stepper { display: flex; align-items: center; gap: 0; margin: 0 0 26px; }
+  .step { display: flex; align-items: center; gap: 10px; color: var(--faint); font-size: 12.5px; white-space: nowrap; }
+  .step-dot { width: 28px; height: 28px; display: grid; place-items: center; border: 1px solid var(--border-strong); border-radius: 50%; background: var(--surface); color: var(--muted); font-size: 11px; font-weight: 650; }
+  .step.done .step-dot { border-color: #b7dfc9; background: #eaf7f0; color: var(--success); }
+  .step.active { color: var(--text); font-weight: 600; }
+  .step.active .step-dot { border-color: var(--text); background: var(--text); color: #fff; }
+  .step-line { flex: 1; height: 1px; min-width: 24px; margin: 0 12px; background: var(--border); }
+  .step-line.done { background: #b7dfc9; }
+
+  .step-layout { display: grid; grid-template-columns: minmax(0, 1fr) 270px; gap: 24px; align-items: start; }
+  .step-card { border: 1px solid var(--border); border-radius: 18px; background: var(--surface); box-shadow: var(--shadow-soft); overflow: hidden; }
+  .step-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; padding: 18px 22px 14px; }
+  .step-head h2 { margin: 0; font-size: 16px; line-height: 24px; font-weight: 650; }
+  .step-head p { margin: 3px 0 0; color: var(--muted); font-size: 12px; }
+  .step-body { padding: 0 22px 18px; }
+  .step-body .input { min-height: 168px; font-size: 13.5px; line-height: 1.75; border-radius: 12px; }
+  .step-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 22px; border-top: 1px solid var(--border); background: var(--surface-soft); }
+  .summary-strip { display: grid; gap: 10px; padding: 14px 22px; border-top: 1px solid var(--border); }
+  .summary-line { display: flex; align-items: center; gap: 10px; min-width: 0; font-size: 12.5px; }
+  .summary-line .check { width: 18px; height: 18px; flex: none; display: grid; place-items: center; border-radius: 50%; background: #eaf7f0; color: var(--success); }
+  .summary-line .check svg { width: 11px; height: 11px; }
+  .summary-line span:last-child { min-width: 0; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .summary-line strong { flex: none; font-size: 12.5px; font-weight: 600; }
+
+  .side { position: sticky; top: 20px; display: grid; gap: 14px; }
+  .side-card { border: 1px solid var(--border); border-radius: 16px; background: var(--surface); padding: 16px; }
+  .side-title { margin: 0 0 12px; font-size: 12.5px; font-weight: 650; }
+  .check-item { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 10px; padding: 10px 0; border-top: 1px solid var(--border); }
+  .check-item:first-of-type { padding-top: 0; border-top: 0; }
+  .check-icon { width: 18px; height: 18px; display: grid; place-items: center; border-radius: 50%; background: #eaf7f0; color: var(--success); }
+  .check-icon.pending { background: var(--surface-muted); color: var(--faint); }
+  .check-icon svg { width: 11px; height: 11px; }
+  .check-body strong { display: block; font-size: 12.5px; font-weight: 600; }
+  .check-body span { display: block; margin-top: 2px; color: var(--muted); font-size: 11.5px; line-height: 17px; }
+  .side-actions { display: grid; gap: 8px; }
+  .side .btn { width: 100%; }
+  .side-note { margin: 2px 0 0; color: var(--faint); font-size: 11px; line-height: 17px; }
+
+  .result-block { margin-top: 30px; border: 1px solid var(--border); border-radius: 18px; background: var(--surface); padding: 24px; }
+  .result-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
+  .result-head h2 { margin: 3px 0 0; font-size: 20px; line-height: 28px; }
+  .eyebrow { color: var(--accent); font-size: 10.5px; line-height: 16px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; }
+
+  .standard-doc { display: grid; gap: 18px; }
+  .standard-doc h3 { margin: 0 0 8px; font-size: 13px; }
+  .req-list { margin: 0; padding-left: 20px; display: grid; gap: 10px; }
+  .req-list li::marker { color: var(--faint); }
+  .req-title { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px; font-weight: 600; }
+  .req-source { margin: 3px 0 0; color: var(--muted); font-size: 12px; }
+  .criteria-list { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; }
+  .criteria-list li { padding: 11px 0; border-top: 1px solid var(--border); }
+  .criteria-list li:first-child { padding-top: 0; border-top: 0; }
+  .criteria-title { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 13px; font-weight: 600; }
+  .criteria-list p { margin: 4px 0 0; color: var(--muted); font-size: 12px; }
+  .criteria-list b { color: var(--text); font-size: 11.5px; }
+
+  @media (max-width: 980px) {
+    .shell { width: calc(100% - 32px); padding-top: 20px; }
+    .step-layout { grid-template-columns: 1fr; }
+    .side { position: static; }
+    .step { font-size: 11.5px; }
+    .step-line { margin: 0 8px; }
+  }
+  @media (max-width: 640px) {
+    .pagebar { padding: 20px 16px 0; flex-direction: column; gap: 12px; }
+    .shell { width: calc(100% - 24px); }
+    .stepper { overflow-x: auto; padding-bottom: 4px; }
+    .step-line { min-width: 12px; }
+    .step span:last-child { display: none; }
+    .step-card .step-head, .step-body, .step-foot { padding-left: 16px; padding-right: 16px; }
+    .result-block { padding: 18px 16px; }
+    .score-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand"><span class="brand-mark">S</span>Science 评测</div>
+    <button class="new-eval">＋ 新建测评</button>
+    <div class="side-label">今天</div>
+    <div class="history">
+      <div class="history-item"><span class="dot red"></span><span>某承力结构件需在两种铝合金中选材</span></div>
+      <div class="history-item"><span class="dot green"></span><span>某承力结构件需在两种铝合金中选材</span></div>
+    </div>
+    <div class="side-label" style="margin-top:14px">昨天</div>
+    <div class="history">
+      <div class="history-item"><span class="dot green"></span><span>请比较 6061-T6 和 7075-T6 铝合金用于…</span></div>
+      <div class="history-item"><span class="dot red"></span><span>请调用 IC-Chiplet 封装建模团队，使用…</span></div>
+    </div>
+    <div class="sidebar-foot">
+      <a class="nav-item" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="m12 3 8 4.5-8 4.5-8-4.5z"/><path d="m4 12 8 4.5 8-4.5M4 16.5 12 21l8-4.5"/></svg>测评批次</a>
+      <a class="nav-item" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3 2"/></svg>运行记录</a>
+      <a class="nav-item" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v17H6.5A2.5 2.5 0 0 1 4 17.5z"/><path d="M4 17.5A2.5 2.5 0 0 1 6.5 15H20"/></svg>题库</a>
+      <a class="nav-item active" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/></svg>测评助手</a>
+      <div class="account"><span class="avatar">A</span>admin</div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="pagebar">
+      <div><h1>测评助手</h1><p>一次只处理一步，避免同时面对三块长文本。</p></div>
+      <nav class="tabs" aria-label="测评助手">
+        <button class="tab" data-tab="generate">生成标准</button>
+        <button class="tab active" data-tab="score">回答评分</button>
+      </nav>
+    </header>
+
+    <div class="page-content" id="scoreView">
+      <div class="shell">
+        <div class="stepper">
+          <div class="step done"><span class="step-dot">✓</span><span>题目</span></div>
+          <span class="step-line done"></span>
+          <div class="step done"><span class="step-dot">✓</span><span>评分标准</span></div>
+          <span class="step-line done"></span>
+          <div class="step active"><span class="step-dot">3</span><span>待评分输出</span></div>
+        </div>
+
+        <div class="step-layout">
+          <section class="step-card">
+            <div class="step-head"><div><h2>待评分输出</h2><p>粘贴服务回答或其他系统的输出，下一步即可评分。</p></div><span class="tiny mono">120 / 60000</span></div>
+            <div class="step-body"><textarea class="input" aria-label="待评分输出">焊层开裂主要来自基板与焊层 CTE 差异。高温老化与反复升降温中产生热应力，边缘位置约束更强，所以开裂集中。建议用热循环试验复现，并用有限元热应力分析比较边缘与中心的应力幅值；若边缘应力显著更高且裂纹沿界面扩展，可判断 CTE 差异为主因。</textarea></div>
+            <div class="summary-strip">
+              <div class="summary-line"><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 4 4L19 6"/></svg></span><strong>题目</strong><span>某功率器件在整机装配后高温老化阶段出现局部焊层开裂…</span></div>
+              <div class="summary-line"><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 4 4L19 6"/></svg></span><strong>标准</strong><span>已带入 2 条题目要求、3 条测评标准</span></div>
+            </div>
+            <div class="step-foot"><button class="btn btn-secondary">上一步</button><button class="btn btn-primary">开始评分</button></div>
+          </section>
+
+          <aside class="side">
+            <div class="side-card">
+              <h3 class="side-title">本次评分</h3>
+              <div class="check-item"><span class="check-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 4 4L19 6"/></svg></span><div class="check-body"><strong>题目已选择</strong><span>来自题库 · 版本 2026-11-02</span></div></div>
+              <div class="check-item"><span class="check-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 4 4L19 6"/></svg></span><div class="check-body"><strong>标准已带入</strong><span>材料科学 · 失效分析</span></div></div>
+              <div class="check-item"><span class="check-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 4 4L19 6"/></svg></span><div class="check-body"><strong>输出已粘贴</strong><span>约 120 字</span></div></div>
+            </div>
+            <div class="side-card">
+              <h3 class="side-title">评分设置</h3>
+              <div class="side-actions">
+                <button class="btn btn-primary">开始评分</button>
+                <button class="btn btn-secondary">保存为草稿</button>
+              </div>
+              <p class="side-note">两家评委独立评分，不取平均；结果只保留在当前页面。</p>
+            </div>
+          </aside>
+        </div>
+
+        <section class="result-block">
+          <div class="result-head"><div><div class="eyebrow">评分结果</div><h2>两位评委的独立结论</h2></div><span class="chip neutral">未取平均</span></div>
+          <div class="score-grid">
+            <section class="score-col">
+              <div class="score-head"><div><div class="score-name">DeepSeek</div><div class="tiny">独立评委</div></div><div class="score-number">76<span>/ 100</span></div></div>
+              <p style="margin:10px 0 0;font-size:13px;line-height:21px">原因覆盖较全，区分方法基本可执行。</p>
+              <ul class="criteria">
+                <li><div class="criteria-head">热学性能原因覆盖度 <span>满足</span></div><p>覆盖了 CTE 差异与边缘集中开裂。</p></li>
+                <li><div class="criteria-head">原因区分方法 <span>满足</span></div><p>给出热循环试验与有限元分析的对照。</p></li>
+              </ul>
+              <div class="suggestions"><h4>改进建议</h4><ul><li>补充焊层厚度与工艺参数。</li><li>补充试验温区与循环次数。</li></ul></div>
+            </section>
+            <section class="score-col">
+              <div class="score-head"><div><div class="score-name">千问</div><div class="tiny">独立评委</div></div><div class="score-number">81<span>/ 100</span></div></div>
+              <p style="margin:10px 0 0;font-size:13px;line-height:21px">结构清楚，试验与分析的对应关系明确。</p>
+              <ul class="criteria">
+                <li><div class="criteria-head">热学性能原因覆盖度 <span>满足</span></div><p>原因与方法对应清楚。</p></li>
+                <li><div class="criteria-head">原因区分方法 <span>满足</span></div><p>主次判据基本完整，但缺少量化阈值。</p></li>
+              </ul>
+              <div class="suggestions"><h4>改进建议</h4><ul><li>补充温度场与应力场的边界条件。</li></ul></div>
+            </section>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <div class="page-content hidden" id="generateView">
+      <div class="shell">
+        <div class="stepper">
+          <div class="step done"><span class="step-dot">✓</span><span>输入题目</span></div>
+          <span class="step-line done"></span>
+          <div class="step active"><span class="step-dot">2</span><span>审阅标准</span></div>
+        </div>
+
+        <div class="step-layout">
+          <section class="step-card">
+            <div class="step-head"><div><h2>材料科学 · 失效分析</h2><p>已根据题目生成，可逐条审阅和编辑。</p></div><span class="chip ok">已生成</span></div>
+            <div class="step-body standard-doc">
+              <div><h3>题目明确要求</h3><ol class="req-list">
+                <li><div class="req-title">排查局部焊层开裂的热学性能原因 <span class="chip">关键</span></div><p class="req-source">题目原文：请根据该现象排查可能导致焊层开裂的热学性能相关原因</p></li>
+                <li><div class="req-title">说明如何通过温度场与热应力分析区分各原因 <span class="chip">关键</span></div><p class="req-source">题目原文：并说明如何通过温度场与热应力分析或热循环试验来区分各原因的主次</p></li>
+              </ol></div>
+              <div><h3>测评标准</h3><ol class="criteria-list">
+                <li><div class="criteria-title">热学性能原因覆盖度 <span class="chip neutral">题目要求</span></div><p>围绕热学性能列出可能导致焊层开裂的原因，包括 CTE 差异、反复升降温、边缘集中开裂等。</p><p><b>如何判断</b> 检查是否覆盖三个已知条件，并说明每个条件如何导致开裂。</p></li>
+                <li><div class="criteria-title">原因区分方法 <span class="chip neutral">题目要求</span></div><p>给出温度场/热应力分析或热循环试验的区分方案。</p><p><b>如何判断</b> 每类原因是否对应可执行的分析或试验，并说明主次判据。</p></li>
+                <li><div class="criteria-title">结论可执行性 <span class="chip neutral">专业建议</span></div><p>给出明确的主因判断和后续验证建议。</p><p><b>如何判断</b> 是否形成单一主因结论，并给出验证路径。</p></li>
+              </ol></div>
+            </div>
+            <div class="step-foot"><button class="btn btn-secondary">上一步</button><button class="btn btn-primary">用此标准评分</button></div>
+          </section>
+          <aside class="side">
+            <div class="side-card">
+              <h3 class="side-title">标准状态</h3>
+              <div class="check-item"><span class="check-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 4 4L19 6"/></svg></span><div class="check-body"><strong>题目已带入</strong><span>题库题目 · 2026-11-02</span></div></div>
+              <div class="check-item"><span class="check-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 4 4L19 6"/></svg></span><div class="check-body"><strong>标准已生成</strong><span>2 条要求 · 3 条标准</span></div></div>
+              <div class="check-item"><span class="check-icon pending"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/></svg></span><div class="check-body"><strong>尚未确认</strong><span>确认后才会成为当前标准</span></div></div>
+            </div>
+            <div class="side-card">
+              <h3 class="side-title">下一步</h3>
+              <div class="side-actions">
+                <button class="btn btn-primary">用此标准评分</button>
+                <button class="btn btn-secondary">保存草稿</button>
+                <button class="btn btn-ghost">导出 Markdown</button>
+              </div>
+              <p class="side-note">标准仅供审阅，不会自动用于实际评分。</p>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+<script>
+  const tabs = document.querySelectorAll('.tab');
+  const views = { generate: document.getElementById('generateView'), score: document.getElementById('scoreView') };
+  tabs.forEach(tab => tab.addEventListener('click', () => {
+    tabs.forEach(item => item.classList.toggle('active', item === tab));
+    Object.entries(views).forEach(([key, view]) => view.classList.toggle('hidden', key !== tab.dataset.tab));
+  }));
+</script>
+</body>
+</html>

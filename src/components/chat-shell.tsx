@@ -5,11 +5,16 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Logo } from "@/components/logo";
 import { AccountMenu } from "@/components/workspace";
+import { Button, Dialog, InlineAlert, Input } from "@/components/ui";
+import { createRequestKey } from "@/lib/request-key";
+import { isUncertainRun } from "@/lib/run-status";
 
 type HistoryItem = {
   id: string;
   question: string;
+  title?: string | null;
   status: string;
+  recoveryState?: string;
   startedAt: string | null;
   quality?: { status?: string | null } | null;
 };
@@ -36,6 +41,8 @@ function statusClass(status: string) {
   return "run-dot";
 }
 
+const activeStatusLabels: Record<string, string> = { queued: "排队中", running: "运行中", scoring: "评分中" };
+
 function groupLabel(value: string | null) {
   if (!value) return "更早";
   const date = new Date(value);
@@ -48,11 +55,14 @@ function groupLabel(value: string | null) {
   return "更早";
 }
 
-function SidebarBody({ items, error, activeId, onNavigate, preview = false }: {
+function SidebarBody({ items, error, activeId, onNavigate, onManage, canManage, storageReady, preview = false }: {
   items: HistoryItem[];
   error: string;
   activeId: string | null;
   onNavigate?: () => void;
+  onManage: (item: HistoryItem) => void;
+  canManage: boolean;
+  storageReady: boolean;
   preview?: boolean;
 }) {
   const pathname = usePathname();
@@ -85,35 +95,40 @@ function SidebarBody({ items, error, activeId, onNavigate, preview = false }: {
       </div>
 
       <div className="chat-history">
+        {!preview && !storageReady && !error && <p className="chat-note">对话管理暂未启用。</p>}
         {error ? <p className="chat-note">{error}</p> : items.length === 0 ? (
           <p className="chat-note">本标签页暂无流式对话。</p>
         ) : (
           groups.map((group) => (
             <div key={group.label}>
               <p className="chat-group-label">{group.label}</p>
-              {group.items.map((item) => (
-                <Link
-                  key={item.id}
-                  className={`chat-item${item.id === activeId ? " active" : ""}`}
-                  href={`/runs/${item.id}`}
-                  title={item.question}
-                  onClick={onNavigate}
-                >
-                  <span className={statusClass(item.status)} />
-                  <span className="chat-item-text">{item.question}</span>
-                </Link>
-              ))}
+              {group.items.map((item) => {
+                const uncertain = isUncertainRun(item.status, item.recoveryState);
+                const activeLabel = uncertain ? "状态待确认" : activeStatusLabels[item.status];
+                return <div key={item.id} className={`chat-item-row${item.id === activeId ? " active" : ""}`} data-running={!uncertain && item.status === "running" ? "true" : undefined}>
+                  <Link
+                    className="chat-item"
+                    href={`/runs/${item.id}`}
+                    title={item.title || item.question}
+                    onClick={onNavigate}
+                  >
+                    <span className={statusClass(uncertain ? "unknown" : item.status)} />
+                    <span className="chat-item-text">{item.title || item.question}</span>
+                    {activeLabel && <span className="chat-item-status" data-status={uncertain ? "unknown" : item.status}><span className="chat-item-status-dot" aria-hidden="true" />{activeLabel}</span>}
+                  </Link>
+                  {canManage && <button type="button" className="chat-item-more" aria-label={`管理对话：${(item.title || item.question).slice(0, 24)}`} onClick={() => { onNavigate?.(); onManage(item); }}>•••</button>}
+                </div>;
+              })}
             </div>
           ))
         )}
       </div>
 
       <div className="chat-foot">
-        <Link className={`chat-foot-link${pathname.startsWith("/batches") || pathname.startsWith("/preview/batches") ? " active" : ""}`} href={preview ? "/preview/batches" : "/batches"} aria-current={pathname.startsWith("/batches") || pathname.startsWith("/preview/batches") ? "page" : undefined} onClick={onNavigate}><Icon name="layers" />测评批次</Link>
-        <Link className={`chat-foot-link${pathname === "/runs" ? " active" : ""}`} href="/runs" aria-current={pathname === "/runs" ? "page" : undefined} onClick={onNavigate}><Icon name="clock" />运行记录</Link>
-        <Link className={`chat-foot-link${pathname.startsWith("/daily-reports") ? " active" : ""}`} href="/daily-reports" aria-current={pathname.startsWith("/daily-reports") ? "page" : undefined} onClick={onNavigate}><Icon name="book" />每日总结</Link>
+        <Link className={`chat-foot-link${pathname.startsWith("/batches") || pathname.startsWith("/preview/batches") || pathname.startsWith("/daily-reports") ? " active" : ""}`} href={preview ? "/preview/batches" : "/batches"} aria-current={pathname.startsWith("/batches") || pathname.startsWith("/preview/batches") || pathname.startsWith("/daily-reports") ? "page" : undefined} onClick={onNavigate}><Icon name="layers" />测评批次</Link>
+        <Link className={`chat-foot-link${pathname === "/runs" || pathname.startsWith("/runs/") ? " active" : ""}`} href="/runs" aria-current={pathname === "/runs" || pathname.startsWith("/runs/") ? "page" : undefined} onClick={onNavigate}><Icon name="clock" />运行记录</Link>
         <Link className={`chat-foot-link${pathname.startsWith("/question-bank") ? " active" : ""}`} href="/question-bank" aria-current={pathname.startsWith("/question-bank") ? "page" : undefined} onClick={onNavigate}><Icon name="book" />题库</Link>
-        <Link className={`chat-foot-link${pathname === "/standards" || pathname === "/scoring-rules" ? " active" : ""}`} href="/standards" aria-current={pathname === "/standards" || pathname === "/scoring-rules" ? "page" : undefined} onClick={onNavigate}><Icon name="grid" />评判标准</Link>
+        <Link className={`chat-foot-link${pathname === "/standards" || pathname === "/scoring-rules" ? " active" : ""}`} href="/standards" aria-current={pathname === "/standards" || pathname === "/scoring-rules" ? "page" : undefined} onClick={onNavigate}><Icon name="grid" />测评助手</Link>
         {!preview && <div className="chat-account"><AccountMenu showName /></div>}
       </div>
     </>
@@ -125,6 +140,14 @@ export function ChatShell({ children, preview = false }: { children: ReactNode; 
   const [sidebarWidth, setSidebarWidth] = useState(288);
   const [items, setItems] = useState<HistoryItem[]>([]);
   const [historyError, setHistoryError] = useState(preview ? "预览模式不读取运行历史。" : "");
+  const [historyReady, setHistoryReady] = useState(true);
+  const [canManageHistory, setCanManageHistory] = useState(false);
+  const [managedItem, setManagedItem] = useState<HistoryItem | null>(null);
+  const [historyTitle, setHistoryTitle] = useState("");
+  const [historyAction, setHistoryAction] = useState<"edit" | "remove">("edit");
+  const [historyBusy, setHistoryBusy] = useState(false);
+  const [historyActionError, setHistoryActionError] = useState("");
+  const historyRequest = useRef(0);
   const drawer = useRef<HTMLDialogElement>(null);
   const activeId = pathname.startsWith("/runs/") ? pathname.split("/")[2] : null;
   const isEvaluate = pathname === "/evaluate";
@@ -133,10 +156,11 @@ export function ChatShell({ children, preview = false }: { children: ReactNode; 
     if (preview) return;
     let active = true;
     const load = () => {
-      fetch("/api/evaluation/unified/runs?origin=manual&page=1&pageSize=50", { cache: "no-store" })
-        .then(async (response) => { if (!response.ok) throw new Error("加载失败"); return response.json(); })
-        .then((value) => { if (active) { if (!Array.isArray(value.items)) throw new Error("格式异常"); setItems(value.items.map((item: { runId: string; question: string; status: string; startedAt: string | null }) => ({ id: item.runId, question: item.question, status: item.status, startedAt: item.startedAt }))); setHistoryError(""); } })
-        .catch(() => { if (active) { setItems([]); setHistoryError("无法读取对话记录，请稍后重试。"); } });
+      const request = ++historyRequest.current;
+      fetch("/api/evaluation/unified/history", { cache: "no-store" })
+        .then(async (response) => { if (response.status === 404 || response.status === 503) { const fallback = await fetch("/api/evaluation/unified/runs?origin=manual&page=1&pageSize=50", { cache: "no-store" }); if (!fallback.ok) throw new Error("加载失败"); return { ...await fallback.json(), storageReady: false, canManage: false }; } if (!response.ok) throw new Error("加载失败"); return response.json(); })
+        .then((value) => { if (active && request === historyRequest.current) { if (!Array.isArray(value.items)) throw new Error("格式异常"); setItems(value.items.map((item: { runId: string; question: string; title?: string | null; status: string; recoveryState?: string; startedAt: string | null }) => ({ id: item.runId, question: item.question, title: item.title, status: item.status, recoveryState: item.recoveryState, startedAt: item.startedAt }))); setHistoryReady(value.storageReady === true); setCanManageHistory(value.canManage === true); setHistoryError(""); } })
+        .catch(() => { if (active && request === historyRequest.current) { setItems([]); setHistoryError("无法读取对话记录，请稍后重试。"); } });
     };
     load();
     window.addEventListener("evaluation-unified-change", load);
@@ -144,11 +168,28 @@ export function ChatShell({ children, preview = false }: { children: ReactNode; 
   }, [pathname, preview]);
 
   const closeDrawer = () => drawer.current?.close();
+  function manage(item: HistoryItem) { setManagedItem(item); setHistoryTitle((item.title || item.question).slice(0, 100)); setHistoryAction("edit"); setHistoryActionError(""); }
+  async function updateHistory() {
+    if (!managedItem || historyBusy) return;
+    const title = historyTitle.trim();
+    if (historyAction === "edit" && (!title || [...title].length > 100)) { setHistoryActionError("请输入 1–100 个字符的名称。"); return; }
+    setHistoryBusy(true); setHistoryActionError("");
+    try {
+      const response = await fetch(`/api/evaluation/unified/history/${encodeURIComponent(managedItem.id)}`, { method: "POST", headers: { "Content-Type": "application/json", "Idempotency-Key": createRequestKey() }, body: JSON.stringify(historyAction === "edit" ? { action: "rename", title } : { action: "remove" }) });
+      const value = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(typeof value.error === "string" ? value.error : value.error?.message || "操作失败，请稍后重试。");
+      historyRequest.current++;
+      setItems(current => historyAction === "remove" ? current.filter(item => item.id !== managedItem.id) : current.map(item => item.id === managedItem.id ? { ...item, title } : item));
+      setManagedItem(null);
+      window.dispatchEvent(new Event("evaluation-unified-change"));
+    } catch (error) { setHistoryActionError(error instanceof Error ? error.message : "操作失败，请稍后重试。"); }
+    finally { setHistoryBusy(false); }
+  }
 
   return (
     <div className="chat-shell">
       <aside className="chat-sidebar desktop-chat-sidebar" aria-label="运行历史" style={{ width: sidebarWidth }}>
-        <SidebarBody items={items} error={historyError} activeId={activeId} preview={preview} />
+        <SidebarBody items={items} error={historyError} activeId={activeId} onManage={manage} canManage={canManageHistory} storageReady={historyReady} preview={preview} />
         <div
           className="chat-resize"
           role="separator"
@@ -174,16 +215,21 @@ export function ChatShell({ children, preview = false }: { children: ReactNode; 
 
       <dialog className="chat-drawer" ref={drawer} aria-label="运行历史" onClick={(event) => { if (event.target === event.currentTarget) closeDrawer(); }}>
         <div className="chat-sidebar">
-          <SidebarBody items={items} error={historyError} activeId={activeId} onNavigate={closeDrawer} preview={preview} />
+          <SidebarBody items={items} error={historyError} activeId={activeId} onNavigate={closeDrawer} onManage={manage} canManage={canManageHistory} storageReady={historyReady} preview={preview} />
         </div>
       </dialog>
+
+      <Dialog open={!!managedItem} onClose={() => { if (!historyBusy) setManagedItem(null); }} title={historyAction === "edit" ? "管理对话" : "从侧栏移除对话？"} description={historyAction === "edit" ? "名称只对当前账号生效，不会修改题目原文。" : "仅从当前账号的近期对话中移除，运行记录和测评数据仍会保留。"} busy={historyBusy} footer={historyAction === "edit" ? <><Button variant="secondary" disabled={historyBusy} onClick={() => setManagedItem(null)}>取消</Button><Button variant="primary" loading={historyBusy} onClick={() => void updateHistory()}>保存名称</Button><Button variant="danger" disabled={historyBusy} onClick={() => { setHistoryAction("remove"); setHistoryActionError(""); }}>删除</Button></> : <><Button variant="secondary" disabled={historyBusy} onClick={() => { setHistoryAction("edit"); setHistoryActionError(""); }}>返回</Button><Button variant="danger" loading={historyBusy} onClick={() => void updateHistory()}>确认移除</Button></>}>
+        {historyAction === "edit" && <Input label="对话名称" value={historyTitle} maxLength={100} disabled={historyBusy} onChange={event => setHistoryTitle(event.target.value)} />}
+        {historyActionError && <InlineAlert tone="danger">{historyActionError}</InlineAlert>}
+      </Dialog>
 
       <div className="chat-main">
         <div className="chat-mobilebar">
           <button type="button" className="icon-button" aria-label="打开运行历史" onClick={() => drawer.current?.showModal()}>
             <Icon name="menu" />
           </button>
-          <span>{isEvaluate ? "新建测评" : pathname === "/" ? "评测工作台" : pathname.startsWith("/daily-reports") ? "每日总结" : pathname.startsWith("/batches") || pathname.startsWith("/preview/batches") ? "测评批次" : pathname.startsWith("/question-bank") ? "题库" : pathname === "/standards" || pathname === "/scoring-rules" ? "评判标准" : "运行记录"}</span>
+          <span>{isEvaluate ? "新建测评" : pathname === "/" ? "评测工作台" : pathname.startsWith("/daily-reports") ? "测评日报" : pathname.startsWith("/batches") || pathname.startsWith("/preview/batches") ? "测评批次" : pathname.startsWith("/question-bank") ? "题库" : pathname === "/standards" || pathname === "/scoring-rules" ? "测评助手" : "运行记录"}</span>
         </div>
         {children}
       </div>

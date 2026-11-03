@@ -6,9 +6,10 @@ function decode(value: string | undefined) {
   try { return decodeURIComponent(value); } catch { return value; }
 }
 
-export default async function QuestionDetailRoute({ params, searchParams }: { params: Promise<{ questionId: string }>; searchParams: Promise<{ datasetVersion?: string }> }) {
+export default async function QuestionDetailRoute({ params, searchParams }: { params: Promise<{ questionId: string }>; searchParams: Promise<{ datasetVersion?: string; tab?: string }> }) {
   const questionId = decode((await params).questionId);
-  const datasetVersion = decode((await searchParams).datasetVersion);
+  const query = await searchParams;
+  const datasetVersion = decode(query.datasetVersion);
   if (!questionId || !datasetVersion) notFound();
-  return <QuestionDetailPage questionId={questionId} datasetVersion={datasetVersion} />;
+  return <QuestionDetailPage key={JSON.stringify([questionId, datasetVersion])} questionId={questionId} datasetVersion={datasetVersion} initialTab={query.tab === "standards" ? "standards" : "question"} />;
 }

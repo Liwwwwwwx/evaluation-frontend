@@ -4,20 +4,25 @@
 
 import { createElement, useCallback, useEffect, useState } from "react";
 import { AnswerMarkdown } from "@/components/answer-markdown";
-import { StructuredValue } from "@/components/structured-value";
+import { ArtifactStlPreview } from "@/components/artifact-stl-preview";
+import { parsePreviewTable } from "@/lib/artifact-preview";
+import { Dialog } from "@/components/ui";
 import { record, safeHttpUrl, text } from "@/lib/structured-results";
 
+const IMAGE_EXTENSIONS = ["png", "jpg", "jpeg", "gif", "webp", "avif", "bmp"];
+const TEXT_EXTENSIONS = ["md", "markdown", "txt", "log", "json", "jsonl", "csv", "tsv", "cif", "py", "js", "jsx", "ts", "tsx", "html", "css", "scss", "xml", "yaml", "yml", "sh", "sql", "toml", "ini"];
+
 function ModelPreview({ src, title }: { src: string; title: string }) {
-  const [enabled, setEnabled] = useState(false); const [ready, setReady] = useState(false); const [loaded, setLoaded] = useState(false); const [error, setError] = useState(""); const [attempt, setAttempt] = useState(0);
+  const [enabled, setEnabled] = useState(true); const [ready, setReady] = useState(false); const [loaded, setLoaded] = useState(false); const [error, setError] = useState(""); const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     if (!enabled) return;
     let active = true;
-    import("@google/model-viewer").then(() => { if (active) setReady(true); }).catch(() => { if (active) setError("三维查看器加载失败，可重试或打开原文件。"); });
+    import("@google/model-viewer").then(() => { if (active) setReady(true); }).catch(() => { if (active) setError("三维查看器加载失败，可重试或下载原文件。"); });
     return () => { active = false; };
   }, [enabled, attempt]);
   const viewerRef = useCallback((element: HTMLElement | null) => {
     if (!element) return;
-    const onLoad = () => setLoaded(true); const onError = () => setError("模型加载失败，可重试或打开原文件。");
+    const onLoad = () => setLoaded(true); const onError = () => setError("模型加载失败，可重试或下载原文件。");
     element.addEventListener("load", onLoad); element.addEventListener("error", onError);
     return () => { element.removeEventListener("load", onLoad); element.removeEventListener("error", onError); };
   }, []);
@@ -27,40 +32,116 @@ function ModelPreview({ src, title }: { src: string; title: string }) {
 
 function ImagePreview({ src, title }: { src: string; title: string }) {
   const [error, setError] = useState(false); const [attempt, setAttempt] = useState(0);
-  return error ? <div role="status"><p className="run-score-note">图片预览失败，可重试或打开原文件。</p><button type="button" className="secondary-button" onClick={() => { setError(false); setAttempt(value => value + 1); }}>重新加载图片</button></div> : <a href={src} target="_blank" rel="noopener noreferrer" aria-label={`查看原图：${title}`}><img className="result-artifact-image" src={`${src}?previewAttempt=${attempt}`} alt={title} loading="lazy" onError={() => setError(true)} /></a>;
+  if (error) return <div role="status"><p className="run-score-note">图片预览失败，可重试或下载原文件。</p><button type="button" className="secondary-button" onClick={() => { setError(false); setAttempt(value => value + 1); }}>重新加载图片</button></div>;
+  return <img className="result-preview-image" src={`${src}?previewAttempt=${attempt}`} alt={title} loading="lazy" onError={() => setError(true)} />;
 }
 
-function TextPreview({ src, extension }: { src: string; extension: string }) {
-  const [content, setContent] = useState<string | null>(null); const [error, setError] = useState(""); const [loading, setLoading] = useState(false);
-  async function load() {
-    setLoading(true); setError("");
-    try {
-      const response = await fetch(src, { cache: "no-store" }); if (!response.ok || !response.body) throw Error("文件读取失败，请打开原文件。");
-      const reader = response.body.getReader(); const chunks: Uint8Array[] = []; let size = 0;
+function FilePreview({ src, extension, title }: { src: string; extension: string; title: string }) {
+  const [content, setContent] = useState<Uint8Array | null>(null); const [error, setError] = useState("");
+  useEffect(() => {
+    const controller = new AbortController();
+    async function load() {
       try {
-        while (true) { const part = await reader.read(); if (part.done) break; size += part.value.byteLength; if (size > 1024 * 1024) throw Error("文本超过1MiB预览上限，请下载查看。"); chunks.push(part.value); }
-      } finally { await reader.cancel().catch(() => {}); }
-      const data = new Uint8Array(size); let offset = 0; for (const chunk of chunks) { data.set(chunk, offset); offset += chunk.length; }
-      setContent(new TextDecoder().decode(data));
-    } catch (err) { setError(err instanceof Error ? err.message : "文件读取失败。"); }
-    finally { setLoading(false); }
+        const response = await fetch(src, { cache: "no-store", signal: controller.signal });
+        if (!response.ok || !response.body) throw Error("文件读取失败，请下载原文件。");
+        if (Number(response.headers.get("content-length")) > 20 * 1024 * 1024) throw Error("文件超过 20 MiB 预览上限，请下载查看。");
+        const reader = response.body.getReader(); const chunks: Uint8Array[] = []; let size = 0;
+        try {
+          while (true) { const part = await reader.read(); if (part.done) break; size += part.value.byteLength; if (size > 20 * 1024 * 1024) throw Error("文件超过 20 MiB 预览上限，请下载查看。"); chunks.push(part.value); }
+        } finally { await reader.cancel().catch(() => {}); }
+        const data = new Uint8Array(size); let offset = 0; for (const chunk of chunks) { data.set(chunk, offset); offset += chunk.length; }
+        if (!controller.signal.aborted) setContent(data);
+      } catch (err) { if (!controller.signal.aborted) setError(err instanceof Error ? err.message : "文件读取失败。"); }
+    }
+    void load();
+    return () => controller.abort();
+  }, [src]);
+  if (error) return <p className="run-score-note" role="status">{error}</p>;
+  if (!content) return <p className="run-score-note" role="status">正在读取文件内容…</p>;
+  if (extension === "pdf") return <PdfPreview content={content} title={title} />;
+  let value = new TextDecoder().decode(content);
+  if (extension === "md" || extension === "markdown") return <div className="run-answer result-preview-markdown"><AnswerMarkdown content={value} /></div>;
+  if (extension === "csv" || extension === "tsv") {
+    const table = parsePreviewTable(value, extension === "tsv" ? "\t" : ",");
+    return <div className="result-preview-table">{table.truncated && <p className="run-score-note">仅展示前 500 行、100 列，请下载查看完整文件。</p>}<div className="result-preview-table-scroll"><table><tbody>{table.rows.map((row, i) => <tr key={i}>{row.map((cell, j) => i === 0 ? <th key={j}>{cell}</th> : <td key={j}>{cell}</td>)}</tr>)}</tbody></table></div></div>;
   }
-  let json: unknown; if (extension === "json" && content !== null) { try { json = JSON.parse(content); } catch {} }
-  return <div className="result-text-preview">{content === null ? <button type="button" className="secondary-button" disabled={loading} onClick={() => void load()}>{loading ? "正在读取…" : "预览文件内容"}</button> : <><button type="button" className="secondary-button" onClick={() => setContent(null)}>收起文件预览</button>{extension === "md" ? <div className="run-answer"><AnswerMarkdown content={content} /></div> : json !== undefined ? <StructuredValue value={json} /> : <pre>{content}</pre>}</>}{error && <p className="run-score-note" role="status">{error}</p>}</div>;
+  if (extension === "json") { try { value = JSON.stringify(JSON.parse(value), null, 2); } catch { /* 保留原始文本。 */ } }
+  return <pre className="result-preview-text">{value}</pre>;
+}
+
+function PdfPreview({ content, title }: { content: Uint8Array; title: string }) {
+  const ref = useCallback((iframe: HTMLIFrameElement | null) => {
+    if (!iframe) return;
+    const url = URL.createObjectURL(new Blob([content as BlobPart], { type: "application/pdf" }));
+    iframe.src = url;
+    return () => { iframe.removeAttribute("src"); URL.revokeObjectURL(url); };
+  }, [content]);
+  return <iframe ref={ref} title={title} className="result-preview-pdf" />;
+}
+
+function previewType(file: Record<string, unknown> | null) {
+  if (!file) return "";
+  const size = typeof file.size === "number" && Number.isFinite(file.size) ? file.size : null;
+  return size && size > 0 ? `${Math.max(1, Math.round(size / 1024))} KB` : "";
 }
 
 export function ResultArtifacts({ files, runId }: { files: unknown[]; runId: string }) {
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const [expanded, setExpanded] = useState(false);
   const valid = files.map((value, index) => ({ file: record(value), index })).filter(item => safeHttpUrl(item.file?.url));
   if (!valid.length) return null;
-  return <section className="run-service-section result-artifacts" aria-label="服务产物"><h3>服务产物 · {valid.length} 项</h3><p className="run-score-note">图片与模型按原文件展示；文件保留时间由被测服务决定。</p>{valid.map(({ file, index }) => {
-    const original = safeHttpUrl(file?.url); const title = text(file?.name) || `产物 ${index + 1}`;
-    const extension = new URL(original).pathname.split(".").pop()?.toLowerCase() || "";
-    const src = `/api/evaluation/unified/runs/${encodeURIComponent(runId)}/artifacts/${index}`;
-    return <div className="result-artifact" key={`${index}-${original}`}><div className="structured-section-head"><h4>{title}</h4><span className="result-file-type">{extension.toUpperCase() || "文件"}</span></div>
-      {["png", "jpg", "jpeg", "gif", "webp"].includes(extension) && <ImagePreview src={src} title={title} />}
-      {extension === "glb" && <ModelPreview src={src} title={title} />}
-      {["md", "txt", "json", "csv", "cif"].includes(extension) && <TextPreview src={src} extension={extension} />}
-      <div className="result-artifact-actions"><a href={src} target="_blank" rel="noopener noreferrer" download>打开文件</a><a href={original} target="_blank" rel="noopener noreferrer">原始地址</a></div>
-    </div>;
-  })}</section>;
+  const active = activeIndex === null ? null : valid.find((item) => item.index === activeIndex) || null;
+  const position = active ? valid.findIndex(item => item.index === active.index) : -1;
+  const activeOriginal = active ? safeHttpUrl(active.file?.url) : null;
+  const activeTitle = active ? text(active.file?.name) || `产物 ${active.index + 1}` : "";
+  const activeExtension = activeOriginal ? new URL(activeOriginal).pathname.split(".").pop()?.toLowerCase() || "" : "";
+  const activeSrc = active ? `/api/evaluation/unified/runs/${encodeURIComponent(runId)}/artifacts/${active.index}` : "";
+  return <section className="run-service-section result-artifacts" aria-label="服务产物">
+    <div className="result-artifacts-head"><h3>服务产物 · {valid.length} 项</h3><p className="run-score-note">点击文件卡片预览；文件保留时间由被测服务决定。</p></div>
+    <ul className="result-artifact-grid">
+      {valid.map(({ file, index }) => {
+        const original = safeHttpUrl(file?.url) as string;
+        const title = text(file?.name) || `产物 ${index + 1}`;
+        const extension = new URL(original).pathname.split(".").pop()?.toLowerCase() || "";
+        const src = `/api/evaluation/unified/runs/${encodeURIComponent(runId)}/artifacts/${index}`;
+        const image = IMAGE_EXTENSIONS.includes(extension);
+        const meta = previewType(file);
+        return <li key={`${index}-${original}`}>
+          <button type="button" className="result-artifact-card" onClick={() => setActiveIndex(index)} aria-label={`预览 ${title}`}>
+            <span className={`result-artifact-thumb${image ? " is-image" : ""}`} aria-hidden="true">
+              {image ? <img src={`${src}?previewAttempt=0`} alt="" loading="lazy" /> : <span className="result-artifact-ext">{extension.toUpperCase() || "文件"}</span>}
+            </span>
+            <span className="result-artifact-body"><strong title={title}>{title}</strong><span>{extension.toUpperCase() || "文件"}{meta ? ` · ${meta}` : ""} · 点击预览</span></span>
+            <span className="result-artifact-open" aria-hidden="true">预览</span>
+          </button>
+        </li>;
+      })}
+    </ul>
+    <Dialog
+      open={active !== null}
+      onClose={() => { setActiveIndex(null); setExpanded(false); }}
+      title={activeTitle}
+      description={`${activeExtension.toUpperCase() || "文件"} · 文件内容以服务原始产物为准`}
+      className={`result-preview-dialog${expanded ? " is-expanded" : ""}`}
+      contentClassName="result-preview-shell"
+      headerActions={<div className="result-preview-actions">
+        {active && <a className="secondary-button" href={activeSrc} download={activeTitle}>下载</a>}
+        {activeOriginal && <a className="secondary-button" href={activeOriginal} target="_blank" rel="noopener noreferrer">原始地址</a>}
+        <button type="button" className="secondary-button" onClick={() => setExpanded(value => !value)}>{expanded ? "退出全屏" : "全屏"}</button>
+      </div>}
+      footer={active ? <>
+        <button type="button" className="secondary-button" disabled={position <= 0} onClick={() => setActiveIndex(valid[position - 1].index)}>上一个</button>
+        <span className="result-preview-counter" aria-live="polite">{position + 1} / {valid.length}</span>
+        <button type="button" className="secondary-button" disabled={position >= valid.length - 1} onClick={() => setActiveIndex(valid[position + 1].index)}>下一个</button>
+      </> : undefined}
+    >
+      {active && <div className="result-preview-content" key={`${runId}-${active.index}`}>
+        {IMAGE_EXTENSIONS.includes(activeExtension) && <ImagePreview src={activeSrc} title={activeTitle} />}
+        {activeExtension === "glb" && <ModelPreview src={activeSrc} title={activeTitle} />}
+        {activeExtension === "stl" && <ArtifactStlPreview src={activeSrc} />}
+        {(activeExtension === "pdf" || TEXT_EXTENSIONS.includes(activeExtension)) && <FilePreview src={activeSrc} extension={activeExtension} title={activeTitle} />}
+        {!IMAGE_EXTENSIONS.includes(activeExtension) && !["glb", "stl", "pdf"].includes(activeExtension) && !TEXT_EXTENSIONS.includes(activeExtension) && <p className="run-score-note">该格式暂不支持在线预览，请下载文件或打开原始地址。</p>}
+      </div>}
+    </Dialog>
+  </section>;
 }

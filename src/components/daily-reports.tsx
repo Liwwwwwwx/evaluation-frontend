@@ -23,7 +23,7 @@ async function generate(date: string) {
   return readResponse(await fetch(`${base}/${date}/generate`, { method: "POST", headers: { "Content-Type": "application/json", "Idempotency-Key": createRequestKey() }, body: "{}" }));
 }
 
-export function DailyReportList() {
+export function DailyReportList({ embedded = false }: { embedded?: boolean } = {}) {
   const router = useRouter();
   const [data, setData] = useState<Catalog | null>(null);
   const [error, setError] = useState("");
@@ -45,19 +45,26 @@ export function DailyReportList() {
     catch (err) { setError(err instanceof Error ? err.message : "无法生成报告。"); }
     finally { setSubmitting(false); }
   }
-  return <main className={styles.page}>
-    <header className={styles.header}><div><h1>每日总结</h1><p>汇总夜间自动测评，查看各服务表现与主要问题。</p></div><Button variant="secondary" onClick={() => setRetry(v => v + 1)}>刷新</Button></header>
+  const content = <>
     {error && <InlineAlert tone="danger" action={<Button type="button" variant="secondary" onClick={() => setRetry(v => v + 1)}>重试</Button>}>{error}</InlineAlert>}
-    {!data && !error && <EmptyState state="loading" title="正在读取每日总结…" />}
+    {!data && !error && <EmptyState state="loading" title="正在读取测评日报…" />}
     {data && <>
       <p className={styles.muted}>自动汇总{data.enabled ? "已启用" : "暂停"} · 优先使用 {data.preferred === "qwen" ? "千问" : "DeepSeek"}{!data.configured && " · 汇总模型未配置"}</p>
       {!data.storageReady ? <InlineAlert tone="warning">每日报告存储尚未启用，需要先完成数据库迁移。</InlineAlert> : <>
         {data.canGenerate && <form className={styles.form} onSubmit={event => { event.preventDefault(); void submit(); }}><label>测评日期<input type="date" value={date} required onChange={event => setDate(event.target.value)} /></label><Button type="submit" variant="primary" disabled={!date || submitting}>{submitting ? "正在提交…" : "生成该日总结"}</Button></form>}
         <p className={styles.muted}>日期按北京时间当晚 22:00 起的测评归属。仅统计已保存的自动运行；迟到结果会在自动汇总启用后更新。</p>
-        {data.items.length === 0 ? <EmptyState state="empty" title="暂无每日总结。" description="自动测评结束后会生成报告，也可在具备权限时选择日期生成。" /> : <ul className={styles.list}>{data.items.map(item => <li key={item.date}><Link href={`/daily-reports/${item.date}`}><strong>{item.date}</strong><span>{states[item.status] || "状态未知"} · {analysisStates[item.analysisState] || "状态未知"}</span><span>已记录 {item.total} 次 · 执行完成 {item.completed} 次 · 未完成 {item.unfinished} 次</span></Link></li>)}</ul>}
+        {data.items.length === 0 ? <EmptyState state="empty" title="暂无测评日报。" description="自动测评结束后会生成报告，也可在具备权限时选择日期生成。" /> : <ul className={styles.list}>{data.items.map(item => <li key={item.date}><Link href={`/daily-reports/${item.date}`}><strong>{item.date}</strong><span>{states[item.status] || "状态未知"} · {analysisStates[item.analysisState] || "状态未知"}</span><span>已记录 {item.total} 次 · 执行完成 {item.completed} 次 · 未完成 {item.unfinished} 次</span></Link></li>)}</ul>}
         {data.total > 0 && <Pagination page={page} pages={Math.ceil(data.total / 20)} total={data.total} pageSize={20} onPageChange={setPage} />}
       </>}
     </>}
+  </>;
+  if (embedded) return <div className={`${styles.page} ${styles.embedded}`}>
+    <div className={styles.embedHead}><Button variant="secondary" onClick={() => setRetry(v => v + 1)}>刷新</Button></div>
+    {content}
+  </div>;
+  return <main className={styles.page}>
+    <header className={styles.header}><div><h1>测评日报</h1><p>汇总夜间自动测评，查看各服务表现与主要问题。</p></div><Button variant="secondary" onClick={() => setRetry(v => v + 1)}>刷新</Button></header>
+    {content}
   </main>;
 }
 
@@ -87,9 +94,9 @@ export function DailyReportDetail({ date, pending = false }: { date: string; pen
   }
   return <main className={`${styles.page} ${styles.reading}`}>
     <header className={styles.header}>
-      <div><h1>{date} 每日测评总结</h1></div>
+      <div><h1>{date} 测评日报</h1></div>
       <div className={styles.headerActions}>
-        <BackLink href="/daily-reports">返回每日总结</BackLink>
+        <BackLink href="/daily-reports">返回测评日报</BackLink>
         {data?.status === "ready" && data.markdown && <a className="secondary-button" href={`${base}/${date}/markdown`}>下载 Markdown</a>}
       </div>
     </header>

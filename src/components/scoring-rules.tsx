@@ -3,7 +3,7 @@ import { createRequestKey } from "@/lib/request-key";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AnswerMarkdown } from "@/components/answer-markdown";
 import { ScoringRuleForm } from "@/components/scoring-rule-form";
-import { Badge, Button, EmptyState, InlineAlert, Select, StatusDot, Tabs, type StatusTone } from "@/components/ui";
+import { Badge, Button, EmptyState, InlineAlert, Select, StatusDot, Tabs, ToastStack, type StatusTone, useToasts } from "@/components/ui";
 import { requestRules, ruleDocument, stateNames, validateRuleForm, type RuleCatalog, type RuleFormValue, type RuleSnapshot, type ScoringRule } from "@/lib/scoring-rules";
 const base = "/api/evaluation/rules";
 const message = (error: unknown) => error instanceof Error ? error.message : "操作失败，请稍后重试。";
@@ -20,7 +20,8 @@ export function ScoringRules() {
   const [form,setForm] = useState<RuleFormValue | null>(null);
   const [creating,setCreating] = useState(false);
   const [tab,setTab] = useState("content");
-  const [error,setError] = useState(""); const [reloadable,setReloadable] = useState(false); const [notice,setNotice] = useState("");
+  const [error,setError] = useState(""); const [reloadable,setReloadable] = useState(false);
+  const { toasts, push: pushToast, dismiss: dismissToast } = useToasts();
   const [loading,setLoading] = useState(true); const [busy,setBusy] = useState(false);
   const lock = useRef(false); const createKey = useRef("");
   const choose = useCallback((rule: RuleSnapshot | ScoringRule) => { setSelected(rule);setForm(formOf(rule));setCreating(false);setTab("content");setError("");setReloadable(false); },[]);
@@ -44,12 +45,11 @@ export function ScoringRules() {
     if (!catalog || (dirty && !window.confirm("有未保存的修改，切换版本会放弃这些修改。继续切换？"))) return;
     const record = id === "builtin-v1" ? catalog.template : catalog.items.find(r => r.id === id);
     if (record) choose(record);
-    setNotice("");
   }
   function copy() {
     if (!form || !catalog?.canWrite || busy || creating) return;
     if (dirty && !window.confirm("当前有未保存修改，使用当前内容新建草稿？")) return;
-    setForm({...structuredClone(form),name:`${form.name.slice(0,88)} 新版本`,changeNote:""});setCreating(true);setTab("content");createKey.current=createRequestKey();setNotice("");setError("");setReloadable(false);
+    setForm({...structuredClone(form),name:`${form.name.slice(0,88)} 新版本`,changeNote:""});setCreating(true);setTab("content");createKey.current=createRequestKey();setError("");setReloadable(false);
   }
   async function mutate(action: "save" | "publish" | "activate" | "archive") {
     if (!form || !selected || !catalog?.canWrite || lock.current) return;
@@ -57,13 +57,13 @@ export function ScoringRules() {
     if (action === "publish" && !form.changeNote.trim()) {setError("发布前请填写变更说明并保存草稿。");setReloadable(false);return;}
     if (action === "activate" && !window.confirm(`将 ${selected.name} v${selected.version} 用于后续新运行？已经开始的运行及其重新评分继续使用原规则。`)) return;
     if (action === "archive" && !window.confirm("归档后该版本保留历史记录，不能再次设为生效。继续归档？")) return;
-    lock.current=true;setBusy(true);setError("");setReloadable(false);setNotice("");
+    lock.current=true;setBusy(true);setError("");setReloadable(false);
     try {
       const revision = "revision" in selected ? selected.revision : 0;
       const result = creating ? await requestRules<{item:ScoringRule}>(base,form,createKey.current)
         : await requestRules<{item:ScoringRule}>(`${base}/${selected.id}/${action}`,action === "save" ? {...form,revision} : {revision,stateRevision:catalog.stateRevision});
       await load(result.item.id);
-      setNotice(action === "activate" ? "生效版本已更新，后续新运行将使用本版。" : action === "publish" ? "版本已发布；设为生效后用于新运行。" : action === "archive" ? "版本已归档，历史记录保留。" : "草稿已保存。");
+      pushToast("success", action === "activate" ? "生效版本已更新，后续新运行将使用本版。" : action === "publish" ? "版本已发布；设为生效后用于新运行。" : action === "archive" ? "版本已归档，历史记录保留。" : "草稿已保存。");
     } catch (e) {setError(message(e));setReloadable(true);} finally {lock.current=false;setBusy(false);}
   }
   function download() {
@@ -85,7 +85,6 @@ export function ScoringRules() {
       {catalog?.canWrite && <Button type="button" variant={editable ? "secondary" : "primary"} disabled={busy || loading || creating} onClick={copy}>复制为新草稿</Button>}
     </header>
     {error && <InlineAlert tone="danger" className="rules-feedback" action={reloadable ? <Button type="button" variant="secondary" size="sm" disabled={loading || busy} onClick={() => {if(!dirty || window.confirm("重新读取会放弃当前未保存输入。需要保留时可先复制为新草稿，继续读取？"))void load(selected?.id);}}>重新读取</Button> : undefined}>{error}</InlineAlert>}
-    {notice && <InlineAlert tone="success" className="rules-feedback">{notice}</InlineAlert>}
     {loading && !catalog ? <EmptyState state="loading" title="正在读取规则…" /> : catalog && selected && form && <>
       <section className="rules-context" aria-label="当前生效规则与版本">
         <div className="rules-context-main">
@@ -150,5 +149,7 @@ export function ScoringRules() {
       {editable && <>{dirty && <Button type="button" variant="ghost" size="sm" disabled={busy} onClick={() => {if(window.confirm("放弃未保存修改？"))choose(selected);}}>放弃修改</Button>}{(dirty || creating) && <Button type="button" variant="primary" disabled={busy || loading} onClick={() => void mutate("save")}>{busy ? "处理中…" : "保存草稿"}</Button>}{draft && !creating && <Button type="button" variant={dirty ? "secondary" : "primary"} disabled={busy || dirty || loading} onClick={() => void mutate("publish")}>发布版本</Button>}{!dirty && !creating && <Button type="button" variant="ghost" size="sm" disabled={busy || loading} onClick={() => void mutate("archive")}>归档版本</Button>}</>}
       {published && !isActive && <><Button type="button" variant="primary" disabled={busy || loading} onClick={() => void mutate("activate")}>设为生效</Button><Button type="button" variant="ghost" size="sm" disabled={busy || loading} onClick={() => void mutate("archive")}>归档版本</Button></>}
     </div>
-  </div>}</main>;
+    </div>}
+    <ToastStack toasts={toasts} onDismiss={dismissToast} />
+  </main>;
 }

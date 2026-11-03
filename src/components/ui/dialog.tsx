@@ -15,9 +15,12 @@ type DialogProps = {
   footerStart?: ReactNode;
   busy?: boolean;
   closeLabel?: string;
+  className?: string;
+  contentClassName?: string;
+  headerActions?: ReactNode;
 };
 
-export function Dialog({ open, onClose, title, description, children, footer, footerStart, busy = false, closeLabel = "关闭" }: DialogProps) {
+export function Dialog({ open, onClose, title, description, children, footer, footerStart, busy = false, closeLabel = "关闭", className, contentClassName, headerActions }: DialogProps) {
   const dialog = useRef<HTMLDialogElement>(null);
   const restore = useRef<HTMLElement | null>(null);
   const titleId = useId();
@@ -40,7 +43,7 @@ export function Dialog({ open, onClose, title, description, children, footer, fo
 
   return <dialog
     ref={dialog}
-    className={styles.dialog}
+    className={[styles.dialog, className].filter(Boolean).join(" ")}
     aria-labelledby={titleId}
     aria-describedby={description ? descriptionId : undefined}
     onCancel={(event) => { event.preventDefault(); if (!busy) onClose(); }}
@@ -51,12 +54,13 @@ export function Dialog({ open, onClose, title, description, children, footer, fo
       });
     }}
   >
-    <div className={styles.dialogContent}>
+    <div className={[styles.dialogContent, contentClassName].filter(Boolean).join(" ")}>
       <div className={styles.dialogHead}>
         <div className={styles.dialogHeadings}>
           <h2 id={titleId} className={styles.dialogTitle}>{title}</h2>
           {description && <p id={descriptionId} className={styles.dialogDescription}>{description}</p>}
         </div>
+        {headerActions}
         <button type="button" className={styles.dialogClose} aria-label={closeLabel} disabled={busy} onClick={onClose}><CloseIcon /></button>
       </div>
       {children}

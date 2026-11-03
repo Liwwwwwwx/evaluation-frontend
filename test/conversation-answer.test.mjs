@@ -26,16 +26,29 @@ test('过程、团队和总结各自展示，最终完整总结替换预览且�
     { type: 'display.final_answer', event_id: 'summary', phase: 'end', delta: '旧预览', content: '最终结论' },
   ]);
   for (const value of ['独立正文', '查询团队', '文献团队', '热导率', 'katex', '最终结论', '2 秒']) assert.ok(html.includes(value), value);
-  assert.match(html, /<dd>0\s*<\/dd>/);
+  assert.match(html, /团队输出 · 文献团队/);
   assert.doesNotMatch(html, /旧预览|\[start\]|\[end\]/);
-  assert.equal((html.match(/<details class="conversation-output(?: |")/g) || []).length, 2);
+  assert.equal((html.match(/class="conversation-output(?: |")/g) || []).length, 1);
+  assert.match(html, /class="conversation-final"/);
+  assert.match(html, /class="conversation-steps"/);
 });
 
 test('进行中和异常收尾有独立状态，不把缺少结束帧显示为成功', () => {
   const events = [{ type: 'display.team_output', event_id: 't', phase: 'delta', delta: '部分成果', team: { name: '材料团队' } }];
   assert.match(render(events, { streaming: true }), /生成中/);
-  assert.match(render(events, { streaming: false }), /未收到结束标识/);
+  assert.match(render(events, { streaming: false }), /已结束/);
   assert.doesNotMatch(render(events, { streaming: false }), /已完成/);
+});
+
+test('过程步骤按 text_offset 穿插，同一位置的步骤合并成一个内联块', () => {
+  const html = render([
+    { type: 'display.process.step', event_id: 's1', step_id: 's1', text_offset: 4, title: '检索文献', status: 'success' },
+    { type: 'display.process.step', event_id: 's2', step_id: 's2', text_offset: 4, title: '校验矩阵', status: 'success' },
+    { type: 'display.process.step', event_id: 's3', step_id: 's3', text_offset: 4, title: '汇总方案', status: 'success' },
+  ], { content: '前段\n\n后段' });
+  assert.ok(html.indexOf('前段') < html.indexOf('检索文献'));
+  assert.ok(html.indexOf('检索文献') < html.indexOf('后段'));
+  assert.equal((html.match(/class="conversation-steps"/g) || []).length, 1);
 });
 
 test('未知JSON不混入正文，HTML不执行，围栏风险按原文展示', () => {
@@ -64,6 +77,31 @@ test('团队块按原文位置插入，保持前后正文顺序', () => {
 test('团队块不会切开代码围栏或完整块公式', () => {
   for (const body of ['```python\na = 1\n\nb = 2\n```\n\n尾段', '$$\na = 1\n\nb = 2\n$$\n\n尾段']) {
     const html = render([{ type: 'display.team_output', event_id: 't', phase: 'end', delta: '团队块', text_offset: 10 }], { content: body });
-    assert.ok(html.indexOf('b = 2') < html.indexOf('团队块')); assert.ok(html.indexOf('团队块') < html.indexOf('尾段'));
+    const visibleText = html.replace(/<[^>]*>/g, '');
+    assert.ok(visibleText.indexOf('团队块') < visibleText.indexOf('b = 2')); assert.ok(visibleText.indexOf('b = 2') < visibleText.indexOf('尾段'));
+  }
+});
+
+test('进程外旧快照的团队和步骤显示状态待确认，不推断已结束或仍在运行', () => {
+  const html = render([
+    { type: 'display.process.step', event_id: 'step-unknown', title: '查询服务', status: 'running' },
+    { type: 'display.team_output', event_id: 'team-unknown', phase: 'delta', status: 'running', delta: '已保存的内容' },
+  ], { streaming: false, uncertain: true });
+  assert.equal((html.match(/状态待确认/g) || []).length, 2);
+  assert.match(html, /已保存的内容/);
+  assert.doesNotMatch(html, /生成中|运行中|已结束/);
+});
+
+test('缺失或为空的步骤状态不推断成功，明确的终态保持原样', () => {
+  for (const uncertain of [false, true]) {
+    const html = render([
+      { type: 'display.process.step', event_id: 'missing', title: '缺失状态' },
+      { type: 'display.process.step', event_id: 'blank', title: '空状态', status: ' ' },
+      { type: 'display.process.step', event_id: 'success', title: '明确成功', status: 'success' },
+      { type: 'display.process.step', event_id: 'failed', title: '明确失败', status: 'failed' },
+    ], { uncertain });
+    assert.equal((html.match(/状态待确认/g) || []).length, 2);
+    assert.equal((html.match(/status-success/g) || []).length, 1);
+    assert.equal((html.match(/status-failed/g) || []).length, 1);
   }
 });
