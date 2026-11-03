@@ -58,7 +58,7 @@ export function DailyReportList({ embedded = false }: { embedded?: boolean } = {
       </>}
     </>}
   </>;
-  if (embedded) return <div className={styles.page}>
+  if (embedded) return <div className={`${styles.page} ${styles.embedded}`}>
     <div className={styles.embedHead}><Button variant="secondary" onClick={() => setRetry(v => v + 1)}>刷新</Button></div>
     {content}
   </div>;

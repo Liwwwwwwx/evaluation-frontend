@@ -77,7 +77,8 @@ test('团队块按原文位置插入，保持前后正文顺序', () => {
 test('团队块不会切开代码围栏或完整块公式', () => {
   for (const body of ['```python\na = 1\n\nb = 2\n```\n\n尾段', '$$\na = 1\n\nb = 2\n$$\n\n尾段']) {
     const html = render([{ type: 'display.team_output', event_id: 't', phase: 'end', delta: '团队块', text_offset: 10 }], { content: body });
-    assert.ok(html.indexOf('团队块') < html.indexOf('b = 2')); assert.ok(html.indexOf('b = 2') < html.indexOf('尾段'));
+    const visibleText = html.replace(/<[^>]*>/g, '');
+    assert.ok(visibleText.indexOf('团队块') < visibleText.indexOf('b = 2')); assert.ok(visibleText.indexOf('b = 2') < visibleText.indexOf('尾段'));
   }
 });
 
@@ -89,4 +90,18 @@ test('进程外旧快照的团队和步骤显示状态待确认，不推断已�
   assert.equal((html.match(/状态待确认/g) || []).length, 2);
   assert.match(html, /已保存的内容/);
   assert.doesNotMatch(html, /生成中|运行中|已结束/);
+});
+
+test('缺失或为空的步骤状态不推断成功，明确的终态保持原样', () => {
+  for (const uncertain of [false, true]) {
+    const html = render([
+      { type: 'display.process.step', event_id: 'missing', title: '缺失状态' },
+      { type: 'display.process.step', event_id: 'blank', title: '空状态', status: ' ' },
+      { type: 'display.process.step', event_id: 'success', title: '明确成功', status: 'success' },
+      { type: 'display.process.step', event_id: 'failed', title: '明确失败', status: 'failed' },
+    ], { uncertain });
+    assert.equal((html.match(/状态待确认/g) || []).length, 2);
+    assert.equal((html.match(/status-success/g) || []).length, 1);
+    assert.equal((html.match(/status-failed/g) || []).length, 1);
+  }
 });

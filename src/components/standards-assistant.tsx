@@ -2,7 +2,8 @@
 
 import { useEffect, useImperativeHandle, useRef, useState, type FormEvent, type Ref } from "react";
 import { createRequestKey } from "@/lib/request-key";
-import { clearDraft, readDraft, writeDraft } from "@/lib/assistant-draft";
+import { assistantDraftKey, clearDraft, readDraft, writeDraft } from "@/lib/assistant-draft";
+import { useAuth } from "@/components/auth-gate";
 import { StandardsQuestionPicker, type Question } from "@/components/standards-question-picker";
 import { Button } from "@/components/ui";
 import type { StandardContent } from "@/components/direct-score";
@@ -14,10 +15,10 @@ type Result = { domain: string; taskType: string; explicitRequirements: Requirem
 type Saved = { id: string; state: "draft" | "confirmed" | "superseded"; question: string; content: Result; model: string | null; createdAt: string };
 const labels = { required: "题目要求", recommended: "专业建议", needs_verification: "待核验" };
 
-const DRAFT_KEY = "evaluation-assistant-standards-v1";
-
 export type StandardsAssistantHandle = { hasWork: () => boolean };
 export function StandardsAssistant({ ref, onUseForScore }: { ref?: Ref<StandardsAssistantHandle>; onUseForScore: (question: string, standard: StandardContent) => string }) {
+  const { user } = useAuth();
+  const draftKey = assistantDraftKey("standards", user.id);
   const [question, setQuestion] = useState("");
   const [result, setResult] = useState<Result | null>(null);
   const [error, setError] = useState("");
@@ -33,7 +34,7 @@ export function StandardsAssistant({ ref, onUseForScore }: { ref?: Ref<Standards
   const scrollRef = useRef<HTMLDivElement>(null);
   useImperativeHandle(ref, () => ({ hasWork: () => Boolean(question || result || busy || storageBusy) }));
   useEffect(() => {
-    const draft = readDraft<{ question?: unknown; selected?: Question | null; result?: Result | null; saved?: Saved[]; currentId?: string | null; step?: number }>(DRAFT_KEY);
+    const draft = readDraft<{ question?: unknown; selected?: Question | null; result?: Result | null; saved?: Saved[]; currentId?: string | null; step?: number }>(draftKey);
     if (draft && typeof draft.question === "string") {
       setQuestion(draft.question);
       setSelected(draft.selected || null);
@@ -44,17 +45,17 @@ export function StandardsAssistant({ ref, onUseForScore }: { ref?: Ref<Standards
       if (draft.question.trim() || draft.result) setNotice("已恢复上次未提交的内容。");
     }
     setHydrated(true);
-  }, []);
+  }, [draftKey]);
   useEffect(() => {
     if (!hydrated) return;
     if (!question.trim() && !selected && !result && saved.length === 0 && !currentId) {
-      clearDraft(DRAFT_KEY);
+      clearDraft(draftKey);
       return;
     }
-    writeDraft(DRAFT_KEY, { question, selected, result, saved, currentId, step });
-  }, [hydrated, question, selected, result, saved, currentId, step]);
+    writeDraft(draftKey, { question, selected, result, saved, currentId, step });
+  }, [draftKey, hydrated, question, selected, result, saved, currentId, step]);
   function reset() {
-    requestRef.current++; clearDraft(DRAFT_KEY); setQuestion(""); setResult(null); setError(""); setSelected(null); setSaved([]); setCurrentId(null); setNotice(""); setEditing(false); setStep(1);
+    requestRef.current++; clearDraft(draftKey); setQuestion(""); setResult(null); setError(""); setSelected(null); setSaved([]); setCurrentId(null); setNotice(""); setEditing(false); setStep(1);
     scrollRef.current?.scrollTo({ top: 0 });
     inputRef.current?.focus();
   }

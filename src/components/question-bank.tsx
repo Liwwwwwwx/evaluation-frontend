@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { Button, Checkbox, ConfirmDialog, Dialog, EmptyState, InlineAlert, Input, Pagination, Select, Tabs, Textarea, ToastStack, useToasts, tabButtonId, tabPanelId } from "@/components/ui";
 import { questionDomains as domains } from "@/lib/question-domains";
 import { parseXlsxFirstSheet } from "@/lib/xlsx-parser";
+import { isTerminalRun } from "@/lib/run-status";
 
 type Question = { id: string; question: string; domainKey?: string | null; serviceKey: string | null; criteria?: unknown; sourceType: string; datasetVersion: string; createdAt?: string | null };
 type QuestionScoreRow = { questionId: string; datasetVersion: string; runId: string; serviceKey: string; startedAt?: string; scores: ScoreSummaryValue };
@@ -263,7 +264,7 @@ export function QuestionBank() {
       const current = sessionStorage.getItem("evaluation-unified-run");
       if (current) {
         const run = await jsonRequest(`/api/evaluation/unified/runs/${encodeURIComponent(current)}`);
-        if (!["done", "error"].includes(run.status)) throw new Error("当前测评尚未结束或状态未知，请先返回查看。");
+        if (!isTerminalRun(run.status)) throw new Error("当前测评尚未结束或状态未知，请先返回查看。");
       }
       sessionStorage.setItem("evaluation-selected-question", JSON.stringify(row));
       sessionStorage.removeItem("evaluation-unified-run");

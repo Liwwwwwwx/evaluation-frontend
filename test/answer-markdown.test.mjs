@@ -88,6 +88,14 @@ test('代码块使用语言/状态工具条，未闭合围栏在流式阶段降�
   assert.doesNotMatch(streaming, /```python/);
 });
 
+test('已闭合代码块保留语法高亮，未知语言和流式代码仍保留原文', () => {
+  const highlighted = render('```javascript\nconst answer = "hello";\n```');
+  assert.match(highlighted, /<span class="hljs-keyword">const<\/span>/);
+  assert.match(highlighted, /<span class="hljs-string">&quot;hello&quot;<\/span>/);
+  assert.match(render('```unknown-language\nplain <text>\n```'), /plain &lt;text&gt;/);
+  assert.match(render('```javascript\nconst pending = 1;', true), /const pending = 1;/);
+});
+
 test('逐段流式输入与最终完整输入使用同一套基础规则', () => {
   const source = '[start]正文\n\n\\[a^2+b^2=c^2\\]\n\n<think>不显示的思考</think>\n<<<PAPER_START:RAW_LITERATURE>>>文献内容<<<PAPER_END:RAW_LITERATURE>>>[end]';
   for (let i = 1; i <= source.length; i++) assert.doesNotThrow(() => render(source.slice(0, i), true));

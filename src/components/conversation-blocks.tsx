@@ -39,7 +39,7 @@ function Step({ step, uncertain = false }: { step: Event; uncertain?: boolean })
   const detail = text(step.detail).trim();
   const metrics = list(step.metrics);
   const summary = detail || metrics.map((metric) => [text(metric.label), text(metric.value), text(metric.unit)].filter(Boolean).join(" ")).join(" · ");
-  const storedStatus = text(step.status) || "success";
+  const storedStatus = text(step.status).trim() || "unknown";
   const status = uncertain && storedStatus === "running" ? "unknown" : storedStatus;
   const hasDetail = Boolean(detail || metrics.length);
   const head = <>

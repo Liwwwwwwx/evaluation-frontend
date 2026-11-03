@@ -1,4 +1,5 @@
 .page { width: 100%; max-width: 1200px; margin: 0 auto; padding: 32px; overflow-wrap: anywhere; color: var(--color-fg); }
+.embedded { flex: 1; min-height: 0; overflow-y: auto; }
 .embedHead { display: flex; justify-content: flex-end; margin-bottom: 12px; }
 .reading { max-width: 832px; }
 .header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 32px; }
@@ -27,4 +28,5 @@
 .report :global(th) { white-space: nowrap; }
 .page a:focus-visible, .page button:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 @media (max-width: 1279px) { .page { padding: 24px; } }
+@media (max-width: 900px) { .embedded { flex: none; overflow: visible; } }
 @media (max-width: 767px) { .page { padding: 24px 16px; } .header { align-items: flex-start; flex-wrap: wrap; } .header h1 { font-size: 24px; line-height: 32px; } }

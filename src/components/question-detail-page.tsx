@@ -8,6 +8,7 @@ import type { ScoreSummaryValue } from "@/components/score-summary";
 import { BackLink, Badge, Button, ConfirmDialog, EmptyState, InlineAlert, Pagination, StatusDot, Tabs, Textarea, ToastStack, tabButtonId, tabPanelId, useToasts, type StatusTone } from "@/components/ui";
 import { questionDomains as domains } from "@/lib/question-domains";
 import { createRequestKey } from "@/lib/request-key";
+import { isTerminalRun } from "@/lib/run-status";
 import styles from "./question-detail.module.css";
 
 type Question = { id: string; question: string; domainKey?: string | null; serviceKey?: string | null; criteria?: unknown; sourceType: string; datasetVersion: string; createdAt?: string | null };
@@ -162,7 +163,7 @@ export function QuestionDetailPage({ questionId, datasetVersion, initialTab = "q
       if (current) {
         const response = await fetch(`/api/evaluation/unified/runs/${encodeURIComponent(current)}`, { cache: "no-store" });
         const run = await readJson<{ status: string }>(response);
-        if (!["done", "error"].includes(run.status)) throw new Error("当前测评尚未结束或状态未知，请先返回查看。");
+        if (!isTerminalRun(run.status)) throw new Error("当前测评尚未结束或状态未知，请先返回查看。");
       }
       sessionStorage.setItem("evaluation-selected-question", JSON.stringify(question));
       sessionStorage.removeItem("evaluation-unified-run");

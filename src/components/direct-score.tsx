@@ -4,7 +4,8 @@ import { useEffect, useImperativeHandle, useRef, useState, type Ref } from "reac
 import { StandardsQuestionPicker, type Question } from "@/components/standards-question-picker";
 import { Button, InlineAlert, Select, Textarea } from "@/components/ui";
 import { createRequestKey } from "@/lib/request-key";
-import { clearDraft, readDraft, writeDraft } from "@/lib/assistant-draft";
+import { assistantDraftKey, clearDraft, readDraft, writeDraft } from "@/lib/assistant-draft";
+import { useAuth } from "@/components/auth-gate";
 import styles from "./direct-score.module.css";
 
 export type StandardContent = {
@@ -38,11 +39,11 @@ async function readResponse<T>(response: Response): Promise<T> {
   return data as T;
 }
 
-const DRAFT_KEY = "evaluation-assistant-score-v1";
-
 export type DirectScoreHandle = { hasWork: () => boolean; useStandard: (question: string, standard: StandardContent) => string };
 
 export function DirectScore({ ref }: { ref?: Ref<DirectScoreHandle> }) {
+  const { user } = useAuth();
+  const draftKey = assistantDraftKey("score", user.id);
   const [question, setQuestion] = useState("");
   const [selected, setSelected] = useState<Question | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -87,7 +88,7 @@ export function DirectScore({ ref }: { ref?: Ref<DirectScoreHandle> }) {
     },
   }));
   useEffect(() => {
-    const draft = readDraft<{ question?: unknown; selected?: Question | null; standards?: SavedStandard[]; standardId?: string; standard?: unknown; answer?: unknown; result?: Result | null; step?: number }>(DRAFT_KEY);
+    const draft = readDraft<{ question?: unknown; selected?: Question | null; standards?: SavedStandard[]; standardId?: string; standard?: unknown; answer?: unknown; result?: Result | null; step?: number }>(draftKey);
     if (draft && typeof draft.question === "string") {
       setQuestion(draft.question);
       setSelected(draft.selected || null);
@@ -100,18 +101,18 @@ export function DirectScore({ ref }: { ref?: Ref<DirectScoreHandle> }) {
       if (draft.question.trim() || draft.standard || draft.answer || draft.result) setNotice("已恢复上次填写的内容。");
     }
     setHydrated(true);
-  }, []);
+  }, [draftKey]);
   useEffect(() => {
     if (!hydrated) return;
     if (!question.trim() && !selected && !standard.trim() && !answer.trim() && !result) {
-      clearDraft(DRAFT_KEY);
+      clearDraft(draftKey);
       return;
     }
-    writeDraft(DRAFT_KEY, { question, selected, standards, standardId, standard, answer, result, step });
-  }, [hydrated, question, selected, standards, standardId, standard, answer, result, step]);
+    writeDraft(draftKey, { question, selected, standards, standardId, standard, answer, result, step });
+  }, [draftKey, hydrated, question, selected, standards, standardId, standard, answer, result, step]);
   function resetScore() {
     request.current++;
-    clearDraft(DRAFT_KEY);
+    clearDraft(draftKey);
     setQuestion(""); setSelected(null); setStandards([]); setStandardId(""); setStandard(""); setAnswer(""); setResult(null); setNotice(""); setError(""); setStep(1);
   }
 

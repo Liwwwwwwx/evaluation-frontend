@@ -66,9 +66,10 @@ function copyText(text: string) {
   return copied ? Promise.resolve() : Promise.reject(new Error("copy unavailable"));
 }
 
-function CodeBlock({ code, language, streaming = false, generating = false, variant: forced }: {
+function CodeBlock({ code, language, children, streaming = false, generating = false, variant: forced }: {
   code: string;
   language?: string;
+  children?: ReactNode;
   streaming?: boolean;
   generating?: boolean;
   variant?: CodeVariant;
@@ -106,7 +107,7 @@ function CodeBlock({ code, language, streaming = false, generating = false, vari
         {canCollapse && <button type="button" className="code-block-action code-block-toggle" aria-expanded={expanded} aria-label={expanded ? "收起代码" : "展开代码"} onClick={() => setExpanded((value) => !value)}><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg></button>}
       </div>
     </div>
-    <pre className="code-block-pre"><code className={language ? `language-${language}` : undefined} data-language={language}>{visible}</code></pre>
+    <pre className="code-block-pre"><code className={language ? `language-${language}` : undefined} data-language={language}>{streaming ? visible : children ?? visible}</code></pre>
   </div>;
 }
 
@@ -238,7 +239,7 @@ const components: NonNullable<React.ComponentProps<typeof Markdown>["components"
     const props = isValidElement<CodeProps>(child) ? child.props : null;
     const source = textOf(props?.children).replace(/\n$/, "");
     const language = props?.["data-language"] ?? /language-([\w+.-]+)/.exec(props?.className ?? "")?.[1];
-    return <CodeBlock code={source} language={language} />;
+    return <CodeBlock code={source} language={language}>{props?.children}</CodeBlock>;
   },
 };
 

@@ -2,8 +2,9 @@
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import { clearAssistantDrafts } from "@/lib/assistant-draft";
 
-type User = { username?: string; name?: string; nickName?: string | null };
+type User = { id?: string; username?: string; name?: string; nickName?: string | null };
 type AuthValue = { user: User; logout: () => void; exiting: boolean; error: string };
 const AuthContext = createContext<AuthValue | null>(null);
 
@@ -47,11 +48,13 @@ export function AuthGate({ children }: { children: ReactNode }) {
     try {
       const response = await fetch("/api/auth/logout", { method: "POST" });
       if (!response.ok) throw new Error();
+      setUser(null);
+      clearAssistantDrafts(user?.id);
       sessionStorage.removeItem("evaluation-unified-run");
       sessionStorage.removeItem("evaluation-unified-pending");
       router.replace("/login"); router.refresh();
     } catch { setError("退出失败，请检查认证服务后重试。"); setExiting(false); }
   }
   if (!user) return <main className="auth-loading">{error ? <><p role="alert">{error}</p><button onClick={() => window.location.reload()}>重试</button></> : "正在验证登录状态…"}</main>;
-  return <AuthContext.Provider value={{ user, logout, exiting, error }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider key={user.id} value={{ user, logout, exiting, error }}>{children}</AuthContext.Provider>;
 }
