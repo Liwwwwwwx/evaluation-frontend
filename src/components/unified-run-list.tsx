@@ -1,5 +1,6 @@
 "use client";
 import { createRequestKey } from "@/lib/request-key";
+import { copyText } from "@/lib/clipboard";
 
 import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import { ScoreSummary, type ScoreSummaryValue } from "@/components/score-summary";
@@ -132,7 +133,7 @@ export function UnifiedRunList() {
   }
   async function copyQuestion(run: Run) {
     setMenu(null);
-    try { await navigator.clipboard.writeText(run.question); notify("题目已复制到剪贴板。"); }
+    try { await copyText(run.question); notify("题目已复制到剪贴板。"); }
     catch { notify("无法访问剪贴板，请打开详情后手动复制。", "error"); }
   }
   async function rescore(run: Run) {

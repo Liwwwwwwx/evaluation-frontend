@@ -14,7 +14,7 @@ function loadSource(path, aliases = {}) {
 }
 const normalizerUrl = loadSource('../src/lib/answer-markdown.ts');
 const { normalizeAnswerMarkdown: normalize } = await import(normalizerUrl);
-const { AnswerMarkdown } = await import(loadSource('../src/components/answer-markdown.tsx', { '@/lib/answer-markdown': normalizerUrl }));
+const { AnswerMarkdown } = await import(loadSource('../src/components/answer-markdown.tsx', { '@/lib/answer-markdown': normalizerUrl, '@/lib/clipboard': loadSource('../src/lib/clipboard.ts') }));
 const render = (content, streaming = false) => renderToStaticMarkup(React.createElement(AnswerMarkdown, { content, streaming }));
 
 test('显式公式定界符、同行块公式和 aligned 均进入 KaTeX', () => {

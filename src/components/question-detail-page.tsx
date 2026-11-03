@@ -8,6 +8,7 @@ import type { ScoreSummaryValue } from "@/components/score-summary";
 import { BackLink, Badge, Button, ConfirmDialog, EmptyState, InlineAlert, Pagination, StatusDot, Tabs, Textarea, ToastStack, tabButtonId, tabPanelId, useToasts, type StatusTone } from "@/components/ui";
 import { questionDomains as domains } from "@/lib/question-domains";
 import { createRequestKey } from "@/lib/request-key";
+import { copyText } from "@/lib/clipboard";
 import { isTerminalRun } from "@/lib/run-status";
 import styles from "./question-detail.module.css";
 
@@ -123,7 +124,7 @@ export function QuestionDetailPage({ questionId, datasetVersion, initialTab = "q
 
   async function copyQuestion() {
     if (!question) return;
-    try { await navigator.clipboard.writeText(question.question); pushToast("success", "题目已复制到剪贴板。"); }
+    try { await copyText(question.question); setActionError(""); pushToast("success", "题目已复制到剪贴板。"); }
     catch { setActionError("无法访问剪贴板，请手动选择题目复制。"); }
   }
 
@@ -216,7 +217,7 @@ export function QuestionDetailPage({ questionId, datasetVersion, initialTab = "q
     <header className={styles.header}>
       <div>
         <div className={styles.titleRow}><h1 id="question-detail-title">题目详情</h1><Badge tone="info">{question.sourceType === "random" ? "随机题" : "固定题"}</Badge></div>
-        <p>{domains[question.domainKey || ""] || "未分类"} · 数据集版本 {question.datasetVersion} · 题目 ID <span className={styles.mono}>{question.id}</span> · 更新 {formatDate(question.createdAt)}</p>
+        <p>{domains[question.domainKey || ""] || "未分类"}{question.serviceKey && <> · 绑定服务 {serviceNames[question.serviceKey] || question.serviceKey}</>} · 数据集版本 {question.datasetVersion} · 题目 ID <span className={styles.mono}>{question.id}</span> · 更新 {formatDate(question.createdAt)}</p>
       </div>
       <div className={styles.actions}><BackLink href="/question-bank">返回题库</BackLink></div>
     </header>

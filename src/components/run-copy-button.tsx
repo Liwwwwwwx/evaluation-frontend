@@ -1,17 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-
-async function copyText(value: string) {
-  if (navigator.clipboard?.writeText) return navigator.clipboard.writeText(value);
-  const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-  const field = document.createElement("textarea");
-  field.value = value; field.readOnly = true;
-  field.style.position = "fixed"; field.style.opacity = "0";
-  document.body.appendChild(field);
-  try { field.select(); if (!document.execCommand("copy")) throw new Error("copy unavailable"); }
-  finally { field.remove(); previous?.focus(); }
-}
+import { copyText } from "@/lib/clipboard";
 
 export function RunCopyButton({ label, getText }: { label: "提问" | "回答"; getText: () => string }) {
   const [message, setMessage] = useState("");

@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@google/model-viewer": "^4.4.0",
+    "antd": "^6.6.8",
     "katex": "^0.16.22",
     "next": "16.3.0",
     "react": "19.2.3",
