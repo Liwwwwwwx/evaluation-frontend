@@ -129,7 +129,7 @@ function SidebarBody({ items, error, activeId, onNavigate, onManage, canManage, 
         <Link className={`chat-foot-link${pathname === "/runs" || pathname.startsWith("/runs/") ? " active" : ""}`} href="/runs" aria-current={pathname === "/runs" || pathname.startsWith("/runs/") ? "page" : undefined} onClick={onNavigate}><Icon name="clock" />运行记录</Link>
         <Link className={`chat-foot-link${pathname.startsWith("/question-bank") ? " active" : ""}`} href="/question-bank" aria-current={pathname.startsWith("/question-bank") ? "page" : undefined} onClick={onNavigate}><Icon name="book" />题库</Link>
         <Link className={`chat-foot-link${pathname === "/standards" || pathname === "/scoring-rules" ? " active" : ""}`} href="/standards" aria-current={pathname === "/standards" || pathname === "/scoring-rules" ? "page" : undefined} onClick={onNavigate}><Icon name="grid" />测评助手</Link>
-        {!preview && <div className="chat-account"><AccountMenu showName /></div>}
+        {!preview && <div className="chat-account"><AccountMenu showName onNavigate={onNavigate} /></div>}
       </div>
     </>
   );
