@@ -43,6 +43,7 @@
 .subtitle { margin-top: 8px !important; }
 
 .toolbar { flex: none; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+.viewTabs { margin-right: 12px; padding-right: 12px; border-right: 1px solid var(--color-border); }
 .summaryLine { flex: none; margin: 0 0 12px; color: var(--color-fg-muted); font-size: 12.5px; line-height: 20px; }
 
 .batchListWrap { flex: 1; min-height: 0; overflow-y: auto; padding-right: 4px; }
@@ -101,7 +102,8 @@
 .issueOk { margin-right: 4px; color: var(--color-fg-subtle); }
 .serviceArrow { color: var(--color-fg-subtle); font-size: 20px; line-height: 20px; text-align: right; }
 
-.runsToolbar { flex: none; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.viewBar { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 10px 20px; flex-wrap: wrap; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--color-border); }
+.runsToolbar { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
 .runsListWrap { flex: 1; min-height: 0; overflow-y: auto; padding-right: 4px; }
 .runsHead, .runsRow { display: grid; grid-template-columns: minmax(0, 1fr) 96px 88px 150px 76px 108px 36px; gap: 12px; align-items: center; }
 .runsHead { position: sticky; top: 0; z-index: 2; padding: 8px 12px; background: var(--color-bg); color: var(--color-fg-muted); font-size: 11.5px; line-height: 17px; }
