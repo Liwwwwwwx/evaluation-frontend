@@ -434,7 +434,6 @@ export function QuestionBank() {
           <Button type="button" variant="secondary" disabled={!detailDomain || detailDomain === detail.domainKey || domainBusy} onClick={() => void saveDomain()}>{domainBusy ? "保存中…" : "保存领域"}</Button>
         </div>}
         <dl className="detail-meta">
-          {detail.serviceKey && <div><dt>绑定服务</dt><dd>{serviceNames[detail.serviceKey] || detail.serviceKey}</dd></div>}
           <div><dt>数据集版本</dt><dd>{detail.datasetVersion || "—"}</dd></div>
           <div><dt>创建时间</dt><dd>{formatDateTime(detail.createdAt)}</dd></div>
           <div className="detail-meta-wide"><dt>题目 ID</dt><dd className="mono">{detail.id}</dd></div>
