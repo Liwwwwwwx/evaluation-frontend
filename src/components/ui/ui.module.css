@@ -879,7 +879,7 @@
 .toastStack {
   position: fixed;
   z-index: 60;
-  bottom: 24px;
+  top: 24px;
   left: 50%;
   display: grid;
   gap: 8px;
@@ -921,7 +921,7 @@
 .toast[data-tone="info"] .toastMark { background: var(--color-info); }
 
 @keyframes ui-toast-in {
-  from { opacity: 0; transform: translateY(8px); }
+  from { opacity: 0; transform: translateY(-8px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
@@ -969,7 +969,7 @@
   }
 
   .toastStack {
-    bottom: 16px;
+    top: 16px;
   }
 }
 

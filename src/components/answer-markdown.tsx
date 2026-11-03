@@ -10,6 +10,7 @@ import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import rehypeKatex from "rehype-katex";
 import rehypeHighlight from "rehype-highlight";
 import { normalizeAnswerMarkdown } from "@/lib/answer-markdown";
+import { copyText } from "@/lib/clipboard";
 
 type MdNode = {
   type: string;
@@ -52,20 +53,6 @@ function codeVariant(language: string | undefined, source: string): CodeVariant 
   return "code";
 }
 
-function copyText(text: string) {
-  if (navigator.clipboard?.writeText) return navigator.clipboard.writeText(text);
-  const area = document.createElement("textarea");
-  area.value = text;
-  area.setAttribute("readonly", "");
-  area.style.position = "fixed";
-  area.style.opacity = "0";
-  document.body.appendChild(area);
-  area.select();
-  const copied = document.execCommand("copy");
-  area.remove();
-  return copied ? Promise.resolve() : Promise.reject(new Error("copy unavailable"));
-}
-
 function CodeBlock({ code, language, children, streaming = false, generating = false, variant: forced }: {
   code: string;
   language?: string;
@@ -81,16 +68,18 @@ function CodeBlock({ code, language, children, streaming = false, generating = f
   const canCollapse = lineCount > collapseLines;
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [copyFailed, setCopyFailed] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
   const visible = streaming && !expanded && canCollapse ? source.split("\n").slice(-collapseLines).join("\n") : source;
   async function copy() {
     try {
       await copyText(source);
+      setCopyFailed(false);
       setCopied(true);
       if (timer.current) clearTimeout(timer.current);
       timer.current = setTimeout(() => setCopied(false), 1200);
-    } catch { /* 复制失败不打断阅读 */ }
+    } catch { setCopied(false); setCopyFailed(true); if (timer.current) clearTimeout(timer.current); timer.current = setTimeout(() => setCopyFailed(false), 3000); }
   }
   const label = variant === "result" ? "运行结果" : variant === "error" ? "错误" : variant === "text" ? "文本" : language ? language.toUpperCase() : "代码";
   return <div className="code-block" data-variant={variant} data-collapsible={canCollapse} data-expanded={expanded} data-streaming={generating || undefined}>
@@ -100,9 +89,9 @@ function CodeBlock({ code, language, children, streaming = false, generating = f
         {variant === "code" && <span className="code-block-status">{generating ? "代码生成中" : "代码已完成"}</span>}
       </div>
       <div className="code-block-actions">
-        <button type="button" className="code-block-action" aria-label={copied ? "已复制代码" : "复制代码"} data-copied={copied || undefined} onClick={() => void copy()}>
+        <button type="button" className="code-block-action" aria-label={copyFailed ? "复制失败，请手动选择文本" : copied ? "已复制代码" : "复制代码"} data-copied={copied || undefined} onClick={() => void copy()}>
           {copied ? <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12 4 4L19 6" /></svg> : <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15V5h10" /></svg>}
-          <span className="code-block-copy-label">{copied ? "已复制" : "复制"}</span>
+          <span className="code-block-copy-label">{copyFailed ? "复制失败" : copied ? "已复制" : "复制"}</span>
         </button>
         {canCollapse && <button type="button" className="code-block-action code-block-toggle" aria-expanded={expanded} aria-label={expanded ? "收起代码" : "展开代码"} onClick={() => setExpanded((value) => !value)}><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg></button>}
       </div>

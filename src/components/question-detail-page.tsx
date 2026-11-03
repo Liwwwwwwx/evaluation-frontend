@@ -8,6 +8,7 @@ import type { ScoreSummaryValue } from "@/components/score-summary";
 import { BackLink, Badge, Button, ConfirmDialog, EmptyState, InlineAlert, Pagination, StatusDot, Tabs, Textarea, ToastStack, tabButtonId, tabPanelId, useToasts, type StatusTone } from "@/components/ui";
 import { questionDomains as domains } from "@/lib/question-domains";
 import { createRequestKey } from "@/lib/request-key";
+import { copyText } from "@/lib/clipboard";
 import { isTerminalRun } from "@/lib/run-status";
 import styles from "./question-detail.module.css";
 
@@ -123,7 +124,7 @@ export function QuestionDetailPage({ questionId, datasetVersion, initialTab = "q
 
   async function copyQuestion() {
     if (!question) return;
-    try { await navigator.clipboard.writeText(question.question); pushToast("success", "题目已复制到剪贴板。"); }
+    try { await copyText(question.question); setActionError(""); pushToast("success", "题目已复制到剪贴板。"); }
     catch { setActionError("无法访问剪贴板，请手动选择题目复制。"); }
   }
 
