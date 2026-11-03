@@ -291,6 +291,8 @@ a.nav-item.active:hover { background: var(--color-bg-selected); }
 .import-fields select { font-weight: 400; }
 .import-fields > button { justify-self: start; }
 .import-intro, .excel-guide p { margin: 0; color: var(--color-fg-muted); font-size: 13px; line-height: 20px; }
+.account-password-visibility { justify-self: start; padding: 4px 0; border: 0; background: transparent; color: var(--color-fg-muted); font-size: 13px; line-height: 20px; }
+.account-password-visibility:hover { color: var(--color-fg); }
 .import-preview { max-height: 240px; overflow-y: auto; margin-top: 16px; border-top: 1px solid var(--color-border); }
 .import-preview h3 { font-size: 14px; line-height: 22px; }
 .preview-row { display: flex; align-items: flex-start; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--color-border); font-size: 13px; }

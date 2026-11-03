@@ -129,7 +129,7 @@ function SidebarBody({ items, error, activeId, onNavigate, onManage, canManage, 
         <Link className={`chat-foot-link${pathname === "/runs" || pathname.startsWith("/runs/") ? " active" : ""}`} href="/runs" aria-current={pathname === "/runs" || pathname.startsWith("/runs/") ? "page" : undefined} onClick={onNavigate}><Icon name="clock" />运行记录</Link>
         <Link className={`chat-foot-link${pathname.startsWith("/question-bank") ? " active" : ""}`} href="/question-bank" aria-current={pathname.startsWith("/question-bank") ? "page" : undefined} onClick={onNavigate}><Icon name="book" />题库</Link>
         <Link className={`chat-foot-link${pathname === "/standards" || pathname === "/scoring-rules" ? " active" : ""}`} href="/standards" aria-current={pathname === "/standards" || pathname === "/scoring-rules" ? "page" : undefined} onClick={onNavigate}><Icon name="grid" />测评助手</Link>
-        {!preview && <div className="chat-account"><AccountMenu showName /></div>}
+        {!preview && <div className="chat-account"><AccountMenu showName onNavigate={onNavigate} /></div>}
       </div>
     </>
   );
@@ -229,7 +229,7 @@ export function ChatShell({ children, preview = false }: { children: ReactNode; 
           <button type="button" className="icon-button" aria-label="打开运行历史" onClick={() => drawer.current?.showModal()}>
             <Icon name="menu" />
           </button>
-          <span>{isEvaluate ? "新建测评" : pathname === "/" ? "评测工作台" : pathname.startsWith("/daily-reports") ? "测评日报" : pathname.startsWith("/batches") || pathname.startsWith("/preview/batches") ? "测评批次" : pathname.startsWith("/question-bank") ? "题库" : pathname === "/standards" || pathname === "/scoring-rules" ? "测评助手" : "运行记录"}</span>
+          <span>{isEvaluate ? "新建测评" : pathname === "/" ? "评测工作台" : pathname.startsWith("/daily-reports") ? "测评日报" : pathname.startsWith("/batches") || pathname.startsWith("/preview/batches") ? "测评批次" : pathname.startsWith("/question-bank") ? "题库" : pathname === "/accounts" ? "用户管理" : pathname === "/standards" || pathname === "/scoring-rules" ? "测评助手" : "运行记录"}</span>
         </div>
         {children}
       </div>

@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import Link from "next/link";
 import { Logo } from "@/components/logo";
 import { useTheme } from "@/components/theme-provider";
 import { ThemeIcon, ThemeMenuItems, themeLabel } from "@/components/theme-controls";
 import { useAuth } from "@/components/auth-gate";
 
-export function AccountMenu({ showName = false }: { showName?: boolean }) {
+export function AccountMenu({ showName = false, onNavigate }: { showName?: boolean; onNavigate?: () => void }) {
   const { user, logout, exiting, error } = useAuth();
   const { preference } = useTheme();
   const [open, setOpen] = useState(false);
@@ -53,8 +54,8 @@ export function AccountMenu({ showName = false }: { showName?: boolean }) {
       if (event.key === "ArrowRight" && view === "account" && event.target === appearance.current) { event.preventDefault(); setView("appearance"); return; }
       if (event.key === "ArrowLeft" && view === "appearance") { event.preventDefault(); setView("account"); return; }
       if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
-      const buttons = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('button[role^="menuitem"]:not(:disabled)'));
-      const index = buttons.indexOf(document.activeElement as HTMLButtonElement);
+      const buttons = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('[role^="menuitem"]:not(:disabled)'));
+      const index = buttons.indexOf(document.activeElement as HTMLElement);
       const next = event.key === "Home" ? 0 : event.key === "End" ? buttons.length - 1 : (index + (event.key === "ArrowDown" ? 1 : -1) + buttons.length) % buttons.length;
       event.preventDefault(); buttons[next]?.focus();
     }}>
@@ -62,6 +63,7 @@ export function AccountMenu({ showName = false }: { showName?: boolean }) {
         <div className="account-menu-head"><span className="account-menu-avatar" aria-hidden="true">{initial}</span><div className="account-menu-identity"><strong>{displayName}</strong><span>{secondary}</span></div></div>
         <div className="account-menu-divider" role="separator" />
         <button ref={appearance} type="button" role="menuitem" aria-haspopup="menu" className="account-menu-item account-appearance" onClick={() => setView("appearance")}><ThemeIcon value={preference} /><span>外观</span><span className="account-menu-trailing"><span className="account-current-theme">{themeLabel(preference)}</span><svg className="account-chevron" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="m9 5 7 7-7 7" /></svg></span></button>
+        {user.canManageAccounts && <Link href="/accounts" role="menuitem" className="account-menu-item" onClick={() => { close(); onNavigate?.(); }}><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="8" r="3" /><path d="M3 19v-1a6 6 0 0 1 12 0v1M18 9v6m-3-3h6" /></svg><span>用户管理</span></Link>}
         <div className="account-menu-divider" role="separator" />
         <button type="button" role="menuitem" className="account-menu-item" onClick={logout} disabled={exiting}><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M9 5H5v14h4m4-7h8m-3-3 3 3-3 3" /></svg><span>{exiting ? "退出中…" : "退出登录"}</span></button>
         {error && <p className="account-menu-error" role="alert">{error}</p>}
