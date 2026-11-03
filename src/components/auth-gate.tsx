@@ -4,7 +4,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 import { useRouter } from "next/navigation";
 import { clearAssistantDrafts } from "@/lib/assistant-draft";
 
-type User = { id?: string; username?: string; name?: string; nickName?: string | null };
+type User = { id?: string; username?: string; name?: string; nickName?: string | null; canManageAccounts?: boolean };
 type AuthValue = { user: User; logout: () => void; exiting: boolean; error: string };
 const AuthContext = createContext<AuthValue | null>(null);
 

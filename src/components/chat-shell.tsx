@@ -229,7 +229,7 @@ export function ChatShell({ children, preview = false }: { children: ReactNode; 
           <button type="button" className="icon-button" aria-label="打开运行历史" onClick={() => drawer.current?.showModal()}>
             <Icon name="menu" />
           </button>
-          <span>{isEvaluate ? "新建测评" : pathname === "/" ? "评测工作台" : pathname.startsWith("/daily-reports") ? "测评日报" : pathname.startsWith("/batches") || pathname.startsWith("/preview/batches") ? "测评批次" : pathname.startsWith("/question-bank") ? "题库" : pathname === "/standards" || pathname === "/scoring-rules" ? "测评助手" : "运行记录"}</span>
+          <span>{isEvaluate ? "新建测评" : pathname === "/" ? "评测工作台" : pathname.startsWith("/daily-reports") ? "测评日报" : pathname.startsWith("/batches") || pathname.startsWith("/preview/batches") ? "测评批次" : pathname.startsWith("/question-bank") ? "题库" : pathname === "/accounts" ? "用户管理" : pathname === "/standards" || pathname === "/scoring-rules" ? "测评助手" : "运行记录"}</span>
         </div>
         {children}
       </div>
