@@ -12,7 +12,7 @@
 .header h1 { margin: 0; font-size: 28px; line-height: 36px; font-weight: 600; }
 .header p { margin: 6px 0 0; color: var(--color-fg-muted); font-size: 13px; line-height: 20px; overflow-wrap: anywhere; }
 .titleRow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
 .alerts { display: grid; gap: 8px; margin-top: 12px; }
 
 .tabsWrap { position: sticky; top: 0; z-index: 3; margin-top: 12px; padding-top: 4px; background: var(--color-bg); }
@@ -26,6 +26,7 @@
 .panelHead > span { color: var(--color-fg-muted); font-size: 12.5px; line-height: 18px; }
 
 .questionToolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.questionToolbar > .actions, .panelHead > .actions { margin-left: auto; }
 .eyebrow { color: var(--color-accent); font-size: 12px; line-height: 18px; font-weight: 600; letter-spacing: .04em; }
 .questionText { margin: 0; font-size: 16px; line-height: 26px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .editBox { display: grid; gap: 12px; }

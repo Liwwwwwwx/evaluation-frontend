@@ -5,8 +5,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ScoreInline } from "@/components/score-inline";
 import type { ScoreSummaryValue } from "@/components/score-summary";
-import { BackLink, Badge, Button, ConfirmDialog, EmptyState, InlineAlert, Pagination, StatusDot, Tabs, Textarea, tabButtonId, tabPanelId, type StatusTone } from "@/components/ui";
+import { BackLink, Badge, Button, ConfirmDialog, EmptyState, InlineAlert, Pagination, StatusDot, Tabs, Textarea, ToastStack, tabButtonId, tabPanelId, useToasts, type StatusTone } from "@/components/ui";
 import { questionDomains as domains } from "@/lib/question-domains";
+import { createRequestKey } from "@/lib/request-key";
 import styles from "./question-detail.module.css";
 
 type Question = { id: string; question: string; domainKey?: string | null; serviceKey?: string | null; criteria?: unknown; sourceType: string; datasetVersion: string; createdAt?: string | null };
@@ -19,12 +20,12 @@ type StandardContent = {
   missingInformation: string[];
   verification?: { status: string; message: string };
 };
-type StandardItem = { id: string; state: "draft" | "confirmed" | "superseded"; content: StandardContent; model?: string | null; createdAt: string; confirmedAt?: string | null };
+type StandardItem = { id: string; state: "unsaved" | "draft" | "confirmed" | "superseded"; content: StandardContent; model?: string | null; createdAt: string; confirmedAt?: string | null };
 
 const serviceNames: Record<string, string> = { "mission-material": "Mission 主服务", literature: "文献检索", "literature-aircraft": "航空文献", alloy: "合金材料", synthesis: "合成制备", "new-material": "新材料" };
-const statusNames: Record<string, string> = { queued: "排队中", running: "运行中", scoring: "评分中", done: "已完成", error: "失败" };
+const statusNames: Record<string, string> = { queued: "排队中", running: "运行中", scoring: "评分中", done: "已完成", cancelled: "已结束", error: "失败" };
 const originNames: Record<string, string> = { manual: "人工", automation: "自动", legacy: "其他" };
-const standardStates: Record<string, string> = { confirmed: "已确认", draft: "草稿", superseded: "历史" };
+const standardStates: Record<string, string> = { unsaved: "未保存", confirmed: "已确认", draft: "草稿", superseded: "历史" };
 const categoryNames: Record<string, string> = { required: "题目要求", recommended: "专业建议", needs_verification: "待核验" };
 const PAGE_SIZE = 10;
 type DetailTab = "question" | "records" | "standards";
@@ -50,7 +51,7 @@ async function readJson<T>(response: Response): Promise<T> {
   return value as T;
 }
 
-export function QuestionDetailPage({ questionId, datasetVersion }: { questionId: string; datasetVersion: string }) {
+export function QuestionDetailPage({ questionId, datasetVersion, initialTab = "question" }: { questionId: string; datasetVersion: string; initialTab?: DetailTab }) {
   const router = useRouter();
   const [question, setQuestion] = useState<Question | null>(null);
   const [questionError, setQuestionError] = useState("");
@@ -63,15 +64,18 @@ export function QuestionDetailPage({ questionId, datasetVersion }: { questionId:
   const [standards, setStandards] = useState<StandardItem[] | null>(null);
   const [standardsError, setStandardsError] = useState("");
   const [standardsRetry, setStandardsRetry] = useState(0);
+  const [generatedStandard, setGeneratedStandard] = useState<StandardItem | null>(null);
+  const [standardBusy, setStandardBusy] = useState<"generate" | "save" | null>(null);
+  const [standardActionError, setStandardActionError] = useState("");
   const [editing, setEditing] = useState(false);
   const [editText, setEditText] = useState("");
   const [editBusy, setEditBusy] = useState(false);
   const [actionError, setActionError] = useState("");
-  const [notice, setNotice] = useState("");
+  const { toasts, push: pushToast, dismiss: dismissToast } = useToasts();
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
-  const [tab, setTab] = useState<DetailTab>("question");
+  const [tab, setTab] = useState<DetailTab>(initialTab);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -112,20 +116,41 @@ export function QuestionDetailPage({ questionId, datasetVersion }: { questionId:
     fetch(`/api/evaluation/question-standards?${query}`, { cache: "no-store", signal: controller.signal })
       .then(readJson<{ items: StandardItem[] }>)
       .then((value) => { setStandards(Array.isArray(value.items) ? value.items : []); })
-      .catch((error) => { if (!controller.signal.aborted) { setStandards(null); setStandardsError(error instanceof Error ? error.message : "无法读取评判标准。"); } });
+      .catch((error) => { if (!controller.signal.aborted) { setStandards(null); setStandardsError(error instanceof Error ? error.message : "无法读取测评标准。"); } });
     return () => controller.abort();
   }, [questionId, datasetVersion, standardsRetry]);
 
   async function copyQuestion() {
     if (!question) return;
-    try { await navigator.clipboard.writeText(question.question); setNotice("题目已复制到剪贴板。"); }
+    try { await navigator.clipboard.writeText(question.question); pushToast("success", "题目已复制到剪贴板。"); }
     catch { setActionError("无法访问剪贴板，请手动选择题目复制。"); }
   }
 
-  function openStandards() {
-    if (!question) return;
-    sessionStorage.setItem("evaluation-standards-selected-question", JSON.stringify({ id: question.id, datasetVersion: question.datasetVersion, question: question.question, domainKey: question.domainKey || null, sourceType: question.sourceType }));
-    router.push("/standards");
+  async function generateStandard() {
+    if (!question || standardBusy) return;
+    setStandardBusy("generate"); setStandardActionError("");
+    try {
+      const response = await fetch("/api/evaluation/standards", { method: "POST", headers: { "Content-Type": "application/json", "Idempotency-Key": createRequestKey() }, body: JSON.stringify({ question: question.question.trim() }) });
+      const result = await readJson<StandardContent & { model?: string | null }>(response);
+      if (!Array.isArray(result.explicitRequirements) || !Array.isArray(result.evaluationCriteria) || !Array.isArray(result.missingInformation) || typeof result.verification?.message !== "string") throw new Error("返回结果格式异常，请稍后重试。");
+      setGeneratedStandard({ id: "", state: "unsaved", content: result, model: result.model, createdAt: new Date().toISOString() });
+      pushToast("success", "标准已生成，保存草稿后可再次查看。");
+    } catch (error) { setStandardActionError(error instanceof Error ? error.message : "生成失败，请稍后重试。"); }
+    finally { setStandardBusy(null); }
+  }
+
+  async function saveStandard() {
+    if (!question || !generatedStandard || generatedStandard.state !== "unsaved" || standardBusy) return;
+    setStandardBusy("save"); setStandardActionError("");
+    try {
+      const response = await fetch("/api/evaluation/question-standards", { method: "POST", headers: { "Content-Type": "application/json", "Idempotency-Key": createRequestKey() }, body: JSON.stringify({ questionId: question.id, datasetVersion: question.datasetVersion, question: question.question, content: generatedStandard.content, model: generatedStandard.model }) });
+      const result = await readJson<{ id: string; state: string }>(response);
+      if (typeof result.id !== "string" || !result.id || result.state !== "draft") throw new Error("保存结果格式异常，请刷新列表核实，避免重复保存。");
+      const saved: StandardItem = { ...generatedStandard, id: result.id, state: "draft" };
+      setStandards((items) => [saved, ...(items || [])]); setGeneratedStandard(saved);
+      pushToast("success", "草稿已保存，确认后才会成为当前标准。");
+    } catch (error) { setStandardActionError(`${error instanceof Error ? error.message : "保存失败。"} 若连接中断，请刷新页面核实保存结果。`); }
+    finally { setStandardBusy(null); }
   }
 
   async function prepareEvaluation() {
@@ -154,7 +179,7 @@ export function QuestionDetailPage({ questionId, datasetVersion }: { questionId:
       const response = await fetch("/api/question-bank/update", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: question.id, datasetVersion: question.datasetVersion, question: editText.trim() }) });
       const data = await readJson<{ question: Question }>(response);
       setEditing(false);
-      setNotice("题目已更新，历史运行保留原版本。");
+      pushToast("success", "题目已更新，历史运行保留原版本。");
       if (data.question.datasetVersion !== question.datasetVersion) router.replace(`/question-bank/${encodeURIComponent(data.question.id)}?datasetVersion=${encodeURIComponent(data.question.datasetVersion)}`);
       else setQuestion(data.question);
     } catch (error) { setActionError(error instanceof Error ? error.message : "保存失败，请稍后重试。"); }
@@ -179,7 +204,8 @@ export function QuestionDetailPage({ questionId, datasetVersion }: { questionId:
     </main>;
   }
 
-  const currentStandard = standards?.find((item) => item.state === "confirmed") || standards?.find((item) => item.state === "draft") || standards?.[0] || null;
+  const savedStandard = standards?.find((item) => item.state === "confirmed") || standards?.find((item) => item.state === "draft") || standards?.[0] || null;
+  const currentStandard = generatedStandard || savedStandard;
   const requirements = currentStandard?.content.explicitRequirements || [];
   const criteria = currentStandard?.content.evaluationCriteria || [];
   const missing = currentStandard?.content.missingInformation || [];
@@ -194,7 +220,7 @@ export function QuestionDetailPage({ questionId, datasetVersion }: { questionId:
       <div className={styles.actions}><BackLink href="/question-bank">返回题库</BackLink></div>
     </header>
 
-    {(actionError || notice) && <div className={styles.alerts}>{actionError && <InlineAlert tone="danger">{actionError}</InlineAlert>}{notice && <InlineAlert tone="success">{notice}</InlineAlert>}</div>}
+      {actionError && <div className={styles.alerts}><InlineAlert tone="danger">{actionError}</InlineAlert></div>}
 
     <div className={styles.tabsWrap}>
       <Tabs variant="underline" ariaLabel="题目详情" idBase="question-detail" items={detailTabs} value={tab} onChange={(value) => setTab(value as DetailTab)} />
@@ -238,16 +264,18 @@ export function QuestionDetailPage({ questionId, datasetVersion }: { questionId:
 
     {tab === "standards" && <section className={styles.panel} id={tabPanelId("question-detail", "standards")} role="tabpanel" aria-labelledby={tabButtonId("question-detail", "standards")}>
       <div className={styles.panelHead}>
-        <div><h2>测评标准</h2><p>由评判标准助手生成，供审阅；不会自动用于实际评分。</p></div>
-        <div className={styles.actions}>{currentStandard && <Badge tone={currentStandard.state === "confirmed" ? "success" : currentStandard.state === "draft" ? "warning" : "neutral"}>{standardStates[currentStandard.state] || "状态未知"}</Badge>}<Button variant="secondary" size="sm" onClick={openStandards}>{currentStandard ? "查看/生成标准" : "生成评判标准"}</Button></div>
+        <div><h2>测评标准</h2><p>由测评助手生成，供审阅；不会自动用于实际评分。</p></div>
+        <div className={styles.actions}>{currentStandard && <Badge tone={currentStandard.state === "confirmed" ? "success" : currentStandard.state === "draft" || currentStandard.state === "unsaved" ? "warning" : "neutral"}>{standardStates[currentStandard.state] || "状态未知"}</Badge>}{generatedStandard && (generatedStandard.state === "unsaved" || savedStandard) && <Button variant="secondary" size="sm" disabled={!!standardBusy} onClick={() => { setGeneratedStandard(null); setStandardActionError(""); }}>{generatedStandard.state === "unsaved" ? "放弃未保存结果" : "查看已保存标准"}</Button>}{generatedStandard?.state === "unsaved" && <Button variant="secondary" size="sm" loading={standardBusy === "save"} disabled={!!standardBusy} onClick={() => void saveStandard()}>保存草稿</Button>}<Button variant="secondary" size="sm" loading={standardBusy === "generate"} disabled={!!standardBusy || !standards || !!standardsError || generatedStandard?.state === "unsaved"} onClick={() => void generateStandard()}>{standardBusy === "generate" ? "正在生成…" : currentStandard ? "重新生成" : "生成测评标准"}</Button></div>
       </div>
-      {standardsError ? <InlineAlert tone="warning" action={<Button variant="secondary" size="sm" onClick={() => setStandardsRetry((value) => value + 1)}>重试</Button>}>{standardsError}</InlineAlert> : !standards ? <EmptyState compact state="loading" title="正在读取评判标准…" /> : !currentStandard ? <EmptyState compact state="empty" title="暂无评判标准" description="可以为这道题生成一份可审阅的评判标准。" action={<Button variant="secondary" size="sm" onClick={openStandards}>生成评判标准</Button>} /> : <div className={styles.standard}>
+      {standardActionError && <InlineAlert tone="danger">{standardActionError}</InlineAlert>}
+      {standardBusy === "generate" && <p role="status" className={styles.notice}>正在理解题目并整理检查项，请稍候。</p>}
+      {standardsError ? <InlineAlert tone="warning" action={<Button variant="secondary" size="sm" onClick={() => setStandardsRetry((value) => value + 1)}>重试</Button>}>{standardsError}</InlineAlert> : !standards ? <EmptyState compact state="loading" title="正在读取测评标准…" /> : !currentStandard ? <EmptyState compact state="empty" title="暂无测评标准" description="可以为这道题生成一份可审阅的测评标准。" action={<Button variant="secondary" size="sm" loading={standardBusy === "generate"} disabled={!!standardBusy} onClick={() => void generateStandard()}>{standardBusy === "generate" ? "正在生成…" : "生成测评标准"}</Button>} /> : <div className={styles.standard}>
         <div className={styles.standardMeta}><span>{currentStandard.content.domain} · {currentStandard.content.taskType}</span><span>{currentStandard.model || "未记录模型"} · {formatDate(currentStandard.createdAt)}</span></div>
         {currentStandard.content.verification?.message && <p className={styles.notice}>{currentStandard.content.verification.message}</p>}
         <h3>题目明确要求 · {requirements.length}</h3>
         <ol className={styles.standardList}>{requirements.slice(0, 6).map((item) => <li key={item.id}><div className={styles.itemHead}><strong>{item.requirement}</strong>{item.critical && <Badge tone="warning">关键</Badge>}</div><span>题目原文：{item.source}</span></li>)}</ol>
         {requirements.length > 6 && <details><summary>还有 {requirements.length - 6} 条要求</summary><ol className={styles.standardList}>{requirements.slice(6).map((item) => <li key={item.id}><strong>{item.requirement}</strong><span>题目原文：{item.source}</span></li>)}</ol></details>}
-        <h3>评判标准 · {criteria.length}</h3>
+        <h3>测评标准 · {criteria.length}</h3>
         <ol className={styles.standardList}>{criteria.slice(0, 6).map((item) => <li key={item.id}><div className={styles.itemHead}><strong>{item.name}</strong><Badge tone="neutral">{categoryNames[item.category] || item.category}</Badge></div><span>{item.description}</span><span>如何判断：{item.howToJudge}</span>{item.source && <span>题目原文：{item.source}</span>}</li>)}</ol>
         {criteria.length > 6 && <details><summary>还有 {criteria.length - 6} 条标准</summary><ol className={styles.standardList}>{criteria.slice(6).map((item) => <li key={item.id}><div className={styles.itemHead}><strong>{item.name}</strong><Badge tone="neutral">{categoryNames[item.category] || item.category}</Badge></div><span>{item.description}</span><span>如何判断：{item.howToJudge}</span></li>)}</ol></details>}
         {missing.length > 0 && <><h3>待补充信息</h3><ul className={styles.standardList}>{missing.map((item, index) => <li key={index}><span>{item}</span></li>)}</ul></>}
@@ -258,5 +286,6 @@ export function QuestionDetailPage({ questionId, datasetVersion }: { questionId:
       <p className={styles.deleteText}>{question.question}</p>
       {deleteError && <InlineAlert tone="danger">{deleteError}</InlineAlert>}
     </ConfirmDialog>
+    <ToastStack toasts={toasts} onDismiss={dismissToast} />
   </main>;
 }

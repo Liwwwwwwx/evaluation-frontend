@@ -278,8 +278,9 @@ export function QuestionBank() {
   function generateStandards(row: Question) {
     try {
       sessionStorage.setItem("evaluation-standards-selected-question", JSON.stringify({ id: row.id, datasetVersion: row.datasetVersion, question: row.question, domainKey: row.domainKey || null, sourceType: row.sourceType }));
-      router.push("/standards");
-    } catch { toast("error", "无法带入题目，请在评判标准页面重新选择。"); }
+      router.push("/standards?returnTo=%2Fquestion-bank");
+      setDetail(null);
+    } catch { toast("error", "无法带入题目，请在测评助手重新选择。"); }
   }
 
   function openImport(mode: "manual" | "excel" | "generate") { setImportTarget(source); setImportMode(mode); setDrafts([]); setDraftQuestion(""); setImportError(""); setImportOpen(true); }
@@ -317,8 +318,10 @@ export function QuestionBank() {
   return <section className="bank-page" aria-labelledby="bank-title">
     <div className="bank-heading">
       <div><h1 id="bank-title">题库</h1><p>固定题由团队维护，随机题可由 AI 生成。</p></div>
-      {write && source === "fixed" && <Button variant="primary" onClick={() => openImport("manual")}>导入题目</Button>}
-      {write && source === "random" && <Button variant="primary" onClick={() => openImport("generate")}>生成随机题</Button>}
+      <div className="bank-heading-actions">
+        {write && source === "fixed" && <Button variant="primary" onClick={() => openImport("manual")}>导入题目</Button>}
+        {write && source === "random" && <Button variant="primary" onClick={() => openImport("generate")}>生成随机题</Button>}
+      </div>
     </div>
 
     <div className="bank-toolbar">
@@ -353,7 +356,7 @@ export function QuestionBank() {
 
     {selectedRows.length > 0 && <div className="selection-bar" role="status">
       <span>已选 {selectedRows.length} 条</span>
-      <div><button type="button" className="text-danger-button" onClick={() => askDelete(selectedRows)}>删除</button><Button type="button" variant="ghost" size="sm" onClick={() => setSelected({})}>取消选择</Button></div>
+      <div><Button type="button" variant="ghost" size="sm" onClick={() => setSelected({})}>取消选择</Button><button type="button" className="text-danger-button" onClick={() => askDelete(selectedRows)}>删除</button></div>
     </div>}
 
     {!permissionReady && <EmptyState state="loading" title="正在检查访问权限…" />}
@@ -400,13 +403,13 @@ export function QuestionBank() {
       onClose={() => setDetail(null)}
       title="题目详情"
       description={detail ? `${domainLabel(detail)} · ${detail.sourceType === "random" ? "随机题" : "固定题"}` : undefined}
-      footerStart={detail ? <Button type="button" variant="secondary" onClick={() => void copyQuestion(detail.question)}><Icon name="copy" />复制题目</Button> : undefined}
       footer={detail ? <>
-        {!editMode && <Button type="button" variant="secondary" onClick={() => generateStandards(detail)}>生成评判标准</Button>}
+        <Button type="button" variant="secondary" onClick={() => setDetail(null)}>关闭</Button>
+        <Button type="button" variant="secondary" onClick={() => void copyQuestion(detail.question)}><Icon name="copy" />复制题目</Button>
+        {!editMode && <Button type="button" variant="secondary" onClick={() => generateStandards(detail)}>生成测评标准</Button>}
         {["fixed", "random"].includes(detail.sourceType) && !detail.criteria && (!detail.serviceKey || ["mission-material", "literature", "literature-aircraft", "alloy", "synthesis", "new-material"].includes(detail.serviceKey)) && !editMode && <Button type="button" variant="secondary" disabled={quickBusy} onClick={() => void prepareEvaluation(detail)}>{quickBusy ? "正在准备…" : "使用这道题测评"}</Button>}
         {canManage && (editMode ? <Button type="button" variant="primary" disabled={editBusy} onClick={() => void saveEdit()}>{editBusy ? "保存中…" : "保存修改"}</Button> : <Button type="button" variant="secondary" disabled={domainBusy} onClick={() => setEditMode(true)}>编辑</Button>)}
         {canManage && !editMode && <Button type="button" variant="danger" disabled={domainBusy} onClick={() => { setDetail(null); askDelete([detail]); }}>删除</Button>}
-        <Button type="button" variant="secondary" onClick={() => setDetail(null)}>关闭</Button>
       </> : undefined}
     >
       {detail && <>
@@ -494,7 +497,8 @@ export function QuestionBank() {
 
     {rowMenu && <div ref={rowMenuRef} className="run-action-menu" role="menu" style={{ top: rowMenu.top, left: rowMenu.left }}>
       <button type="button" className="run-action-item" role="menuitem" onClick={() => { closeRowMenu(); openDetail(rowMenu.row); }}><Icon name="search" /><span>查看详情</span></button>
-      <button type="button" className="run-action-item" role="menuitem" onClick={() => { const row = rowMenu.row; closeRowMenu(); generateStandards(row); }}><Icon name="copy" /><span>生成评判标准</span></button>
+      <button type="button" className="run-action-item" role="menuitem" onClick={() => { const question = rowMenu.row.question; closeRowMenu(true); void copyQuestion(question); }}><Icon name="copy" /><span>复制题目</span></button>
+      <button type="button" className="run-action-item" role="menuitem" onClick={() => { const row = rowMenu.row; closeRowMenu(); generateStandards(row); }}><Icon name="copy" /><span>生成测评标准</span></button>
       {canManage && <button type="button" className="run-action-item" role="menuitem" onClick={() => { const row = rowMenu.row; closeRowMenu(); askDelete([row]); }}><Icon name="trash" /><span>删除</span></button>}
     </div>}
 
