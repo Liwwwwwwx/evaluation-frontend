@@ -198,7 +198,7 @@ export function BatchDetailPage({ batchId, basePath, preview = false }: { batchI
               return <li key={run.runId} className={styles.runsRow}>
               <span className={styles.runQuestion}><strong className={styles.runQuestionTitle} title={run.question}>{run.question}</strong>{meta && <span className={styles.runMeta}>{meta}</span>}<span className={styles.mobileMeta}>{serviceLabel(run.serviceKey)} · 耗时 {formatElapsed(run.elapsedMs)}</span></span>
               <span className={`${styles.runCellMuted} ${styles.runService}`}>{serviceLabel(run.serviceKey)}</span>
-              <span className={styles.runStatus}><StatusDot tone={executionTone(run.execution)}>{executionLabel(run.execution)}</StatusDot></span>
+              <span className={styles.runStatus}><StatusDot tone={run.status === "paused" ? "warning" : executionTone(run.execution)}>{run.status === "paused" ? "已暂停" : executionLabel(run.execution)}</StatusDot></span>
               <span className={styles.runScores}><ScorePair deepSeek={run.scores.deepSeek} qwen={run.scores.qwen} /></span>
               <span className={styles.runTime}>{formatElapsed(run.elapsedMs)}</span>
               <span className={styles.runTime}>{formatDateTime(run.startedAt)}</span>

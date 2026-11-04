@@ -49,7 +49,7 @@ export type RunBrief = {
   datasetVersion: string | null;
   question: string;
   serviceKey: string;
-  status: "queued" | "running" | "scoring" | "done" | "error";
+  status: "queued" | "running" | "scoring" | "done" | "error" | "paused";
   execution: "completed" | "failed" | "timeout" | "unfinished";
   scores: { deepSeek: number | null; qwen: number | null };
   error: string | null;
