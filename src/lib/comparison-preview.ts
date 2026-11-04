@@ -1,3 +1,12 @@
+export type ComparisonRequirement = {
+  id: string;
+  requirement: string;
+  status: string;
+  critical?: boolean;
+  note?: string;
+  evidence?: string;
+};
+
 export type ComparisonJudge = {
   status: "ready" | "pending" | "failed" | "unavailable" | "absent";
   model: string;
@@ -6,7 +15,7 @@ export type ComparisonJudge = {
     total: number;
     source?: { truncated?: boolean };
     dimensions: Record<string, { label: string; score: number; weight: number; applicable?: boolean; note?: string }>;
-    taskCompletion?: { status: string; reason?: string };
+    taskCompletion?: { status: string; reason?: string; requirements?: ComparisonRequirement[] };
     qualification?: { status: string; passScore?: number };
     gaps?: string[];
     suggestions?: string[];
@@ -39,7 +48,7 @@ export type Comparison = {
   runs: ComparisonRun[];
 };
 
-function judge(total: number, gaps: string[], suggestions: string[], comment: string, dimensions: Record<string, { label: string; score: number; weight: number; note?: string }>, task: string, qualification: string, model: string): ComparisonJudge {
+function judge(total: number, gaps: string[], suggestions: string[], comment: string, dimensions: Record<string, { label: string; score: number; weight: number; note?: string }>, task: string, qualification: string, model: string, requirements: ComparisonRequirement[]): ComparisonJudge {
   return {
     status: "ready",
     model,
@@ -47,13 +56,17 @@ function judge(total: number, gaps: string[], suggestions: string[], comment: st
       version: "evaluation-v1",
       total,
       dimensions,
-      taskCompletion: { status: task },
+      taskCompletion: { status: task, requirements },
       qualification: { status: qualification, passScore: 60 },
       gaps,
       suggestions,
       comment,
     },
   };
+}
+
+function req(id: string, requirement: string, status: string, note: string): ComparisonRequirement {
+  return { id, requirement, status, critical: true, note };
 }
 
 const missionDeepSeek = judge(
@@ -71,6 +84,13 @@ const missionDeepSeek = judge(
   "completed",
   "qualified",
   "deepseek-chat",
+  [
+    req("R1", "给出屈服强度与抗拉强度的数值和单位", "met", "给出了 210–260 MPa 和 320–380 MPa，单位完整。"),
+    req("R2", "说明预测依据与适用条件", "met", "给出了温度外推和固溶强化依据，并说明适用条件。"),
+    req("R3", "说明数据来源或验证情况", "partial", "引用同类合金数据，但未给出测试标准。"),
+    req("R4", "覆盖 900°C 的相稳定性", "missing", "未展开相稳定性判断。"),
+    req("R5", "结论明确并区分估算与实验值", "met", "明确标注为工程估算，未冒充实验值。"),
+  ],
 );
 
 const missionQwen = judge(
@@ -88,6 +108,13 @@ const missionQwen = judge(
   "completed",
   "qualified",
   "qwen3.7-flash",
+  [
+    req("R1", "给出屈服强度与抗拉强度的数值和单位", "met", "数值与单位完整。"),
+    req("R2", "说明预测依据与适用条件", "partial", "依据偏概括，适用边界不够明确。"),
+    req("R3", "说明数据来源或验证情况", "missing", "未说明数据来源或实验对照。"),
+    req("R4", "覆盖 900°C 的相稳定性", "partial", "提到高温软化，但未给相稳定性依据。"),
+    req("R5", "结论明确并区分估算与实验值", "met", "结论明确，标注为估算。"),
+  ],
 );
 
 const alphaDeepSeek = judge(
@@ -105,6 +132,13 @@ const alphaDeepSeek = judge(
   "partial",
   "qualified",
   "deepseek-chat",
+  [
+    req("R1", "给出屈服强度与抗拉强度的数值和单位", "partial", "只给了定性区间，缺少明确数值。"),
+    req("R2", "说明预测依据与适用条件", "met", "推理过程完整，说明了适用条件。"),
+    req("R3", "说明数据来源或验证情况", "partial", "引用趋势，但未给实验数据。"),
+    req("R4", "覆盖 900°C 的相稳定性", "met", "讨论了高温相稳定性和氧化影响。"),
+    req("R5", "结论明确并区分估算与实验值", "partial", "结论分散，估算属性说明不足。"),
+  ],
 );
 
 const alphaQwen = judge(
@@ -122,6 +156,13 @@ const alphaQwen = judge(
   "partial",
   "qualified",
   "qwen3.7-flash",
+  [
+    req("R1", "给出屈服强度与抗拉强度的数值和单位", "partial", "数值不够直接。"),
+    req("R2", "说明预测依据与适用条件", "met", "依据和条件说明充分。"),
+    req("R3", "说明数据来源或验证情况", "partial", "有文献趋势，但没有逐项对照。"),
+    req("R4", "覆盖 900°C 的相稳定性", "partial", "提到相稳定性，但依据一般。"),
+    req("R5", "结论明确并区分估算与实验值", "partial", "结论较分散。"),
+  ],
 );
 
 export const previewComparison: Comparison = {

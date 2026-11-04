@@ -54,19 +54,11 @@ function modelReport(name: string, value: unknown): string[] {
   return lines;
 }
 
-export function buildRunMarkdown(run: UnifiedRunSnapshot, { readError = "" } = {}): string {
-  const native = record(run.run);
-  const details = record(native?.details);
-  const scores = record(run.scores);
+// 与运行详情共用同一份正文、团队输出和最终总结导出逻辑。
+export function buildRunAnswerMarkdown(run: { answer?: string | null; run?: unknown; executionStatus?: string; status?: string }): string {
+  const details = record(record(run.run)?.details);
   const streaming = run.executionStatus === "running" || (!run.executionStatus && run.status === "running");
-  const address = serviceAddress(native?.serviceAddress);
-  const addressNote = address && native?.serviceAddressSource === "configuration" ? "（当前配置）" : "";
-  const lines = ["# 问题", "", run.question || "未记录题目。", "", "# 服务地址", "", `${address || "未记录。"}${addressNote}`, "", "# 正文内容", ""];
-
-  if (run.answerTruncated) lines.push("> 正文已截断。", "");
-  if (run.recoveryState === "snapshot_only") lines.push("> 当前为已保存快照，可能不是最新内容。", "");
-  if (readError) lines.push(`> 页面读取异常，内容可能不是最新状态：${readError}`, "");
-
+  const lines: string[] = [];
   const outputs = records(details?.displayEvents).filter(event => ["display.team_output", "display.final_answer"].includes(text(event.type)));
   const segments = conversationSegments(run.answer || "", outputs);
   let hasBody = false;
@@ -85,6 +77,22 @@ export function buildRunMarkdown(run: UnifiedRunSnapshot, { readError = "" } = {
     hasBody = true;
   }
   if (!hasBody) lines.push(streaming ? "等待服务输出…" : "暂无正文。", "");
+
+  return lines.join("\n");
+}
+
+export function buildRunMarkdown(run: UnifiedRunSnapshot, { readError = "" } = {}): string {
+  const native = record(run.run);
+  const scores = record(run.scores);
+  const address = serviceAddress(native?.serviceAddress);
+  const addressNote = address && native?.serviceAddressSource === "configuration" ? "（当前配置）" : "";
+  const lines = ["# 问题", "", run.question || "未记录题目。", "", "# 服务地址", "", `${address || "未记录。"}${addressNote}`, "", "# 正文内容", ""];
+
+  if (run.answerTruncated) lines.push("> 正文已截断。", "");
+  if (run.recoveryState === "snapshot_only") lines.push("> 当前为已保存快照，可能不是最新内容。", "");
+  if (readError) lines.push(`> 页面读取异常，内容可能不是最新状态：${readError}`, "");
+
+  lines.push(buildRunAnswerMarkdown(run), "");
 
   lines.push("# 评分", "");
   if (run.scoreError) lines.push(`> 评分错误：${run.scoreError}`, "");

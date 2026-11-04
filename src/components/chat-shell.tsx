@@ -8,6 +8,7 @@ import { AccountMenu } from "@/components/workspace";
 import { Button, Dialog, InlineAlert, Input } from "@/components/ui";
 import { createRequestKey } from "@/lib/request-key";
 import { isUncertainRun } from "@/lib/run-status";
+import { mergeHistoryStatuses, type HistoryStatus } from "@/lib/run-history-status";
 
 type HistoryItem = {
   id: string;
@@ -16,6 +17,7 @@ type HistoryItem = {
   status: string;
   recoveryState?: string;
   startedAt: string | null;
+  comparisonGroupId?: string | null;
   quality?: { status?: string | null } | null;
 };
 
@@ -116,6 +118,7 @@ function SidebarBody({ items, error, activeId, onNavigate, onManage, canManage, 
                     <span className="chat-item-text">{item.title || item.question}</span>
                     {activeLabel && <span className="chat-item-status" data-status={uncertain ? "unknown" : item.status}><span className="chat-item-status-dot" aria-hidden="true" />{activeLabel}</span>}
                   </Link>
+                  {item.comparisonGroupId && <Link className="chat-comparison-link" href={`/compare/${encodeURIComponent(item.comparisonGroupId)}`} aria-label={`查看双服务对比：${item.title || item.question}`} onClick={onNavigate}>对比</Link>}
                   {canManage && <button type="button" className="chat-item-more" aria-label={`管理对话：${(item.title || item.question).slice(0, 24)}`} onClick={() => { onNavigate?.(); onManage(item); }}>•••</button>}
                 </div>;
               })}
@@ -148,6 +151,9 @@ export function ChatShell({ children, preview = false }: { children: ReactNode; 
   const [historyBusy, setHistoryBusy] = useState(false);
   const [historyActionError, setHistoryActionError] = useState("");
   const historyRequest = useRef(0);
+  const historySequence = useRef(0);
+  const statusUpdates = useRef(new Map<string, HistoryStatus>());
+  const historyItems = useRef<HistoryItem[]>([]);
   const drawer = useRef<HTMLDialogElement>(null);
   const activeId = pathname.startsWith("/runs/") ? pathname.split("/")[2] : null;
   const isEvaluate = pathname === "/evaluate";
@@ -155,17 +161,34 @@ export function ChatShell({ children, preview = false }: { children: ReactNode; 
   useEffect(() => {
     if (preview) return;
     let active = true;
+    const pending = new Set<AbortController>();
     const load = () => {
       const request = ++historyRequest.current;
-      fetch("/api/evaluation/unified/history", { cache: "no-store" })
-        .then(async (response) => { if (response.status === 404 || response.status === 503) { const fallback = await fetch("/api/evaluation/unified/runs?origin=manual&page=1&pageSize=50", { cache: "no-store" }); if (!fallback.ok) throw new Error("加载失败"); return { ...await fallback.json(), storageReady: false, canManage: false }; } if (!response.ok) throw new Error("加载失败"); return response.json(); })
-        .then((value) => { if (active && request === historyRequest.current) { if (!Array.isArray(value.items)) throw new Error("格式异常"); setItems(value.items.map((item: { runId: string; question: string; title?: string | null; status: string; recoveryState?: string; startedAt: string | null }) => ({ id: item.runId, question: item.question, title: item.title, status: item.status, recoveryState: item.recoveryState, startedAt: item.startedAt }))); setHistoryReady(value.storageReady === true); setCanManageHistory(value.canManage === true); setHistoryError(""); } })
-        .catch(() => { if (active && request === historyRequest.current) { setItems([]); setHistoryError("无法读取对话记录，请稍后重试。"); } });
+      const sequence = historySequence.current;
+      const controller = new AbortController(); pending.add(controller);
+      const timeout = setTimeout(() => controller.abort(), 15000);
+      fetch("/api/evaluation/unified/history", { cache: "no-store", signal: controller.signal })
+        .then(async (response) => { if (response.status === 404 || response.status === 503) { const fallback = await fetch("/api/evaluation/unified/runs?origin=manual&page=1&pageSize=50", { cache: "no-store", signal: controller.signal }); if (!fallback.ok) throw new Error("加载失败"); return { ...await fallback.json(), storageReady: false, canManage: false }; } if (!response.ok) throw new Error("加载失败"); return response.json(); })
+        .then((value) => { if (active && request === historyRequest.current) { if (!Array.isArray(value.items)) throw new Error("格式异常"); const next = value.items.map((item: { runId: string; question: string; title?: string | null; status: string; recoveryState?: string; startedAt: string | null; comparisonGroupId?: string | null }) => ({ id: item.runId, question: item.question, title: item.title, status: item.status, recoveryState: item.recoveryState, startedAt: item.startedAt, comparisonGroupId: item.comparisonGroupId })); setItems(mergeHistoryStatuses(next, statusUpdates.current, sequence)); for (const [id, update] of statusUpdates.current) if (update.sequence <= sequence) statusUpdates.current.delete(id); setHistoryReady(value.storageReady === true); setCanManageHistory(value.canManage === true); setHistoryError(""); } })
+        .catch(() => { if (active && request === historyRequest.current) setHistoryError("无法读取对话记录，请稍后重试。"); })
+        .finally(() => { clearTimeout(timeout); pending.delete(controller); });
     };
     load();
+    const onStatus = (event: Event) => {
+      const detail = (event as CustomEvent).detail;
+      if (!detail || typeof detail.runId !== "string" || typeof detail.status !== "string") return;
+      const update = { status: detail.status, recoveryState: typeof detail.recoveryState === "string" ? detail.recoveryState : undefined, sequence: ++historySequence.current };
+      statusUpdates.current.set(detail.runId, update);
+      setItems(current => current.map(item => item.id === detail.runId ? { ...item, status: update.status, recoveryState: update.recoveryState } : item));
+    };
+    const timer = setInterval(() => { if (!pending.size && document.visibilityState === "visible" && historyItems.current.some(item => ["queued", "running", "scoring"].includes(item.status))) load(); }, 5000);
+    const onVisible = () => { if (document.visibilityState === "visible") load(); };
     window.addEventListener("evaluation-unified-change", load);
-    return () => { active = false; window.removeEventListener("evaluation-unified-change", load); };
+    window.addEventListener("evaluation-run-status", onStatus);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => { active = false; clearInterval(timer); for (const controller of pending) controller.abort(); window.removeEventListener("evaluation-unified-change", load); window.removeEventListener("evaluation-run-status", onStatus); document.removeEventListener("visibilitychange", onVisible); };
   }, [pathname, preview]);
+  useEffect(() => { historyItems.current = items; }, [items]);
 
   const closeDrawer = () => drawer.current?.close();
   function manage(item: HistoryItem) { setManagedItem(item); setHistoryTitle((item.title || item.question).slice(0, 100)); setHistoryAction("edit"); setHistoryActionError(""); }

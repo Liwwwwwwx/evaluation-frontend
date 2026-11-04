@@ -50,6 +50,24 @@ test('状态、评分与结束实时更新，结束后补读权限且停止继�
   t.mock.timers.tick(60000); await flush(); assert.equal(reads, 2);
 });
 
+test('状态变化通知侧栏，正文增量和相同状态不会重复通知', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const originalWindow = globalThis.window;
+  const events = new EventTarget(); globalThis.window = events;
+  t.after(() => { if (originalWindow === undefined) delete globalThis.window; else globalThis.window = originalWindow; });
+  const statuses = []; events.addEventListener('evaluation-run-status', event => statuses.push(event.detail));
+  const live = stream();
+  const stop = watchLiveUnifiedRun(id, { onData() {}, onError: assert.fail, request: async url => url.endsWith('/events') ? live.response() : Response.json(snapshot()) }); t.after(stop);
+  await flush();
+  live.push('text', { runId: id, delta: '正文' });
+  live.push('run', { runId: id, status: 'done' });
+  live.push('done', { runId: id, status: 'done' });
+  await flush();
+  assert.deepEqual(statuses.map(value => value.status), ['running', 'scoring', 'done']);
+  assert.ok(statuses.every(value => value.runId === id));
+  stop(); live.close(); await flush();
+});
+
 test('流中断回退为原ID只读轮询，不重复发起或无限重连', async t => {
   t.mock.timers.enable({ apis: ['setTimeout'] });
   const live = stream(); const calls = []; const states = []; const errors = []; let reads = 0;

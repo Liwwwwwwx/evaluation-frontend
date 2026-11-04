@@ -14,9 +14,19 @@ export function watchLiveUnifiedRun(runId: string, {
   let stopPolling = () => {};
   let controller: AbortController | undefined;
   let attempts = 0;
+  let lastStatus = "";
   let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
   const active = (status: string) => ["queued", "running", "scoring"].includes(status);
-  const update = (data: UnifiedRunSnapshot) => { if (!stopped) { current = data; onData(data); } };
+  const update = (data: UnifiedRunSnapshot) => {
+    if (stopped) return;
+    current = data;
+    onData(data);
+    const status = JSON.stringify([data.status, data.recoveryState || null]);
+    if (status !== lastStatus && typeof window !== "undefined") {
+      lastStatus = status;
+      window.dispatchEvent(new CustomEvent("evaluation-run-status", { detail: { runId: data.runId, status: data.status, recoveryState: data.recoveryState } }));
+    }
+  };
   const poll = (reconnect = false) => {
     if (!stopped) stopPolling = watchUnifiedRun(runId, { onData: data => {
       update(data);
