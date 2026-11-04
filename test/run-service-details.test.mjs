@@ -90,6 +90,12 @@ test('自动方案选择摘要可见，确认记录与连接诊断不再展示�
   assert.match(html, /自动确认线性堆叠/); assert.doesNotMatch(html, /错误的成功摘要|查看连接诊断|查看确认记录/);
 });
 
+test('自动补充条件可回看，等待状态使用中文', () => {
+  const html = render({ result: { status: 'waiting_for_input' }, review: [{ source: 'automatic', action: 'apply', delivery: 'sent', model: 'test-model', answers: [{ answer: '假设温度为 900°C。' }] }] });
+  assert.match(html, /等待补充信息/); assert.match(html, /查看自动补充的条件/);
+  assert.match(html, /test-model/); assert.match(html, /假设温度为 900°C/);
+});
+
 const { resultCandidates, compositionSummary, scalar } = await import(loadSource('../src/lib/structured-results.ts'));
 const { StructuredValue } = await import(loadSource('../src/components/structured-value.tsx'));
 

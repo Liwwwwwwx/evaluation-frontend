@@ -24,10 +24,11 @@ test('Mission无配置或写权限时不误启用，其他可用服务和全禁�
   }
 });
 
-test('新建入口忽略1110和未知服务，即使服务发现将其标为可用', () => {
+test('1110进入新建入口，未知服务仍被忽略', () => {
   const services = availableEvaluationServices([{ key: 'alpha-rsi', enabled: true }, { key: 'unregistered', enabled: true }]);
-  assert.equal(services.some(item => ['alpha-rsi', 'unregistered'].includes(item.key)), false);
-  assert.equal(services.some(item => item.enabled), false);
-  assert.equal(isEvaluationService('alpha-rsi'), false);
+  assert.equal(services.some(item => item.key === 'unregistered'), false);
+  assert.equal(services.find(item => item.key === 'alpha-rsi')?.enabled, true);
+  assert.equal(services.some(item => item.enabled), true);
+  assert.equal(isEvaluationService('alpha-rsi'), true);
   assert.equal(isEvaluationService('mission-material'), true);
 });

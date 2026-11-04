@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
   const value = data && typeof data === "object" ? data as Record<string, unknown> : {};
   const serviceKey = typeof value.serviceKey === "string" ? value.serviceKey : "";
   const question = typeof value.question === "string" ? value.question.trim() : "";
-  if (!['alpha-rsi', 'alloy', 'literature', 'literature-aircraft', 'synthesis', 'new-material'].includes(serviceKey) || question.length < (serviceKey === 'alpha-rsi' ? 1 : 8) || question.length > (serviceKey === 'synthesis' ? 200 : 500)) {
+  if (!['alpha-rsi', 'alloy', 'literature', 'literature-aircraft', 'synthesis', 'new-material'].includes(serviceKey) || question.length < 8 || question.length > (serviceKey === 'synthesis' ? 200 : 500)) {
     return NextResponse.json({ ok: false, error: "服务或题目不符合要求" }, { status: 400 });
   }
   try {
