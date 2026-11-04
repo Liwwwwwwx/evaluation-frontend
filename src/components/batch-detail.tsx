@@ -46,7 +46,10 @@ export function BatchDetailPage({ batchId, basePath, preview = false }: { batchI
 
   useEffect(() => {
     const controller = new AbortController();
+    let loading = false;
     async function load() {
+      if (loading) return;
+      loading = true;
       try {
         if (preview) {
           const value = previewBatchDetails[batchId] || null;
@@ -62,15 +65,19 @@ export function BatchDetailPage({ batchId, basePath, preview = false }: { batchI
           setDetail(null);
           setDetailError(err instanceof Error ? err.message : "批次详情读取失败。");
         }
-      }
+      } finally { loading = false; }
     }
     void load();
-    return () => controller.abort();
+    const timer = preview ? null : window.setInterval(() => void load(), 5000);
+    return () => { controller.abort(); if (timer !== null) window.clearInterval(timer); };
   }, [batchId, preview, detailRetry]);
 
   useEffect(() => {
     const controller = new AbortController();
+    let loading = false;
     async function load() {
+      if (loading) return;
+      loading = true;
       try {
         if (preview) {
           const value = previewRuns(batchId, service, execution, sort, page);
@@ -88,10 +95,11 @@ export function BatchDetailPage({ batchId, basePath, preview = false }: { batchI
           setRunsData(null);
           setRunsError(err instanceof Error ? err.message : "批次运行读取失败。");
         }
-      }
+      } finally { loading = false; }
     }
     void load();
-    return () => controller.abort();
+    const timer = preview ? null : window.setInterval(() => void load(), 5000);
+    return () => { controller.abort(); if (timer !== null) window.clearInterval(timer); };
   }, [batchId, preview, service, execution, sort, page, runsRetry]);
 
   if (!detail) {
@@ -117,8 +125,8 @@ export function BatchDetailPage({ batchId, basePath, preview = false }: { batchI
     {preview && <PreviewNote />}
     <header className={styles.header}>
       <div>
-        <div className={styles.titleRow}><h1 id="batch-detail-title">{detail.batch.date} 夜间测评</h1><BatchStatus state={detail.batch.state} /></div>
-        <p className={styles.subtitle}>{sourceLabel(detail.batch.source)} · {detail.batch.services.length} 个服务 · 计划 {detail.batch.planned} 次 · 更新 {formatDateTime(detail.batch.updatedAt)}</p>
+        <div className={styles.titleRow}><h1 id="batch-detail-title">{detail.batch.date} {detail.batch.source === "manual" ? "手动组合测评" : "夜间测评"}</h1><BatchStatus state={detail.batch.state} /></div>
+        <p className={styles.subtitle}>{sourceLabel(detail.batch.source)} · {detail.batch.services.length} 个服务 · 计划 {detail.batch.planned} 次{detail.batch.scheme ? ` · 方案 ${detail.batch.scheme.name} v${detail.batch.scheme.version}` : ""} · 更新 {formatDateTime(detail.batch.updatedAt)}</p>
       </div>
       <div className={styles.headerActions}>
         <BackLink href={basePath}>返回批次列表</BackLink>
@@ -202,7 +210,7 @@ export function BatchDetailPage({ batchId, basePath, preview = false }: { batchI
               <span className={styles.runScores}><ScorePair deepSeek={run.scores.deepSeek} qwen={run.scores.qwen} /></span>
               <span className={styles.runTime}>{formatElapsed(run.elapsedMs)}</span>
               <span className={styles.runTime}>{formatDateTime(run.startedAt)}</span>
-              <span className={styles.runActions}>{preview ? <button type="button" className={styles.runAction} disabled title="界面预览：单题详情待接入">查看</button> : <Button href={`/runs/${run.runId}`} variant="ghost" size="sm">查看</Button>}</span>
+              <span className={styles.runActions}>{preview ? <button type="button" className={styles.runAction} disabled title="界面预览：单题详情待接入">查看</button> : <><Button href={`/runs/${run.runId}`} variant="ghost" size="sm">查看</Button>{run.comparisonGroupId && <Button href={`/compare/${encodeURIComponent(run.comparisonGroupId)}`} variant="ghost" size="sm">同题对比</Button>}</>}</span>
               </li>;
             })}
           </ul>

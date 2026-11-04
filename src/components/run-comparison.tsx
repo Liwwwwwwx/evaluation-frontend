@@ -4,6 +4,7 @@ import { AnswerMarkdown } from "@/components/answer-markdown";
 import { ConversationAnswer } from "@/components/conversation-answer";
 import { BackLink, StatusDot, type StatusTone } from "@/components/ui";
 import type { Comparison, ComparisonJudge, ComparisonRun } from "@/lib/comparison-preview";
+import { comparableJudge, totalOf } from "@/lib/comparison-validity";
 import styles from "./run-comparison.module.css";
 
 const judgeKeys = ["deepSeekScore", "qwenScore"] as const;
@@ -18,10 +19,6 @@ const judgeStateLabels: Record<string, string> = { pending: "评分中", failed:
 
 function number(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
-}
-
-function totalOf(value: ComparisonJudge) {
-  return value.status === "ready" ? number(value.quality?.total) : null;
 }
 
 function executionTone(status: string): StatusTone {
@@ -72,8 +69,9 @@ function DeltaCell({ left, right }: { left: number | null; right: number | null 
   return <b className={deltaClass(value)}>{text}</b>;
 }
 
-function JudgeTable({ judgeKey, runs, dimensionKeyList }: { judgeKey: (typeof judgeKeys)[number]; runs: ComparisonRun[]; dimensionKeyList: string[] }) {
+function JudgeTable({ judgeKey, runs, dimensionKeyList, preview }: { judgeKey: (typeof judgeKeys)[number]; runs: ComparisonRun[]; dimensionKeyList: string[]; preview: boolean }) {
   const items = runs.map((run) => run.scores[judgeKey]);
+  const comparable = comparableJudge(runs[0], runs[1], judgeKey, preview);
   return <div className={styles.tableWrap}>
     <table className={styles.table}>
       <caption className="sr-only">两家服务的 {judgeLabels[judgeKey]} 评分对比</caption>
@@ -82,7 +80,7 @@ function JudgeTable({ judgeKey, runs, dimensionKeyList }: { judgeKey: (typeof ju
         <tr className={styles.totalRow}>
           <th scope="row">总分</th>
           {items.map((item, index) => <td key={runs[index].runId}>{item.status === "ready" ? formatScore(totalOf(item)) : judgeStateLabels[item.status] || "状态未知"}</td>)}
-          <td><DeltaCell left={totalOf(items[0])} right={totalOf(items[1])} /></td>
+          <td>{comparable ? <DeltaCell left={totalOf(items[0])} right={totalOf(items[1])} /> : <span className={styles.na}>不可比</span>}</td>
         </tr>
         {dimensionKeyList.map((dimensionKey) => {
           const dimensions = items.map((item) => item.quality?.dimensions?.[dimensionKey]);
@@ -91,7 +89,7 @@ function JudgeTable({ judgeKey, runs, dimensionKeyList }: { judgeKey: (typeof ju
             {dimensions.map((dimension, index) => <td key={runs[index].runId}>{
               !dimension ? "缺少评分" : dimension.applicable === false ? "不适用" : number(dimension.score) === null ? "缺少评分" : `${dimension.score} / 100`
             }</td>)}
-            <td><DeltaCell left={number(dimensions[0]?.applicable === false ? null : dimensions[0]?.score)} right={number(dimensions[1]?.applicable === false ? null : dimensions[1]?.score)} /></td>
+            <td>{comparable ? <DeltaCell left={number(dimensions[0]?.applicable === false ? null : dimensions[0]?.score)} right={number(dimensions[1]?.applicable === false ? null : dimensions[1]?.score)} /> : <span className={styles.na}>不可比</span>}</td>
           </tr>;
         })}
         <tr>
@@ -178,7 +176,7 @@ export function RunComparison({ comparison, preview = false, backHref = "/runs",
       <p className={styles.note}>分差为「{left.serviceLabel} − {right.serviceLabel}」。两家模型独立评分，不取平均；百分制只表示回答质量，不代表科学真实性。</p>
       {judgeKeys.map((key) => <div className={styles.judgeBlock} key={key}>
         <div className={styles.judgeHead}><h3>{judgeLabels[key]}</h3><span>{comparison.runs[0].scores[key].model}</span></div>
-        <JudgeTable judgeKey={key} runs={comparison.runs} dimensionKeyList={dimensionKeyList} />
+        <JudgeTable judgeKey={key} runs={comparison.runs} dimensionKeyList={dimensionKeyList} preview={preview} />
         <div className={styles.findingsGrid}>
           {comparison.runs.map((run) => <div className={styles.findingCol} key={run.runId}>
             <h4>{run.serviceLabel}</h4>

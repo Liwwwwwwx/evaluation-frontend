@@ -1,4 +1,4 @@
-export type BatchSource = "trial" | "mission";
+export type BatchSource = "trial" | "mission" | "manual";
 export type BatchState = "preparing" | "dispatching" | "running" | "done" | "partial" | "failed";
 export type JudgeKey = "deepSeek" | "qwen";
 
@@ -48,6 +48,7 @@ export type RunBrief = {
   questionId: string | null;
   datasetVersion: string | null;
   question: string;
+  comparisonGroupId?: string | null;
   serviceKey: string;
   status: "queued" | "running" | "scoring" | "done" | "error" | "paused";
   execution: "completed" | "failed" | "timeout" | "unfinished";
@@ -78,6 +79,7 @@ export type BatchDetail = {
     planned: number;
     services: BatchServicePlan[];
     rule: { name: string | null; version: string | null; hash: string | null };
+    scheme?: { id: string; name: string; version: number } | null;
     startedAt: string | null;
     updatedAt: string;
     error: string | null;
@@ -129,6 +131,7 @@ export const SERVICE_LABELS: Record<string, string> = {
   alloy: "合金材料",
   synthesis: "合成制备",
   "new-material": "新材料",
+  "alpha-rsi": "ALPHA 材料 RSI（1110）",
 };
 
 export function serviceLabel(key: string) {
