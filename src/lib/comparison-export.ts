@@ -1,4 +1,6 @@
-import type { Comparison, ComparisonJudge, ComparisonRequirement, ComparisonRun } from "./comparison-preview";
+import type { Comparison, ComparisonRequirement, ComparisonRun } from "./comparison-preview";
+import { comparableJudge, totalOf } from "@/lib/comparison-validity";
+import { buildRunAnswerMarkdown } from "@/lib/run-markdown";
 
 type JudgeKey = "deepSeekScore" | "qwenScore";
 type RequirementRow = { label: string; left?: ComparisonRequirement; right?: ComparisonRequirement; same: boolean; winner: string };
@@ -8,17 +10,6 @@ const judgeLabels: Record<JudgeKey, string> = { deepSeekScore: "DeepSeek", qwenS
 const taskLabels: Record<string, string> = { completed: "已完成", partial: "部分完成", clarification: "请求补充信息", failed: "未完成", unclear: "无法确认" };
 const qualificationLabels: Record<string, string> = { qualified: "合格", not_qualified: "未合格", unclear: "无法判断" };
 const requirementLabels: Record<string, string> = { met: "满足", partial: "部分", missing: "缺失", unclear: "无法确认" };
-
-function cleanAnswer(value: string) {
-  return String(value || "")
-    .replace(/\[start\]|\[end\]/g, "")
-    .replace(/<<<CONTENT_(?:START|END):[^>]+>>>/g, "")
-    .replace(/<p[^>]*>\s*<img[^>]*alt="([^"]*)"[^>]*>\s*<\/p>/gi, "\n\n[图片：$1]\n\n")
-    .replace(/<img[^>]*alt="([^"]*)"[^>]*>/gi, "\n\n[图片：$1]\n\n")
-    .replace(/<[^>]+>/g, "")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-}
 
 function formatDate(value: string | null | undefined) {
   if (!value) return "未记录";
@@ -34,26 +25,6 @@ function formatElapsed(value: number | null) {
   return minutes >= 10 ? `${Math.round(minutes)} 分` : `${minutes.toFixed(1)} 分`;
 }
 
-function totalOf(judge: ComparisonJudge) {
-  const total = judge.quality?.total;
-  return judge.status === "ready" && typeof total === "number" && Number.isFinite(total) ? total : null;
-}
-
-function ruleHash(run: ComparisonRun) {
-  const native = run.run as { ruleSnapshot?: { hash?: unknown }; scoring?: { ruleSnapshot?: { hash?: unknown } } } | null;
-  const hash = native?.scoring?.ruleSnapshot?.hash || native?.ruleSnapshot?.hash;
-  return typeof hash === "string" && hash ? hash : null;
-}
-
-function comparable(left: ComparisonRun, right: ComparisonRun, key: JudgeKey) {
-  const a = left.scores[key];
-  const b = right.scores[key];
-  const sameRule = !!ruleHash(left) && ruleHash(left) === ruleHash(right);
-  return sameRule && left.executionStatus === "succeeded" && right.executionStatus === "succeeded"
-    && !left.answerTruncated && !right.answerTruncated
-    && !!a.model && a.model === b.model && totalOf(a) !== null && totalOf(b) !== null;
-}
-
 function rank(status: string) {
   return ({ met: 3, partial: 2, unclear: 1, missing: 0 } as Record<string, number>)[status] || 0;
 }
@@ -67,7 +38,7 @@ function normalize(value: string) {
   return value.trim().toLowerCase().replace(/[\s，。；：、,.!?;:()[\]【】]/g, "");
 }
 
-function mergeRows(left: ComparisonRun, right: ComparisonRun, key: JudgeKey): RequirementRow[] {
+function mergeRows(left: ComparisonRun, right: ComparisonRun, key: JudgeKey, comparable: boolean): RequirementRow[] {
   const map = new Map<string, RequirementRow>();
   const add = (item: ComparisonRequirement, side: "left" | "right") => {
     const id = normalize(item.requirement) || item.id;
@@ -82,6 +53,7 @@ function mergeRows(left: ComparisonRun, right: ComparisonRun, key: JudgeKey): Re
   for (const item of right.scores[key].quality?.taskCompletion?.requirements || []) add(item, "right");
   const rows = [...map.values()];
   for (const row of rows) {
+    if (!comparable) { row.winner = "不可比"; continue; }
     if (!row.left || !row.right) continue;
     row.same = rank(row.left.status) === rank(row.right.status);
     row.winner = compareRequirement(row.left.status, row.right.status);
@@ -163,7 +135,7 @@ export function buildServiceMarkdown(comparison: Comparison, run: ComparisonRun)
     "",
     "## 回答",
     "",
-    cleanAnswer(run.answer) || "（没有可显示的回答）",
+    buildRunAnswerMarkdown(run),
     "",
     ...(run.answerTruncated ? ["", "> 保存的回答已截断。"] : []),
     "",
@@ -181,16 +153,16 @@ export function buildServiceMarkdown(comparison: Comparison, run: ComparisonRun)
 export function buildComparisonMarkdown(comparison: Comparison, { preview = false }: { preview?: boolean } = {}) {
   const [left, right] = comparison.runs;
   if (!left || !right) return `# 对比测评\n\n对比组数据不完整。\n`;
-  const dsComparable = preview || comparable(left, right, "deepSeekScore");
-  const qwComparable = preview || comparable(left, right, "qwenScore");
+  const dsComparable = comparableJudge(left, right, "deepSeekScore", preview);
+  const qwComparable = comparableJudge(left, right, "qwenScore", preview);
   const dsDelta = dsComparable && totalOf(left.scores.deepSeekScore) !== null && totalOf(right.scores.deepSeekScore) !== null
     ? (totalOf(right.scores.deepSeekScore) as number) - (totalOf(left.scores.deepSeekScore) as number) : null;
   const qwDelta = qwComparable && totalOf(left.scores.qwenScore) !== null && totalOf(right.scores.qwenScore) !== null
     ? (totalOf(right.scores.qwenScore) as number) - (totalOf(left.scores.qwenScore) as number) : null;
   const leader = dsDelta !== null && qwDelta !== null && dsDelta > 0 && qwDelta > 0 ? right : dsDelta !== null && qwDelta !== null && dsDelta < 0 && qwDelta < 0 ? left : null;
   const bothFailed = dsComparable && qwComparable && [left, right].every((run) => judgeKeys.every((key) => run.scores[key].quality?.qualification?.status === "not_qualified"));
-  const dsRows = mergeRows(left, right, "deepSeekScore");
-  const commonGaps = dsRows.filter((row) => row.left && row.right && ["partial", "missing"].includes(row.left.status) && ["partial", "missing"].includes(row.right.status)).map((row) => row.label);
+  const dsRows = mergeRows(left, right, "deepSeekScore", dsComparable);
+  const commonGaps = (dsComparable ? dsRows : []).filter((row) => row.left && row.right && ["partial", "missing"].includes(row.left.status) && ["partial", "missing"].includes(row.right.status)).map((row) => row.label);
   const title = !dsComparable || !qwComparable ? "评分暂不可比较" : leader ? `${leader.serviceLabel} 总分领先${bothFailed ? "，但双方都未合格" : ""}` : dsDelta === 0 && qwDelta === 0 ? "两家评委总分持平" : "两家评委总分结论不一致";
   const lines = [
     "# 对比测评 · 对比内容",
@@ -221,7 +193,8 @@ export function buildComparisonMarkdown(comparison: Comparison, { preview = fals
     "",
   ];
   for (const key of judgeKeys) {
-    const rows = mergeRows(left, right, key);
+    const comparable = comparableJudge(left, right, key, preview);
+    const rows = mergeRows(left, right, key, comparable);
     lines.push(`### ${judgeLabels[key]}`, "");
     lines.push("| 要求 | " + left.serviceLabel + " | " + right.serviceLabel + " | 判断 |");
     lines.push("| --- | --- | --- | --- |");
@@ -238,7 +211,7 @@ export function buildComparisonMarkdown(comparison: Comparison, { preview = fals
       const r = right.scores[key].quality?.dimensions?.[id];
       const lScore = typeof l?.score === "number" ? l.score : null;
       const rScore = typeof r?.score === "number" ? r.score : null;
-      const delta = lScore !== null && rScore !== null ? rScore - lScore : null;
+      const delta = comparable && l?.applicable !== false && r?.applicable !== false && lScore !== null && rScore !== null && Number.isFinite(lScore) && Number.isFinite(rScore) ? rScore - lScore : null;
       lines.push(`| ${l?.label || r?.label || id} | ${lScore ?? "—"} / 100 | ${rScore ?? "—"} / 100 | ${delta === null ? "不可比" : `${delta > 0 ? "+" : ""}${delta.toFixed(1)}`} |`);
     }
     lines.push("");

@@ -113,9 +113,13 @@ function GapBlock({ run, judgeKey }: { run: ComparisonRun; judgeKey: JudgeKey })
   </div>;
 }
 
+function executionTone(status: string): StatusTone {
+  return status === "succeeded" ? "success" : status === "queued" || status === "running" ? "info" : status === "cancelled" ? "neutral" : "danger";
+}
+
 function ServiceSummaryBlock({ run }: { run: ComparisonRun }) {
   return <div className={styles.serviceBlock}>
-    <div className={styles.serviceInfo}><strong>{run.serviceLabel}</strong><span>{formatElapsed(run.elapsedMs)} · {qualificationSummary(run)}</span></div>
+    <div className={styles.serviceInfo}><strong>{run.serviceLabel}</strong><span><StatusDot tone={executionTone(run.executionStatus)}>{executionLabels[run.executionStatus] || "状态未知"}</StatusDot> · {formatElapsed(run.elapsedMs)} · {qualificationSummary(run)}</span>{run.error && <span role="alert">执行错误：{run.error}</span>}</div>
     <div className={styles.scoreLine}>{judgeKeys.map((key) => <span key={key}><em>{judgeLabels[key]}</em><b>{scoreShort(run.scores[key])}</b></span>)}</div>
   </div>;
 }
