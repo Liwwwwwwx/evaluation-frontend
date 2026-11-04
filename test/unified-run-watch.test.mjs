@@ -50,6 +50,14 @@ test('状态、评分与结束实时更新，结束后补读权限且停止继�
   t.mock.timers.tick(60000); await flush(); assert.equal(reads, 2);
 });
 
+test('自动补充重新发起时替换首轮正文，新一轮增量不与旧内容混合', async t => {
+  const live = stream(); const states = [];
+  const stop = watchLiveUnifiedRun(id, { onData: value => states.push(value), onError: assert.fail, request: async url => url.endsWith('/events') ? live.response() : Response.json(snapshot({answer:'首轮追问'})) }); t.after(stop);
+  await flush(); live.push('answer_reset', {runId:id}); live.push('text', {runId:id,delta:'新一轮结果'}); await flush();
+  assert.equal(states.at(-1).answer, '新一轮结果');
+  stop(); live.close(); await flush();
+});
+
 test('状态变化通知侧栏，正文增量和相同状态不会重复通知', async t => {
   t.mock.timers.enable({ apis: ['setTimeout'] });
   const originalWindow = globalThis.window;

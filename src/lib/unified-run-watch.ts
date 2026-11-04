@@ -60,6 +60,8 @@ export function watchLiveUnifiedRun(runId: string, {
           if (data.live === false) ended = true;
         } else if (event === "text" && typeof data.delta === "string") {
           update({ ...current, answer: current.answer + data.delta });
+        } else if (event === "answer_reset") {
+          update({ ...current, answer: "", answerTruncated: false });
         } else if (event === "execution") {
           update({ ...current, status: "running", executionStatus: "running" });
         } else if (event === "state") {

@@ -96,6 +96,22 @@ test('自动补充条件可回看，等待状态使用中文', () => {
   assert.match(html, /test-model/); assert.match(html, /假设温度为 900°C/);
 });
 
+test('历史等待结果即使没有可回复连接，也展示服务追问及缺失条件', () => {
+  const html = render({ result: { status:'waiting_for_input', user_conclusion:'请补充明确的材料体系。', requirement_interpretation:{questions_to_confirm:['当前已接入的材料体系'],missing_required_inputs:[{label:'当前已接入的材料体系'}]} } });
+  assert.match(html, /服务追问/); assert.match(html, /请补充明确的材料体系/); assert.match(html, /当前已接入的材料体系/);
+  assert.match(html, /原连接已结束/); assert.doesNotMatch(html, /提交答复/);
+});
+
+test('自动重试记录展示首轮追问、模型补充和重试后继续等待的请求', () => {
+  const html = render({ autoRetry: { state:'failed', taskId:'second', title:'请补充体系', questions:['材料类型'], message:'假设为高熵合金。', model:'test-model', previousAnswer:'首轮内容' }, result:{ status:'waiting_for_input', user_conclusion:'请补充工艺' } });
+  for (const value of ['请补充体系','材料类型','假设为高熵合金','test-model','首轮内容','重试后服务仍要求补充','请补充工艺']) assert.ok(html.includes(value), value);
+});
+
+test('协议追问即使自动答复也保留问题供查看', () => {
+  const html = render({ protocolFrames:[{ type:'user_input_request', request_id:'r1', parameters:{reason:'requirements'}, message:'请补充温度', data:{questions:['温度是多少？']} }], review:[{source:'automatic',action:'apply',delivery:'sent',answers:[{answer:'假设为室温。'}]}] });
+  for (const value of ['请补充温度','温度是多少','假设为室温']) assert.ok(html.includes(value), value);
+});
+
 const { resultCandidates, compositionSummary, scalar } = await import(loadSource('../src/lib/structured-results.ts'));
 const { StructuredValue } = await import(loadSource('../src/components/structured-value.tsx'));
 
