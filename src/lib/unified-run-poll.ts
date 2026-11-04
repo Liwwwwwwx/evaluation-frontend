@@ -3,7 +3,7 @@ export type UnifiedRunSnapshot = {
   executionStatus?: string; scoringStatus?: string; answerTruncated: boolean;
   run: unknown; scores: unknown; scoreError: string | null; error: string | null;
   recoveryState?: string; canReply?: boolean; canEnd?: boolean; canRescore?: boolean; canRerun?: boolean; rerunPreservesOutput?: boolean; persistenceError?: boolean;
-  origin: string; questionId: string | null; datasetVersion: string | null;
+  origin: string; questionId: string | null; datasetVersion: string | null; comparisonGroupId?: string | null;
   startedAt?: string | null; finishedAt?: string | null;
 };
 

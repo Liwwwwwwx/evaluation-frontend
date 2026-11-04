@@ -10,7 +10,7 @@ import { buildRunMarkdown, runMarkdownFilename } from "@/lib/run-markdown";
 import { isUncertainRun, runStatusLabel } from "@/lib/run-status";
 import Link from "next/link";
 
-type Run = { runId: string; serviceKey: string; origin: string; question: string; status: string; recoveryState?: string; startedAt: string | null; domainKey?: string | null; canRescore?: boolean; scores?: ScoreSummaryValue };
+type Run = { runId: string; serviceKey: string; origin: string; question: string; status: string; recoveryState?: string; startedAt: string | null; domainKey?: string | null; comparisonGroupId?: string | null; canRescore?: boolean; scores?: ScoreSummaryValue };
 type MenuState = { run: Run; top: number; left: number; trigger: HTMLButtonElement };
 const names: Record<string, string> = { "mission-material": "Mission 主服务", "alpha-rsi": "ALPHA 材料 RSI（1110）", alloy: "合金材料", literature: "文献检索", "literature-aircraft": "航空文献", synthesis: "合成制备", "new-material": "新材料" };
 const origins: Record<string, string> = { manual: "人工对话", automation: "自动化", legacy: "其他入口" };
@@ -39,12 +39,13 @@ function RunRow({ run, menuOpen, onMenu }: { run: Run; menuOpen: boolean; onMenu
     <Link className="run-row-link" href={`/runs/${run.runId}`} title={run.question} aria-label={`查看运行：${run.question}`} />
     <span className="run-row-main">
       <strong className="run-row-question">{run.question || "未命名题目"}</strong>
-      <span className="run-row-meta">{service} · {domainLabel(run.domainKey)} · {origin}<span className="run-row-inline-time"> · {started}</span></span>
+      <span className="run-row-meta">{service} · {domainLabel(run.domainKey)} · {origin}{run.comparisonGroupId && " · 双服务对比"}<span className="run-row-inline-time"> · {started}</span></span>
     </span>
     <span className="run-row-status"><StatusDot tone={uncertain ? "neutral" : statusTone(run.status)}>{status}</StatusDot></span>
     <span className="run-row-score"><ScoreSummary scores={run.scores} /></span>
     <time className="run-row-time" dateTime={run.startedAt || undefined}>{started}</time>
     <span className="run-row-actions">
+      {run.comparisonGroupId && <Link className="run-comparison-link" href={`/compare/${encodeURIComponent(run.comparisonGroupId)}`} aria-label={`查看双服务对比：${run.question}`}>对比</Link>}
       <button type="button" className="run-action-button" aria-haspopup="menu" aria-expanded={menuOpen} aria-label={`更多操作：${run.question}`} onClick={(event) => onMenu(event, run)}>
         <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.6" /><circle cx="12" cy="12" r="1.6" /><circle cx="19" cy="12" r="1.6" /></svg>
       </button>
@@ -197,6 +198,7 @@ export function UnifiedRunList() {
     {error ? <EmptyState state="error" title={error} action={<Button type="button" variant="secondary" onClick={() => setRetry((value) => value + 1)}>重试</Button>} /> : !data ? <EmptyState state="loading" title="正在读取运行记录…" /> : data.total === 0 ? <EmptyState state="empty" title={filtersActive ? "没有匹配的运行记录。" : "暂无统一运行记录。"} action={filtersActive ? <Button type="button" variant="secondary" onClick={resetFilters}>清除筛选</Button> : undefined} /> : <><div className="runs-list-wrap"><div className="runs-list-head" aria-hidden="true"><span>题目</span><span>状态</span><span>评分</span><span>开始时间</span><span>操作</span></div><ul className="runs-list" aria-label="运行记录">{data.items.map((run) => <RunRow key={run.runId} run={run} menuOpen={menu?.run.runId === run.runId} onMenu={toggleMenu} />)}</ul></div><Pagination page={page} pages={pages} total={data.total} pageSize={20} onPageChange={(next) => { setData(null); setPage(next); }} /></>}
     {menu && <div ref={menuRef} className="run-action-menu" role="menu" style={{ top: menu.top, left: menu.left }}>
       <Link className="run-action-item" role="menuitem" href={`/runs/${menu.run.runId}`} onClick={() => setMenu(null)}><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14m-6-6 6 6-6 6" /></svg><span>查看详情</span></Link>
+      {menu.run.comparisonGroupId && <Link className="run-action-item" role="menuitem" href={`/compare/${encodeURIComponent(menu.run.comparisonGroupId)}`} onClick={() => setMenu(null)}><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M5 7h14M5 17h14M9 4 6 7l3 3m6 4 3 3-3 3" /></svg><span>查看双服务对比</span></Link>}
       <button type="button" className="run-action-item" role="menuitem" onClick={() => void copyQuestion(menu.run)}><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15V5h10" /></svg><span>复制题目</span></button>
       {menu.run.canRescore && <button type="button" className="run-action-item" role="menuitem" disabled={rescoring === menu.run.runId} onClick={() => void rescore(menu.run)}><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M20 7v5h-5M4 17v-5h5" /><path d="M6.1 7a7 7 0 0 1 11.6-1L20 9M4 15l2.3 3A7 7 0 0 0 17.9 17" /></svg><span>{rescoring === menu.run.runId ? "正在提交…" : "重新评分"}</span></button>}
       <button type="button" className="run-action-item" role="menuitem" onClick={() => void exportMarkdown(menu.run)}><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M12 4v11m-4-4 4 4 4-4M5 20h14" /></svg><span>导出 Markdown</span></button>

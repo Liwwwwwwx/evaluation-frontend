@@ -9,7 +9,7 @@
     "lint": "eslint",
     "type-check": "tsc --noEmit",
     "test:markdown": "node --test test/answer-markdown.test.mjs",
-    "test:services": "node --test test/run-service-details.test.mjs test/unified-run-recovery.test.mjs test/evaluation-services.test.mjs test/unified-run-watch.test.mjs test/conversation-answer.test.mjs",
+    "test:services": "node --test test/run-service-details.test.mjs test/unified-run-recovery.test.mjs test/evaluation-services.test.mjs test/unified-run-watch.test.mjs test/conversation-answer.test.mjs test/comparison-export.test.mjs",
     "test:scoring": "node --test test/scoring.test.mjs",
     "test:theme": "node --test test/theme.test.mjs"
   },

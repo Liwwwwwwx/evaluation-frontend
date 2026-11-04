@@ -6,7 +6,7 @@ import { UnifiedScores } from "@/components/unified-scores";
 import { EndRunButton } from "@/components/end-run-button";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { ConversationAnswer } from "@/components/conversation-answer";
-import { Button, Dialog, EmptyState, InlineAlert, Pagination, Select } from "@/components/ui";
+import { Button, Dialog, EmptyState, InlineAlert, Pagination, Select, ToastStack, useToasts } from "@/components/ui";
 import { createUnifiedRun } from "@/lib/unified-run-request";
 import { watchLiveUnifiedRun } from "@/lib/unified-run-watch";
 import { availableEvaluationServices, evaluationServiceCatalog, isEvaluationService, preferredEvaluationService } from "@/lib/evaluation-services";
@@ -71,6 +71,7 @@ export function Evaluate() {
   const [domain, setDomain] = useState("");
   const [bankSource, setBankSource] = useState("");
   const [randomBusy, setRandomBusy] = useState(false);
+  const { toasts, push: pushToast, dismiss: dismissToast } = useToasts();
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [run, setRun] = useState<{ id: string; question: string; service: string; answer: string; status: string; executionStatus?: string; scoringStatus?: string; result: unknown; scores: unknown; scoreError: string; truncated: boolean; snapshotOnly?: boolean; canReply?: boolean; canEnd?: boolean } | null>(null);
@@ -254,17 +255,21 @@ export function Evaluate() {
     setRandomBusy(true);
     setSubmitError("");
     try {
-      const first = await jsonRequest(bankUrl(service, { limit: "1", offset: "0", ...(domain ? { domain } : {}), ...(bankSource ? { source: bankSource } : {}) }));
-      const count = Number(first.total);
-      if (!Number.isFinite(count) || count < 1) throw new Error("题库中还没有适用于当前服务的题目。");
-      const offset = Math.floor(Math.random() * count);
-      const data = offset === 0 ? first : await jsonRequest(bankUrl(service, { limit: "1", offset: String(offset), ...(domain ? { domain } : {}), ...(bankSource ? { source: bankSource } : {}) }));
-      const row = data.items?.[0] as BankQuestion | undefined;
-      if (!row) throw new Error("没有取到可用题目，请重试。");
-      setDraft(row.question);
-      setSource(row);
+      const data = await jsonRequest("/api/question-bank/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ generationMode: "service", serviceKey: service, count: 1, focus: "general" }),
+      });
+      const row = data?.items?.[0];
+      const generatedMax = service === "synthesis" ? 200 : MAX;
+      if (!row || row.serviceKey !== service || typeof row.question !== "string" || row.question.trim().length < MIN || row.question.trim().length > generatedMax) {
+        throw new Error("生成结果不符合当前服务或字数要求，请重试。");
+      }
+      setDraft(row.question.trim());
+      setSource(null);
+      pushToast("success", "已生成随机题");
     } catch (error) {
-      setSubmitError(message(error));
+      pushToast("error", message(error));
     } finally {
       setRandomBusy(false);
     }
@@ -402,6 +407,7 @@ export function Evaluate() {
         ) : null}
         <p className="eval-hint">{recovering ? "正在恢复最近一次运行…" : submitting ? "正在创建运行，请勿重复提交。" : "每次运行保留题目、回答及评分状态。"}</p>
       </div>
+      <ToastStack toasts={toasts} onDismiss={dismissToast} />
 
       <Dialog
         open={pickerOpen}
