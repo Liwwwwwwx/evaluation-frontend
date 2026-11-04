@@ -35,6 +35,8 @@ export type BatchSummary = {
   source: BatchSource;
   state: BatchState;
   rawState: string;
+  scheme?: { id: string; name: string; version: number } | null;
+  error?: string | null;
   planned: number;
   services: BatchServicePlan[];
   totals: BatchTotals;

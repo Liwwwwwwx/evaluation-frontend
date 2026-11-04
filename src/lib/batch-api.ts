@@ -20,9 +20,9 @@ async function read<T>(url: string, signal?: AbortSignal): Promise<T> {
   return value as T;
 }
 
-export async function fetchBatchList(params: { source?: string; state?: string; from?: string; to?: string; page: number; pageSize: number }, signal?: AbortSignal) {
+export async function fetchBatchList(params: { source?: string; state?: string; from?: string; to?: string; schemeId?: string; page: number; pageSize: number }, signal?: AbortSignal) {
   const queryString = query(params);
-  return read<{ items: BatchSummary[]; total: number; page: number; pageSize: number; storageReady: boolean }>(`${BASE}${queryString ? `?${queryString}` : ""}`, signal);
+  return read<{ items: BatchSummary[]; total: number; page: number; pageSize: number; storageReady: boolean; schemeFilterApplied?: boolean }>(`${BASE}${queryString ? `?${queryString}` : ""}`, signal);
 }
 
 export async function fetchBatchDetail(batchId: string, signal?: AbortSignal) {

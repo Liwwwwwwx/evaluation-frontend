@@ -49,19 +49,33 @@ export function DailyReportList({ embedded = false }: { embedded?: boolean } = {
     {error && <InlineAlert tone="danger" action={<Button type="button" variant="secondary" onClick={() => setRetry(v => v + 1)}>重试</Button>}>{error}</InlineAlert>}
     {!data && !error && <EmptyState state="loading" title="正在读取测评日报…" />}
     {data && <>
-      <p className={styles.muted}>自动汇总{data.enabled ? "已启用" : "暂停"} · 优先使用 {data.preferred === "qwen" ? "千问" : "DeepSeek"}{!data.configured && " · 汇总模型未配置"}</p>
+      <div className={styles.statusRow}>
+        <p className={styles.muted} title="日期按北京时间当晚 22:00 起的测评归属。仅统计已保存的自动运行；迟到结果会在自动汇总启用后更新。">自动汇总{data.enabled ? "已启用" : "暂停"} · 优先使用 {data.preferred === "qwen" ? "千问" : "DeepSeek"}{!data.configured && " · 汇总模型未配置"}</p>
+        {embedded && <Button className={styles.barAction} variant="secondary" onClick={() => setRetry(v => v + 1)}>刷新</Button>}
+      </div>
       {!data.storageReady ? <InlineAlert tone="warning">每日报告存储尚未启用，需要先完成数据库迁移。</InlineAlert> : <>
         {data.canGenerate && <form className={styles.form} onSubmit={event => { event.preventDefault(); void submit(); }}><label>测评日期<input type="date" value={date} required onChange={event => setDate(event.target.value)} /></label><Button type="submit" variant="primary" disabled={!date || submitting}>{submitting ? "正在提交…" : "生成该日总结"}</Button></form>}
-        <p className={styles.muted}>日期按北京时间当晚 22:00 起的测评归属。仅统计已保存的自动运行；迟到结果会在自动汇总启用后更新。</p>
-        {data.items.length === 0 ? <EmptyState state="empty" title="暂无测评日报。" description="自动测评结束后会生成报告，也可在具备权限时选择日期生成。" /> : <ul className={styles.list}>{data.items.map(item => <li key={item.date}><Link href={`/daily-reports/${item.date}`}><strong>{item.date}</strong><span>{states[item.status] || "状态未知"} · {analysisStates[item.analysisState] || "状态未知"}</span><span>已记录 {item.total} 次 · 执行完成 {item.completed} 次 · 未完成 {item.unfinished} 次</span></Link></li>)}</ul>}
-        {data.total > 0 && <Pagination page={page} pages={Math.ceil(data.total / 20)} total={data.total} pageSize={20} onPageChange={setPage} />}
+        {!embedded && <p className={`${styles.muted} ${styles.note}`}>日期按北京时间当晚 22:00 起的测评归属。仅统计已保存的自动运行；迟到结果会在自动汇总启用后更新。</p>}
+        <div className={styles.listArea}>
+        {data.items.length === 0 ? <EmptyState state="empty" title="暂无测评日报。" description="自动测评结束后会生成报告，也可在具备权限时选择日期生成。" /> : <ul className={styles.list}>{data.items.map(item => <li key={item.date} className={styles.reportCard}>
+          <Link className={styles.reportLink} href={`/daily-reports/${item.date}`} aria-label={`查看 ${item.date} 测评日报`} />
+          <div className={styles.reportHead}>
+            <strong>{item.date}</strong>
+            <span className={styles.reportState} data-state={item.status}><i aria-hidden="true" />{states[item.status] || "状态未知"} · {analysisStates[item.analysisState] || "状态未知"}</span>
+          </div>
+          <div className={styles.reportStats}>
+            <span><b>{item.total}</b> 已记录</span>
+            <span><b>{item.completed}</b> 执行完成</span>
+            <span><b>{item.unfinished}</b> 未完成</span>
+          </div>
+          <div className={styles.reportFoot}><Button variant="secondary" size="sm" href={`/daily-reports/${item.date}`}>查看日报</Button></div>
+        </li>)}</ul>}
+        </div>
+        <Pagination page={page} pages={Math.max(1, Math.ceil(data.total / 20))} total={data.total} pageSize={20} onPageChange={setPage} />
       </>}
     </>}
   </>;
-  if (embedded) return <div className={`${styles.page} ${styles.embedded}`}>
-    <div className={styles.embedHead}><Button variant="secondary" onClick={() => setRetry(v => v + 1)}>刷新</Button></div>
-    {content}
-  </div>;
+  if (embedded) return <div className={`${styles.page} ${styles.embedded}`}>{content}</div>;
   return <main className={styles.page}>
     <header className={styles.header}><div><h1>测评日报</h1><p>汇总夜间自动测评，查看各服务表现与主要问题。</p></div><Button variant="secondary" onClick={() => setRetry(v => v + 1)}>刷新</Button></header>
     {content}
