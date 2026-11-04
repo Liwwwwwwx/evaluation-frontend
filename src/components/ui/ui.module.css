@@ -708,6 +708,7 @@
   gap: 4px;
   max-width: 100%;
   overflow-x: auto;
+  overflow-y: hidden;
 }
 
 .tabs[data-variant="underline"] {
@@ -859,6 +860,16 @@
   margin-top: 24px;
 }
 
+.dialogFooterSticky {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  margin: 16px -24px -24px;
+  padding: 12px 24px;
+  background: var(--color-bg);
+  border-top: 1px solid var(--color-border);
+}
+
 .dialogFooterStart {
   min-width: 0;
   margin-right: auto;
@@ -958,6 +969,11 @@
     flex-direction: column-reverse;
     align-items: stretch;
     gap: 12px;
+  }
+
+  .dialogFooterSticky {
+    margin: 16px -16px -20px;
+    padding: 12px 16px;
   }
 
   .dialogFooterStart {

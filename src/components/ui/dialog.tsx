@@ -18,9 +18,10 @@ type DialogProps = {
   className?: string;
   contentClassName?: string;
   headerActions?: ReactNode;
+  footerSticky?: boolean;
 };
 
-export function Dialog({ open, onClose, title, description, children, footer, footerStart, busy = false, closeLabel = "关闭", className, contentClassName, headerActions }: DialogProps) {
+export function Dialog({ open, onClose, title, description, children, footer, footerStart, busy = false, closeLabel = "关闭", className, contentClassName, headerActions, footerSticky = false }: DialogProps) {
   const dialog = useRef<HTMLDialogElement>(null);
   const restore = useRef<HTMLElement | null>(null);
   const titleId = useId();
@@ -64,7 +65,7 @@ export function Dialog({ open, onClose, title, description, children, footer, fo
         <button type="button" className={styles.dialogClose} aria-label={closeLabel} disabled={busy} onClick={onClose}><CloseIcon /></button>
       </div>
       {children}
-      {(footer || footerStart) && <div className={styles.dialogFooter}>
+      {(footer || footerStart) && <div className={[styles.dialogFooter, footerSticky && styles.dialogFooterSticky].filter(Boolean).join(" ")}>
         {footerStart && <div className={styles.dialogFooterStart}>{footerStart}</div>}
         {footer && <div className={styles.dialogActions}>{footer}</div>}
       </div>}

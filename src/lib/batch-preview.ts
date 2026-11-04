@@ -325,3 +325,77 @@ export function previewComparisonFor(batchId: string): BatchComparison {
   };
 }
 
+
+type PreviewScheme = {
+  id: string;
+  name: string;
+  version: number;
+  createdBy: string | null;
+  isNightly: boolean;
+  updatedAt: string;
+  config: {
+    pools: { aviation: number; synthesis: number };
+    services: Record<string, { aviation: number; synthesis: number }>;
+    compareSynthesisAlpha: boolean;
+  };
+};
+
+export const previewSchemeCatalog: {
+  userId: string;
+  canManage: boolean;
+  canSetNightly: boolean;
+  canRun: boolean;
+  storageReady: boolean;
+  nightlyEnabled: boolean | null;
+  nightly: { name: string; version: number } | null;
+  items: PreviewScheme[];
+} = {
+  userId: "preview-user",
+  canManage: true,
+  canSetNightly: true,
+  canRun: true,
+  storageReady: true,
+  nightlyEnabled: true,
+  nightly: { name: "基础夜间方案", version: 2 },
+  items: [
+    {
+      id: "preview-scheme-own",
+      name: "我的测评方案",
+      version: 3,
+      createdBy: "preview-user",
+      isNightly: false,
+      updatedAt: "2026-11-02T23:42:00+08:00",
+      config: {
+        pools: { aviation: 4, synthesis: 4 },
+        services: { "mission-material": { aviation: 4, synthesis: 0 }, synthesis: { aviation: 0, synthesis: 4 } },
+        compareSynthesisAlpha: true,
+      },
+    },
+    {
+      id: "preview-scheme-nightly",
+      name: "基础夜间方案",
+      version: 2,
+      createdBy: "admin",
+      isNightly: true,
+      updatedAt: "2026-11-01T02:05:00+08:00",
+      config: {
+        pools: { aviation: 20, synthesis: 20 },
+        services: { "mission-material": { aviation: 10, synthesis: 0 }, literature: { aviation: 10, synthesis: 0 }, synthesis: { aviation: 0, synthesis: 20 } },
+        compareSynthesisAlpha: true,
+      },
+    },
+    {
+      id: "preview-scheme-team",
+      name: "服务覆盖复测",
+      version: 1,
+      createdBy: "teammate",
+      isNightly: false,
+      updatedAt: "2026-10-30T18:20:00+08:00",
+      config: {
+        pools: { aviation: 6, synthesis: 2 },
+        services: { alloy: { aviation: 3, synthesis: 0 }, "new-material": { aviation: 3, synthesis: 2 } },
+        compareSynthesisAlpha: false,
+      },
+    },
+  ],
+};
