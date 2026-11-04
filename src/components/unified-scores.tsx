@@ -69,6 +69,36 @@ function FindingList({ label, items }: { label: string; items: string[] }) {
   return <div className="score-findings"><strong>{label}</strong><ul>{items.map((item, index) => <li key={index}>{item}</li>)}</ul></div>;
 }
 
+function ScoringCriteria({ scoring, scores }: { scoring: RecordValue | null; scores: RecordValue | null }) {
+  const rubric = object(scoring?.rubric); const rule = object(scoring?.ruleSnapshot); const config = object(rule?.config);
+  const judges = [["DeepSeek", object(scores?.deepSeekScore)], ["千问", object(scores?.qwenScore)]] as const;
+  const assessments = judges.map(([name, item]) => ({ name, item, requirements: Array.isArray(object(object(item?.quality)?.taskCompletion)?.requirements) ? object(object(item?.quality)?.taskCompletion)?.requirements as unknown[] : [] }));
+  const stored = Array.isArray(rubric?.requirements) ? rubric.requirements.map(object).filter((item): item is RecordValue => !!item && !!text(item.requirement)) : [];
+  const recovered = assessments.flatMap(judge => judge.requirements.map(object).filter((item): item is RecordValue => !!item && !!text(item.requirement)));
+  const seen = new Set<string>();
+  const requirements = (stored.length ? stored : recovered).filter(item => { const key = text(item.id) || text(item.requirement); if (seen.has(key)) return false; seen.add(key); return true; });
+  const weights = object(config?.weights);
+  const hasRule = !!rule && (!!text(rule.name) || !!config);
+  const pending = judges.some(([, item]) => item?.status === "pending");
+  return <details className="score-criteria">
+    <summary>查看本次评判标准</summary>
+    <div className="score-criteria-content">
+      {hasRule && <div><strong>本轮评分规则</strong>{text(rule?.name) && <p>{text(rule?.name)}{rule?.id === "builtin-v1" ? " · 内置规则" : typeof rule?.version === "number" ? ` · 版本 ${rule.version}` : ""}</p>}
+        {weights && <p>原始权重：{[["可读性", weights.readability], ["专业性", weights.professionalism], ["图文辅助", weights.visualAids]].filter(([, value]) => typeof value === "number" && Number.isFinite(value)).map(([label, value]) => `${label} ${value}%`).join(" · ")}。图文不适用时，其余维度按比例分配。</p>}
+        {typeof config?.passScore === "number" && Number.isFinite(config.passScore) && <p>合格线 {config.passScore} 分；关键要求未满足、交付不完整或启用的格式门槛未通过，也可能未达标。</p>}
+        {text(config?.contentInstructions) && <p>内容评分：{text(config?.contentInstructions)}</p>}{text(config?.completionInstructions) && <p>交付标准：{text(config?.completionInstructions)}</p>}
+      </div>}
+      {requirements.length > 0 ? <div><strong>本题要求</strong>{!stored.length && <p>根据本轮已保存的评委结果展示，可能不完整。</p>}
+        <ul>{requirements.map((requirement, index) => <li key={text(requirement.id) || index}><span>{text(requirement.requirement)}</span>{requirement.critical === true && <span>（关键要求）</span>}
+          {assessments.filter(judge => judge.item?.status === "ready").map(judge => { const result = judge.requirements.map(object).find(item => item && (text(requirement.id) ? item.id === requirement.id : item.requirement === requirement.requirement)); return <p key={judge.name}>{judge.name}：{result ? requirementStates[text(result.status)] || "状态未知" : "未列出"}{text(result?.note) && ` — ${text(result?.note)}`}</p>; })}
+        </li>)}</ul>
+      </div> : <p>{pending ? "本题要求尚在生成。" : "本次记录未保存题目要求，无法展示。"}</p>}
+      {typeof rubric?.visualAidsApplicable === "boolean" && <p>图文辅助：{rubric.visualAidsApplicable ? "适用" : "不适用"}{text(rubric.visualAidsReason) && ` — ${text(rubric.visualAidsReason)}`}</p>}
+      <p>题目要求由模型提取，评委判断未做独立科学核验。</p>
+    </div>
+  </details>;
+}
+
 function JudgeCard({ value, name }: { value: unknown; name: string }) {
   const item = object(value); const quality = object(item?.quality); const ready = item?.status === "ready" && quality?.version === "evaluation-v1";
   const total = quality?.total; const score = typeof total === "number" && Number.isFinite(total) && total >= 0 && total <= 100 ? total : null;
@@ -78,12 +108,23 @@ function JudgeCard({ value, name }: { value: unknown; name: string }) {
   const gaps = stringList(quality?.gaps); const suggestions = stringList(quality?.suggestions);
   const truncated = object(quality?.source)?.truncated === true;
   const state = states[text(item?.status)] || "无评分";
+  const failures: string[] = [];
+  if (qualification?.status === "not_qualified") {
+    if (score !== null && typeof qualification.passScore === "number" && score < qualification.passScore) failures.push(`总分低于合格线 ${qualification.passScore} 分。`);
+    for (const value of Array.isArray(task?.requirements) ? task.requirements : []) {
+      const requirement = object(value);
+      if (requirement?.critical === true && ["missing", "partial"].includes(text(requirement.status)) && text(requirement.requirement)) failures.push(`关键要求${requirement.status === "partial" ? "部分满足" : "缺失"}：${text(requirement.requirement)}`);
+    }
+    if (["partial", "failed"].includes(text(task?.status))) failures.push(`任务完成度为${taskStates[text(task?.status)]}。`);
+    if (qualification.markdownGate === true && quality?.markdownStatus === "failed") failures.push("已启用的 Markdown 门槛未通过。");
+  }
   return <article className="score-card">
     <div className="score-card-head"><strong className="score-card-name">{name}</strong><span className="score-card-state">{ready && score !== null ? (truncated ? "参考分" : "评分完成") : state}</span></div>
     {ready && score !== null && <div className="score-number"><strong>{score}</strong><span> / 100</span></div>}
     {ready && score === null && <p className="run-score-note">评分结果缺少有效的总分。</p>}
     {ready && task && <p className="score-card-task">任务完成度 · {taskStates[text(task.status)] || "无法确认"}</p>}
     {ready && qualification && <p className="score-card-task">内容判定 · {qualificationStates[text(qualification.status)] || "无法判断"}{typeof qualification.passScore === "number" && Number.isFinite(qualification.passScore) ? ` · 合格线 ${Number(qualification.passScore)} 分` : ""}</p>}
+    {ready && qualification?.status === "not_qualified" && <div className="score-qualification"><strong>未达标原因</strong>{failures.length ? <ul>{failures.map((reason, index) => <li key={index}>{reason}</li>)}</ul> : <p>当前记录未保存可明确展示的触发原因，请核对本次评判标准与评委结果。</p>}</div>}
     {ready && dimensions && <div className="score-visual">{Object.entries(dimensions).map(([key, v]) => { const d = object(v); if (!d) return null; const applicable = d.applicable !== false; const dimScore = typeof d.score === "number" && Number.isFinite(d.score) ? d.score : null; const weight = typeof d.weight === "number" && Number.isFinite(d.weight) ? Math.round(Number(d.weight) * 100) : null; return <div className="score-visual-row" key={key}><span className="score-visual-label">{text(d.label) || key}{weight !== null ? ` · ${weight}%` : ""}</span><span className="score-visual-value">{!applicable ? "不适用" : dimScore !== null ? `${dimScore} / 100` : "缺少评分"}</span>{applicable && dimScore !== null && <span className="score-visual-bar" aria-hidden="true"><i style={{ width: `${Math.max(0, Math.min(100, dimScore))}%` }} /></span>}{applicable && text(d.note) && <span className="score-visual-note">{text(d.note)}</span>}</div>; })}</div>}
     {ready && gaps.length > 0 && <FindingList label="扣分原因" items={gaps} />}
     {ready && suggestions.length > 0 && <FindingList label="改进建议" items={suggestions} />}
@@ -100,6 +141,7 @@ export function UnifiedScores({ scores, run, executionStatus }: { scores: unknow
   if (!isNew) return <LegacyScores scores={scores} run={run} />;
   return <div className="score-board">
     <p className="score-intro">两家模型独立评分，不取平均；百分制只表示回答质量，不代表科学真实性。</p>
+    <ScoringCriteria scoring={scoring} scores={items} />
     <div className="score-cards"><JudgeCard name="DeepSeek" value={items?.deepSeekScore} /><JudgeCard name="千问" value={items?.qwenScore} /></div>
   </div>;
 }

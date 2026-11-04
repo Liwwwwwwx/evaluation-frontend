@@ -669,6 +669,12 @@ a.nav-item.active:hover { background: var(--color-bg-selected); }
 .run-panel-head-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .score-board { display: grid; gap: 16px; min-width: 0; }
 .score-intro { margin: 0; color: var(--color-fg-muted); font-size: 12px; line-height: 18px; }
+.score-criteria { min-width: 0; color: var(--color-fg); font-size: 13px; line-height: 20px; }
+.score-criteria summary { cursor: pointer; font-weight: 600; }
+.score-criteria-content { display: grid; gap: 12px; padding: 12px 0 0; overflow-wrap: anywhere; }
+.score-criteria-content p { margin: 4px 0 0; color: var(--color-fg-muted); }
+.score-criteria-content ul, .score-qualification ul { margin: 4px 0 0; padding-left: 18px; }
+.score-criteria-content li + li { margin-top: 8px; }
 .score-cards { display: grid; gap: 12px; }
 .score-card { display: grid; gap: 8px; min-width: 0; padding: 14px; border: 1px solid color-mix(in srgb, var(--color-accent) 14%, var(--color-border)); border-radius: var(--radius-md); background: color-mix(in srgb, var(--color-accent) 3%, var(--color-bg-surface)); }
 .score-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
@@ -678,6 +684,8 @@ a.nav-item.active:hover { background: var(--color-bg-selected); }
 .score-number strong { font-size: 28px; line-height: 1.2; font-weight: 650; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
 .score-number span { color: var(--color-fg-muted); font-size: 13px; line-height: 20px; }
 .score-card-task { margin: 0; color: var(--color-fg-muted); font-size: 12px; line-height: 18px; }
+.score-qualification { color: var(--color-fg); font-size: 12px; line-height: 18px; overflow-wrap: anywhere; }
+.score-qualification p { margin: 4px 0 0; }
 .score-visual { display: grid; gap: 10px; margin-top: 2px; }
 .score-visual-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 3px 8px; align-items: baseline; }
 .score-visual-label { color: var(--color-fg-muted); font-size: 12px; line-height: 18px; }
