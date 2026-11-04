@@ -380,6 +380,8 @@ export function Evaluate() {
                 {randomBusy ? <span className="eval-spinner" aria-hidden="true" /> : <Icon name="shuffle" />}
                 <span>{source ? "换一题" : "随机一题"}</span>
               </button>
+
+              <Button href="/compare" variant="ghost" size="sm">对比两个服务</Button>
             </div>
 
             <div className="eval-actions">

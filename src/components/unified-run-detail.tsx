@@ -18,7 +18,7 @@ import { isRunOutputActive, useFollowRunOutput } from "@/lib/use-follow-run-outp
 import { isUncertainRun, runStatusLabel } from "@/lib/run-status";
 
 type Run = UnifiedRunSnapshot;
-const names: Record<string, string> = { "mission-material": "Mission 主服务", "alpha-rsi": "1110", alloy: "合金材料", literature: "文献检索", "literature-aircraft": "航空文献", synthesis: "合成制备", "new-material": "新材料" };
+const names: Record<string, string> = { "mission-material": "Mission 主服务", "alpha-rsi": "ALPHA 材料 RSI（1110）", alloy: "合金材料", literature: "文献检索", "literature-aircraft": "航空文献", synthesis: "合成制备", "new-material": "新材料" };
 
 export function UnifiedRunDetail({ runId }: { runId: string }) {
   const router = useRouter();
@@ -37,7 +37,7 @@ export function UnifiedRunDetail({ runId }: { runId: string }) {
   const cleared = Boolean(native?.outputClearedAt);
   const replacement = typeof native?.replacementRunId === "string" ? native.replacementRunId : null;
   return <div className="chat-view">
-    <div className="chat-top run-detail-top"><h1>运行详情</h1><span className={`run-dot ${run.status === "done" ? "done" : run.status === "cancelled" ? "cancelled" : run.status === "error" ? "error" : uncertain ? "" : "running"}`} /><span className="run-detail-state">{cleared ? "输出已清除" : runStatusLabel(run.status, run.recoveryState)} · {names[run.serviceKey] || run.serviceKey}</span><div className="run-detail-actions">{run.canEnd && <EndRunButton runId={runId} onEnded={() => setRetry(value => value + 1)} />}<RerunButton runId={runId} allowed={run.canRerun} preservesOutput={run.rerunPreservesOutput === true} onCreated={id => {
+    <div className="chat-top run-detail-top"><h1>运行详情</h1><span className={`run-dot ${run.status === "done" ? "done" : ["cancelled", "paused"].includes(run.status) ? "cancelled" : run.status === "error" ? "error" : uncertain ? "" : "running"}`} /><span className="run-detail-state">{cleared ? "输出已清除" : runStatusLabel(run.status, run.recoveryState)} · {names[run.serviceKey] || run.serviceKey}</span><div className="run-detail-actions">{run.canEnd && <EndRunButton runId={runId} onEnded={() => setRetry(value => value + 1)} />}<RerunButton runId={runId} allowed={run.canRerun} preservesOutput={run.rerunPreservesOutput === true} onCreated={id => {
       try { sessionStorage.setItem("evaluation-unified-run", id); } catch { /* 仍可通过新运行地址查看结果。 */ }
       setRun(null); setError("");
       window.dispatchEvent(new Event("evaluation-unified-change"));

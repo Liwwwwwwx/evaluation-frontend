@@ -11,7 +11,7 @@ const stateLabels: Record<BatchState, string> = {
   failed: "计划失败",
 };
 
-const sourceLabels: Record<BatchSource, string> = { trial: "多服务随机题", mission: "Mission 每日" };
+const sourceLabels: Record<BatchSource, string> = { trial: "多服务随机题", mission: "Mission 每日", manual: "手动组合测评" };
 
 export function stateLabel(state: BatchState) {
   return stateLabels[state] || "状态未知";

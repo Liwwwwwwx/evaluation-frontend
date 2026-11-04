@@ -41,11 +41,13 @@ export function RunServiceDetails({ run, runId, canReply = false, snapshotOnly =
   const reviews = Array.isArray(details.review) ? details.review : [];
   const automaticReplies = reviews.map(object).filter(item => item?.source === "automatic" && item.action === "continue" && item.delivery === "sent").length;
   const decisions = reviews.map(object).filter(item => item?.source === "automatic" && item.delivery === "sent" && text(item.summary));
+  const supplements = reviews.map(object).filter(item => item?.source === "automatic" && item.action === "apply" && item.delivery === "sent");
   const nativeStatus = text(result?.status);
-  const resultStates: Record<string, string> = { completed: "已完成", partially_completed: "部分完成", pending_validation: "待验证", failed: "失败", done: "已结束", success: "成功", ok: "成功" };
+  const resultStates: Record<string, string> = { completed: "已完成", partially_completed: "部分完成", pending_validation: "待验证", waiting_for_input: "等待补充信息", failed: "失败", done: "已结束", success: "成功", ok: "成功" };
   return <div className="run-service-details">
     {automaticReplies > 0 && <p className="run-score-note" role="status">测评平台已自动答复继续（{automaticReplies}次）。</p>}
     {decisions.length > 0 && <ul className="run-score-note" aria-label="自动确认结果">{decisions.map((item, index) => <li key={index}>{text(item?.summary)}</li>)}</ul>}
+    {supplements.map((item, index) => <details key={index} className="run-score-note"><summary>查看自动补充的条件{text(item?.model) ? `（${text(item?.model)}）` : ""}</summary>{(Array.isArray(item?.answers) ? item.answers : []).map((answer, answerIndex) => <p key={answerIndex}>{text(object(answer)?.answer)}</p>)}</details>)}
     {text(nativeRun?.error) && <p className="eval-error" role="alert">{text(nativeRun?.error)}</p>}
     {pending && <section className="run-service-section" aria-label="运行条件确认"><h3>{text(pending.title) || "请确认运行条件"}</h3><p className="run-score-note">服务正在等待答复，尚未自动接受建议条件。</p><details><summary>查看服务提出的条件</summary><pre>{JSON.stringify(pending.data, null, 2)}</pre></details>{canReply && !snapshotOnly ? <ReviewForm key={text(pending.requestId)} review={pending} runId={runId} onRefresh={onRefresh} /> : <p className="run-score-note">仅发起人可在原运行进程中答复；当前显示的记录无法提交确认。</p>}</section>}
     {nativeStatus && <p className="run-score-note">服务结果：{resultStates[nativeStatus] || nativeStatus}。这是服务自报状态。</p>}

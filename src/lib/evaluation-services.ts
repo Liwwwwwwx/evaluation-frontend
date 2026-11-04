@@ -3,6 +3,7 @@ export type EvaluationService = { key: string; label: string; enabled: boolean }
 // 新建测评只使用独立后端支持的服务；历史记录仍保留各自的服务名称。
 export const evaluationServiceCatalog: EvaluationService[] = [
   { key: "mission-material", label: "Mission 主服务", enabled: false },
+  { key: "alpha-rsi", label: "ALPHA 材料 RSI（1110）", enabled: false },
   { key: "alloy", label: "合金材料", enabled: false },
   { key: "literature", label: "文献检索", enabled: false },
   { key: "literature-aircraft", label: "航空文献", enabled: false },

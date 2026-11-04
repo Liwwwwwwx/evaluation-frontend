@@ -1,7 +1,7 @@
-const labels: Record<string, string> = { queued: "排队中", running: "运行中", scoring: "评分中", done: "已结束", cancelled: "已结束", error: "失败" };
+const labels: Record<string, string> = { queued: "排队中", paused: "已暂停", running: "运行中", scoring: "评分中", done: "已结束", cancelled: "已结束", error: "失败" };
 
 export function isTerminalRun(status?: string) {
-  return ["done", "error", "cancelled"].includes(status || "");
+  return ["done", "error", "cancelled", "paused"].includes(status || "");
 }
 
 export function isUncertainRun(status?: string, recoveryState?: string) {

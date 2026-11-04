@@ -12,7 +12,7 @@ import Link from "next/link";
 
 type Run = { runId: string; serviceKey: string; origin: string; question: string; status: string; recoveryState?: string; startedAt: string | null; domainKey?: string | null; canRescore?: boolean; scores?: ScoreSummaryValue };
 type MenuState = { run: Run; top: number; left: number; trigger: HTMLButtonElement };
-const names: Record<string, string> = { "mission-material": "Mission 主服务", "alpha-rsi": "1110", alloy: "合金材料", literature: "文献检索", "literature-aircraft": "航空文献", synthesis: "合成制备", "new-material": "新材料" };
+const names: Record<string, string> = { "mission-material": "Mission 主服务", "alpha-rsi": "ALPHA 材料 RSI（1110）", alloy: "合金材料", literature: "文献检索", "literature-aircraft": "航空文献", synthesis: "合成制备", "new-material": "新材料" };
 const origins: Record<string, string> = { manual: "人工对话", automation: "自动化", legacy: "其他入口" };
 const domainOptions: [string, string][] = [["", "全部领域"], ["unclassified", "未分类"], ...Object.entries(questionDomains)];
 function pad(value: number) { return String(value).padStart(2, "0"); }

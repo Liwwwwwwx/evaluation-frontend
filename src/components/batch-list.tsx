@@ -7,6 +7,7 @@ import { fetchBatchList } from "@/lib/batch-api";
 import type { BatchSource, BatchState, BatchSummary } from "@/lib/batch-types";
 import { Button, EmptyState, Pagination, Select, Tabs } from "@/components/ui";
 import { DailyReportList } from "@/components/daily-reports";
+import { BatchSchemePanel } from "@/components/batch-scheme-panel";
 import { BatchStatus, formatDate, formatDateTime, JudgeMeans, PreviewNote, sourceLabel, stateLabel } from "@/components/batch-ui";
 import styles from "./batches.module.css";
 
@@ -16,6 +17,7 @@ const sourceTabs = [
   { value: "all", label: "全部" },
   { value: "trial", label: "多服务随机题" },
   { value: "mission", label: "Mission 每日" },
+  { value: "manual", label: "手动组合" },
 ];
 
 type ListData = { items: BatchSummary[]; total: number; storageReady: boolean };
@@ -30,6 +32,7 @@ export function BatchListPage({ basePath, preview = false, initialTab = "batches
   const [data, setData] = useState<ListData | null>(null);
   const [error, setError] = useState("");
   const [retry, setRetry] = useState(0);
+  const [showSchemes, setShowSchemes] = useState(false);
   const filtersActive = source !== "all" || state !== "all";
 
   useEffect(() => {
@@ -73,9 +76,11 @@ export function BatchListPage({ basePath, preview = false, initialTab = "batches
     <header className={styles.header}>
       <div>
         <h1 id="batches-title">测评批次</h1>
-        <p>{tab === "batches" ? "夜间自动测评批次，按日期倒序。点开一批可以按服务查看完成情况和问题题目。" : "夜间测评的智能日报，按日期汇总各服务表现与主要问题。"}</p>
+        <p>{tab === "batches" ? "查看夜间与手动组合测评批次，按服务查看运行和同题对比。" : "夜间测评的智能日报，按日期汇总各服务表现与主要问题。"}</p>
       </div>
+      {!preview && tab === "batches" && <Button variant="primary" onClick={() => setShowSchemes(value => !value)}>{showSchemes ? "收起测评方案" : "配置或发起测评"}</Button>}
     </header>
+    {showSchemes && !preview && tab === "batches" && <BatchSchemePanel onStarted={() => { setShowSchemes(false); setSource("all"); setPage(1); setRetry(value => value + 1); }} />}
     <div className={styles.toolbar}>
       <Tabs variant="pill" ariaLabel="测评批次视图" className={styles.viewTabs} items={preview ? [viewTabs[0]] : viewTabs} value={tab} onChange={(value) => setTab(value as ViewTab)} />
       {tab === "batches" && <>
@@ -102,7 +107,7 @@ export function BatchListPage({ basePath, preview = false, initialTab = "batches
           {items.map((batch) => <li key={batch.batchId} className={styles.batchRow}>
             <Link className={styles.rowLink} href={`${basePath}/${batch.batchId}`} aria-label={`查看 ${batch.date} 测评批次`} />
             <span className={styles.rowMain}>
-              <strong className={styles.rowTitle}>{formatDate(batch.date)} 夜间测评</strong>
+              <strong className={styles.rowTitle}>{formatDate(batch.date)} {batch.source === "manual" ? "手动组合测评" : "夜间测评"}</strong>
               <span className={styles.rowMeta}>{sourceLabel(batch.source)} · {batch.services.length} 个服务 · 更新 {formatDateTime(batch.updatedAt)}</span>
               <span className={styles.mobileMeta}>{batch.totals.total}/{batch.totals.planned} 次 · 失败 {batch.totals.failed} · 超时 {batch.totals.timeout}</span>
             </span>
