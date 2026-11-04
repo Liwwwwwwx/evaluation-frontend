@@ -69,7 +69,7 @@ export function ComparisonWorkspace({ groupId }: { groupId: string }) {
   const comparison = useMemo<Comparison | null>(() => {
     if (!runs || runs.length === 0 || !runs[0].question) return null;
     const native = record(runs[0].run);
-    const snapshot = record(native?.ruleSnapshot);
+    const snapshot = record(record(native?.scoring)?.ruleSnapshot) || record(native?.ruleSnapshot);
     return {
       groupId,
       question: runs[0].question,

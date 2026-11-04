@@ -11,7 +11,7 @@ const judgeKeys = ["deepSeekScore", "qwenScore"] as const;
 const judgeLabels: Record<(typeof judgeKeys)[number], string> = { deepSeekScore: "DeepSeek", qwenScore: "千问" };
 const dimensionOrder = ["readability", "professionalism", "visualAids"];
 
-const executionLabels: Record<string, string> = { succeeded: "已完成", failed: "执行失败" };
+const executionLabels: Record<string, string> = { queued: "排队中", running: "运行中", succeeded: "已完成", failed: "执行失败", cancelled: "已取消" };
 const scoringLabels: Record<string, string> = { ready: "评分完成", partial: "部分评分", failed: "评分失败", pending: "评分中", absent: "无评分", unavailable: "未配置", skipped: "不适用" };
 const taskLabels: Record<string, string> = { completed: "已完成", partial: "部分完成", clarification: "请求补充信息", failed: "未完成", unclear: "无法确认" };
 const qualificationLabels: Record<string, string> = { qualified: "合格", not_qualified: "未达标", unclear: "无法判断" };
@@ -22,7 +22,7 @@ function number(value: unknown): number | null {
 }
 
 function executionTone(status: string): StatusTone {
-  return status === "succeeded" ? "success" : "danger";
+  return status === "succeeded" ? "success" : status === "queued" || status === "running" ? "info" : status === "cancelled" ? "neutral" : "danger";
 }
 
 function scoringTone(status: string): StatusTone {
@@ -94,12 +94,12 @@ function JudgeTable({ judgeKey, runs, dimensionKeyList, preview }: { judgeKey: (
         })}
         <tr>
           <th scope="row">任务完成度</th>
-          {items.map((item, index) => <td key={runs[index].runId}>{taskLabels[item.quality?.taskCompletion.status || ""] || "无法确认"}</td>)}
+          {items.map((item, index) => <td key={runs[index].runId}>{taskLabels[item.quality?.taskCompletion?.status || ""] || "无法确认"}</td>)}
           <td><span className={styles.na}>不可比</span></td>
         </tr>
         <tr>
           <th scope="row">内容判定</th>
-          {items.map((item, index) => <td key={runs[index].runId}>{qualificationLabels[item.quality?.qualification.status || ""] || "无法判断"}</td>)}
+          {items.map((item, index) => <td key={runs[index].runId}>{qualificationLabels[item.quality?.qualification?.status || ""] || "无法判断"}</td>)}
           <td><span className={styles.na}>不可比</span></td>
         </tr>
       </tbody>
@@ -114,11 +114,11 @@ function Findings({ judge }: { judge: ComparisonJudge }) {
     {quality.comment && <p className={styles.comment}>{quality.comment}</p>}
     <div className={styles.findingList}>
       <strong>扣分原因</strong>
-      {quality.gaps.length ? <ul>{quality.gaps.map((item, index) => <li key={index}>{item}</li>)}</ul> : <p className={styles.na}>未记录。</p>}
+      {quality.gaps?.length ? <ul>{quality.gaps.map((item, index) => <li key={index}>{item}</li>)}</ul> : <p className={styles.na}>未记录。</p>}
     </div>
     <div className={styles.findingList}>
       <strong>改进建议</strong>
-      {quality.suggestions.length ? <ul>{quality.suggestions.map((item, index) => <li key={index}>{item}</li>)}</ul> : <p className={styles.na}>未记录。</p>}
+      {quality.suggestions?.length ? <ul>{quality.suggestions.map((item, index) => <li key={index}>{item}</li>)}</ul> : <p className={styles.na}>未记录。</p>}
     </div>
   </div>;
 }

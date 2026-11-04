@@ -6,10 +6,10 @@ export type ComparisonJudge = {
     total: number;
     source?: { truncated?: boolean };
     dimensions: Record<string, { label: string; score: number; weight: number; applicable?: boolean; note?: string }>;
-    taskCompletion: { status: string; reason?: string };
-    qualification: { status: string; passScore?: number };
-    gaps: string[];
-    suggestions: string[];
+    taskCompletion?: { status: string; reason?: string };
+    qualification?: { status: string; passScore?: number };
+    gaps?: string[];
+    suggestions?: string[];
     comment: string;
   } | null;
   error?: string | null;
