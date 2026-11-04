@@ -14,7 +14,7 @@ const PAGE_SIZE = 20;
 
 const sourceTabs = [
   { value: "all", label: "全部" },
-  { value: "trial", label: "多服务试跑" },
+  { value: "trial", label: "多服务随机题" },
   { value: "mission", label: "Mission 每日" },
 ];
 
