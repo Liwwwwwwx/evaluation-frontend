@@ -290,7 +290,7 @@ const trialComparison: BatchComparison = {
   previous: { batchId: trialPrevious.summary.batchId, date: trialPrevious.summary.date, planned: trialPrevious.summary.planned },
   comparable: true,
   mode: "aggregate",
-  reason: "试跑批次每次重新生成题目，没有同题同版本记录；本次只比较服务汇总。",
+  reason: "随机题批次每次重新生成题目，没有同题同版本记录；本次只比较服务汇总。",
   matchedQuestions: 0,
   thresholdPoints: 5,
   services: [
