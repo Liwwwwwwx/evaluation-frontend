@@ -106,7 +106,8 @@ export function DailyReportDetail({ date, pending = false }: { date: string; pen
     catch (err) { setError(err instanceof Error ? err.message : "无法重新生成。"); }
     finally { setSubmitting(false); }
   }
-  return <main className={`${styles.page} ${styles.reading}`}>
+  return <div className={styles.detailViewport} role="region" aria-label="测评日报内容" tabIndex={0}>
+  <main className={`${styles.page} ${styles.reading}`}>
     <header className={styles.header}>
       <div><h1>{date} 测评日报</h1></div>
       <div className={styles.headerActions}>
@@ -123,5 +124,5 @@ export function DailyReportDetail({ date, pending = false }: { date: string; pen
       {data.canGenerate && data.status !== "generating" && (data.analysisState !== "ready" || data.status === "failed") && <Button variant="primary" disabled={submitting} onClick={() => void resubmit()}>{submitting ? "正在提交…" : "重试智能总结"}</Button>}
       {data.status === "ready" && data.markdown && <article className={`${styles.report} run-answer`}><AnswerMarkdown content={data.markdown.replace(/^# [^\n]+\n/, "")} /></article>}
     </>}
-  </main>;
+  </main></div>;
 }
