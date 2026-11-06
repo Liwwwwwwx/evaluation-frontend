@@ -10,6 +10,7 @@ import { questionDomains as domains } from "@/lib/question-domains";
 import { createRequestKey } from "@/lib/request-key";
 import { copyText } from "@/lib/clipboard";
 import { isTerminalRun } from "@/lib/run-status";
+import { appendFrom, backLabel } from "@/lib/navigation";
 import styles from "./question-detail.module.css";
 
 type Question = { id: string; question: string; domainKey?: string | null; serviceKey?: string | null; criteria?: unknown; sourceType: string; datasetVersion: string; createdAt?: string | null };
@@ -53,7 +54,7 @@ async function readJson<T>(response: Response): Promise<T> {
   return value as T;
 }
 
-export function QuestionDetailPage({ questionId, datasetVersion, initialTab = "question" }: { questionId: string; datasetVersion: string; initialTab?: DetailTab }) {
+export function QuestionDetailPage({ questionId, datasetVersion, initialTab = "question", backHref = "/question-bank" }: { questionId: string; datasetVersion: string; initialTab?: DetailTab; backHref?: string }) {
   const router = useRouter();
   const [question, setQuestion] = useState<Question | null>(null);
   const [questionError, setQuestionError] = useState("");
@@ -182,7 +183,7 @@ export function QuestionDetailPage({ questionId, datasetVersion, initialTab = "q
       const data = await readJson<{ question: Question }>(response);
       setEditing(false);
       pushToast("success", "题目已更新，历史运行保留原版本。");
-      if (data.question.datasetVersion !== question.datasetVersion) router.replace(`/question-bank/${encodeURIComponent(data.question.id)}?datasetVersion=${encodeURIComponent(data.question.datasetVersion)}`);
+      if (data.question.datasetVersion !== question.datasetVersion) router.replace(`/question-bank/${encodeURIComponent(data.question.id)}?datasetVersion=${encodeURIComponent(data.question.datasetVersion)}${backHref !== "/question-bank" ? `&from=${encodeURIComponent(backHref)}` : ""}`);
       else setQuestion(data.question);
     } catch (error) { setActionError(error instanceof Error ? error.message : "保存失败，请稍后重试。"); }
     finally { setEditBusy(false); }
@@ -195,7 +196,7 @@ export function QuestionDetailPage({ questionId, datasetVersion, initialTab = "q
       const response = await fetch("/api/question-bank/delete", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: question.id, datasetVersion: question.datasetVersion }) });
       await readJson(response);
       setDeleteOpen(false);
-      router.replace("/question-bank");
+      router.replace(backHref);
     } catch (error) { setDeleteError(error instanceof Error ? error.message : "删除失败，请稍后重试。"); }
     finally { setDeleting(false); }
   }
@@ -212,14 +213,15 @@ export function QuestionDetailPage({ questionId, datasetVersion, initialTab = "q
   const criteria = currentStandard?.content.evaluationCriteria || [];
   const missing = currentStandard?.content.missingInformation || [];
   const runsPages = Math.max(1, Math.ceil((runs?.total || 0) / PAGE_SIZE));
+  const selfHref = `/question-bank/${encodeURIComponent(question.id)}?datasetVersion=${encodeURIComponent(question.datasetVersion)}${backHref !== "/question-bank" ? `&from=${encodeURIComponent(backHref)}` : ""}`;
 
   return <main className={styles.page} aria-labelledby="question-detail-title">
     <header className={styles.header}>
       <div>
         <div className={styles.titleRow}><h1 id="question-detail-title">题目详情</h1><Badge tone="info">{question.sourceType === "random" ? "随机题" : "固定题"}</Badge></div>
-        <p>{domains[question.domainKey || ""] || "未分类"}{question.serviceKey && <> · 绑定服务 {serviceNames[question.serviceKey] || question.serviceKey}</>} · 数据集版本 {question.datasetVersion} · 题目 ID <span className={styles.mono}>{question.id}</span> · 更新 {formatDate(question.createdAt)}</p>
+        <p>{domains[question.domainKey || ""] || "未分类"}{question.serviceKey && <> · 绑定服务 {serviceNames[question.serviceKey] || question.serviceKey}</>} · 数据集版本 {question.datasetVersion} · 题目 ID <span className={styles.mono}>{question.id}</span> · 创建 {formatDate(question.createdAt)}</p>
       </div>
-      <div className={styles.actions}><BackLink href="/question-bank">返回题库</BackLink></div>
+      <div className={styles.actions}><BackLink href={backHref}>{backLabel(backHref, "返回题库")}</BackLink></div>
     </header>
 
       {actionError && <div className={styles.alerts}><InlineAlert tone="danger">{actionError}</InlineAlert></div>}
@@ -256,7 +258,7 @@ export function QuestionDetailPage({ questionId, datasetVersion, initialTab = "q
               <td><StatusDot tone={statusTone(run.status)}>{statusNames[run.status] || "状态未知"}</StatusDot></td>
               <td><ScoreInline scores={run.scores} /></td>
               <td className={styles.time}>{formatDate(run.startedAt)}</td>
-              <td className={styles.rowAction}><Link className={styles.tableLink} href={`/runs/${run.runId}`}>查看</Link></td>
+              <td className={styles.rowAction}><Link className={styles.tableLink} href={appendFrom(`/runs/${run.runId}`, `${selfHref}&tab=records`)}>查看</Link></td>
             </tr>)}</tbody>
           </table>
         </div>
@@ -267,7 +269,7 @@ export function QuestionDetailPage({ questionId, datasetVersion, initialTab = "q
     {tab === "standards" && <section className={styles.panel} id={tabPanelId("question-detail", "standards")} role="tabpanel" aria-labelledby={tabButtonId("question-detail", "standards")}>
       <div className={styles.panelHead}>
         <div><h2>测评标准</h2><p>由测评助手生成，供审阅；不会自动用于实际评分。</p></div>
-        <div className={styles.actions}>{currentStandard && <Badge tone={currentStandard.state === "confirmed" ? "success" : currentStandard.state === "draft" || currentStandard.state === "unsaved" ? "warning" : "neutral"}>{standardStates[currentStandard.state] || "状态未知"}</Badge>}{generatedStandard && (generatedStandard.state === "unsaved" || savedStandard) && <Button variant="secondary" size="sm" disabled={!!standardBusy} onClick={() => { setGeneratedStandard(null); setStandardActionError(""); }}>{generatedStandard.state === "unsaved" ? "放弃未保存结果" : "查看已保存标准"}</Button>}{generatedStandard?.state === "unsaved" && <Button variant="secondary" size="sm" loading={standardBusy === "save"} disabled={!!standardBusy} onClick={() => void saveStandard()}>保存草稿</Button>}<Button variant="secondary" size="sm" loading={standardBusy === "generate"} disabled={!!standardBusy || !standards || !!standardsError || generatedStandard?.state === "unsaved"} onClick={() => void generateStandard()}>{standardBusy === "generate" ? "正在生成…" : currentStandard ? "重新生成" : "生成测评标准"}</Button></div>
+        <div className={styles.actions}>{currentStandard && <Badge tone={currentStandard.state === "confirmed" ? "success" : currentStandard.state === "draft" || currentStandard.state === "unsaved" ? "warning" : "neutral"}>{standardStates[currentStandard.state] || "状态未知"}</Badge>}{generatedStandard && (generatedStandard.state === "unsaved" || savedStandard) && <Button variant="secondary" size="sm" disabled={!!standardBusy} onClick={() => { setGeneratedStandard(null); setStandardActionError(""); }}>{generatedStandard.state === "unsaved" ? "放弃未保存结果" : "查看已保存标准"}</Button>}{generatedStandard?.state === "unsaved" && <Button variant="secondary" size="sm" loading={standardBusy === "save"} disabled={!!standardBusy} onClick={() => void saveStandard()}>保存草稿</Button>}{currentStandard?.state === "draft" && <Button variant="secondary" size="sm" disabled={!!standardBusy} onClick={() => { sessionStorage.setItem("evaluation-standards-selected-question", JSON.stringify({ id: question.id, datasetVersion: question.datasetVersion, question: question.question, domainKey: question.domainKey || null, sourceType: question.sourceType })); router.push(`/standards?returnTo=${encodeURIComponent(`${selfHref}&tab=standards`)}`); }}>去助手确认</Button>}<Button variant="secondary" size="sm" loading={standardBusy === "generate"} disabled={!!standardBusy || !standards || !!standardsError || generatedStandard?.state === "unsaved"} onClick={() => void generateStandard()}>{standardBusy === "generate" ? "正在生成…" : currentStandard ? "重新生成" : "生成测评标准"}</Button></div>
       </div>
       {standardActionError && <InlineAlert tone="danger">{standardActionError}</InlineAlert>}
       {standardBusy === "generate" && <p role="status" className={styles.notice}>正在理解题目并整理检查项，请稍候。</p>}

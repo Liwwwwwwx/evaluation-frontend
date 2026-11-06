@@ -82,7 +82,7 @@ export function DailyReportList({ embedded = false }: { embedded?: boolean } = {
   </main>;
 }
 
-export function DailyReportDetail({ date, pending = false }: { date: string; pending?: boolean }) {
+export function DailyReportDetail({ date, pending = false, backHref = "/daily-reports", backLabel = "返回测评日报" }: { date: string; pending?: boolean; backHref?: string; backLabel?: string }) {
   const [data, setData] = useState<Report | null>(null);
   const [error, setError] = useState("");
   const [retry, setRetry] = useState(0);
@@ -111,7 +111,7 @@ export function DailyReportDetail({ date, pending = false }: { date: string; pen
     <header className={styles.header}>
       <div><h1>{date} 测评日报</h1></div>
       <div className={styles.headerActions}>
-        <BackLink href="/daily-reports">返回测评日报</BackLink>
+        <BackLink href={backHref}>{backLabel}</BackLink>
         {data?.status === "ready" && data.markdown && <a className="secondary-button" href={`${base}/${date}/markdown`}>下载 Markdown</a>}
       </div>
     </header>

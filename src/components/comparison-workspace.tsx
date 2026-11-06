@@ -12,7 +12,7 @@ function record(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
 }
 
-export function ComparisonWorkspace({ groupId }: { groupId: string }) {
+export function ComparisonWorkspace({ groupId, backHref = "/runs", backLabel = "返回运行记录" }: { groupId: string; backHref?: string; backLabel?: string }) {
   const [runs, setRuns] = useState<UnifiedRunSnapshot[] | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -101,5 +101,5 @@ export function ComparisonWorkspace({ groupId }: { groupId: string }) {
       </div>
     </div>;
   }
-  return <RunComparison comparison={comparison} backHref="/compare" backLabel="新建对比" notice={error || undefined} />;
+  return <RunComparison comparison={comparison} backHref={backHref} backLabel={backLabel} notice={error || undefined} />;
 }

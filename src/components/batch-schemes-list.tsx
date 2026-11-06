@@ -88,9 +88,9 @@ export function BatchSchemesList({ refresh, onOpen, onHistory, preview = false }
               </div>
               <span className={styles.schemeMeta}>v{item.version} · {services.length} 个服务 · 更新 {formatDateTime(item.updatedAt)}</span>
               <div className={styles.schemeStats}>
-                <span>航空 <b>{item.config.pools.aviation}</b> 题</span>
-                <span>合成 <b>{item.config.pools.synthesis}</b> 题</span>
-                <span><b>{schemeTotal(item)}</b> 次运行</span>
+                <span className={styles.schemeStat}><b>{item.config.pools.aviation}</b><span>航空题</span></span>
+                <span className={styles.schemeStat}><b>{item.config.pools.synthesis}</b><span>合成题</span></span>
+                <span className={styles.schemeStat}><b>{schemeTotal(item)}</b><span>运行次数</span></span>
               </div>
               <div className={styles.schemeActions}>
                 <Button size="sm" variant="secondary" onClick={() => setDetail(item)}>配置明细</Button>

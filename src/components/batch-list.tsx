@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { previewBatches } from "@/lib/batch-preview";
 import { fetchBatchList } from "@/lib/batch-api";
 import type { BatchSource, BatchState, BatchSummary } from "@/lib/batch-types";
@@ -10,6 +11,7 @@ import { DailyReportList } from "@/components/daily-reports";
 import { BatchSchemePanel } from "@/components/batch-scheme-panel";
 import { BatchSchemesList } from "@/components/batch-schemes-list";
 import { BatchStatus, formatDate, formatDateTime, ScorePair, PreviewNote, sourceLabel, stateLabel } from "@/components/batch-ui";
+import { appendFrom } from "@/lib/navigation";
 import styles from "./batches.module.css";
 
 const PAGE_SIZE = 20;
@@ -26,21 +28,34 @@ type ListData = { items: BatchSummary[]; total: number; storageReady: boolean };
 type ViewTab = "configs" | "batches" | "reports";
 const viewTabs: { value: ViewTab; label: string }[] = [{ value: "configs", label: "批次配置" }, { value: "batches", label: "执行记录" }, { value: "reports", label: "测评日报" }];
 
-export function BatchListPage({ basePath, preview = false, initialTab = "configs" }: { basePath: string; preview?: boolean; initialTab?: ViewTab }) {
+type SourceFilter = "all" | "nightly" | BatchSource;
+
+export function BatchListPage({ basePath, preview = false, initialTab = "configs", initialSource = "all", initialState = "all", initialFrom = "", initialTo = "", initialPage = 1, initialSchemeId = "", initialSchemeName = "" }: {
+  basePath: string;
+  preview?: boolean;
+  initialTab?: ViewTab;
+  initialSource?: SourceFilter;
+  initialState?: "all" | BatchState;
+  initialFrom?: string;
+  initialTo?: string;
+  initialPage?: number;
+  initialSchemeId?: string;
+  initialSchemeName?: string;
+}) {
   const [tab, setTab] = useState<ViewTab>(preview ? "batches" : initialTab);
-  const [source, setSource] = useState<"all" | "nightly" | BatchSource>("all");
-  const [state, setState] = useState<"all" | BatchState>("all");
-  const [page, setPage] = useState(1);
+  const [source, setSource] = useState<SourceFilter>(initialSource);
+  const [state, setState] = useState<"all" | BatchState>(initialState);
+  const [page, setPage] = useState(initialPage);
   const [data, setData] = useState<ListData | null>(null);
   const [error, setError] = useState("");
   const [retry, setRetry] = useState(0);
   const [showSchemes, setShowSchemes] = useState(false);
-  const [schemeFilter, setSchemeFilter] = useState<{ id: string; name: string } | null>(null);
+  const [schemeFilter, setSchemeFilter] = useState<{ id: string; name: string } | null>(initialSchemeId ? { id: initialSchemeId, name: initialSchemeName || "已保存配置" } : null);
   const [schemeAction, setSchemeAction] = useState<"create" | "edit" | "launch">("create");
   const [schemeTarget, setSchemeTarget] = useState("");
   const [schemeRefresh, setSchemeRefresh] = useState(0);
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
+  const [from, setFrom] = useState(initialFrom);
+  const [to, setTo] = useState(initialTo);
   const [filterOpen, setFilterOpen] = useState(false);
   const filterRef = useRef<HTMLDivElement>(null);
   const filterButtonRef = useRef<HTMLButtonElement>(null);
@@ -94,8 +109,30 @@ export function BatchListPage({ basePath, preview = false, initialTab = "configs
   const pages = Math.max(1, Math.ceil((data?.total || 0) / PAGE_SIZE));
   const safePage = Math.min(page, pages);
   const items = data?.items || [];
+  const listParams = new URLSearchParams({ tab: "batches" });
+  if (source !== "all") listParams.set("source", source);
+  if (state !== "all") listParams.set("state", state);
+  if (from) listParams.set("from", from);
+  if (to) listParams.set("to", to);
+  if (safePage > 1) listParams.set("page", String(safePage));
+  if (schemeFilter) { listParams.set("schemeId", schemeFilter.id); listParams.set("schemeName", schemeFilter.name); }
+  const listHref = `${basePath}?${listParams.toString()}`;
+  const pathname = usePathname();
+  const pageParams = new URLSearchParams();
+  if (tab !== "configs") pageParams.set("tab", tab);
+  if (source !== "all") pageParams.set("source", source);
+  if (state !== "all") pageParams.set("state", state);
+  if (from) pageParams.set("from", from);
+  if (to) pageParams.set("to", to);
+  if (page > 1) pageParams.set("page", String(page));
+  if (schemeFilter) { pageParams.set("schemeId", schemeFilter.id); pageParams.set("schemeName", schemeFilter.name); }
+  const pageHref = `${basePath}${pageParams.toString() ? `?${pageParams.toString()}` : ""}`;
+  useEffect(() => {
+    if (pathname === basePath && typeof window !== "undefined") window.history.replaceState(null, "", pageHref);
+  }, [pathname, basePath, pageHref]);
 
   return <main className={styles.page} aria-labelledby="batches-title">
+    <div className={styles.pageInner}>
     {preview && <PreviewNote />}
     <header className={styles.header}>
       <div>
@@ -105,7 +142,7 @@ export function BatchListPage({ basePath, preview = false, initialTab = "configs
     </header>
     <BatchSchemePanel open={showSchemes && !preview} initialAction={schemeAction} initialSchemeId={schemeTarget} onClose={() => setShowSchemes(false)} onSaved={() => setSchemeRefresh(value => value + 1)} onStarted={() => { setShowSchemes(false); setTab("batches"); setSource("all"); setPage(1); setRetry(value => value + 1); }} />
     <div className={styles.toolbar}>
-      <Tabs variant="underline" bordered={false} ariaLabel="测评批次视图" items={preview ? [viewTabs[0], viewTabs[1]] : viewTabs} value={tab} onChange={(value) => { setTab(value as ViewTab); setFilterOpen(false); }} />
+      <Tabs variant="segmented" ariaLabel="测评批次视图" items={preview ? [viewTabs[0], viewTabs[1]] : viewTabs} value={tab} onChange={(value) => { setTab(value as ViewTab); setFilterOpen(false); }} />
     </div>
     {tab === "batches" && <>
     <div className={styles.listControls}>
@@ -158,7 +195,7 @@ export function BatchListPage({ basePath, preview = false, initialTab = "configs
       /> : <div className={styles.batchListWrap}>
         <ul className={styles.cardGrid} aria-label="测评批次">
           {items.map((batch) => <li key={batch.batchId} className={styles.dataCard}>
-            <Link className={styles.cardLink} href={`${basePath}/${batch.batchId}`} aria-label={`查看 ${batch.date} 测评批次`} />
+            <Link className={styles.cardLink} href={appendFrom(`${basePath}/${batch.batchId}`, listHref)} aria-label={`查看 ${batch.date} 测评批次`} />
             <div className={styles.cardHead}>
               <strong className={styles.cardTitle}>{formatDate(batch.date)} · {sourceLabel(batch.source)}</strong>
               <span className={styles.cardStatus}><BatchStatus state={batch.state} /></span>
@@ -180,5 +217,6 @@ export function BatchListPage({ basePath, preview = false, initialTab = "configs
       <Pagination page={safePage} pages={pages} total={data.total} pageSize={PAGE_SIZE} onPageChange={setPage} />
     </>}
     </>}
+    </div>
   </main>;
 }

@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 
-export function LoginForm() {
+export function LoginForm({ next = "/" }: { next?: string }) {
   const router = useRouter();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -21,7 +21,7 @@ export function LoginForm() {
         if (data.error?.code === "2FA_REQUIRED" || data.error?.code === "INVALID_2FA_CODE") setNeedsCode(true);
         setError(typeof data.error?.message === "string" ? data.error.message : "登录失败，请稍后重试。"); return;
       }
-      setPassword(""); router.replace("/"); router.refresh();
+      setPassword(""); router.replace(next); router.refresh();
     } catch { setError("无法连接认证服务，请稍后重试。"); }
     finally { setLoading(false); }
   }

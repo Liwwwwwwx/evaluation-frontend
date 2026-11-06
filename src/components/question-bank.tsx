@@ -10,6 +10,7 @@ import { questionDomains as domains } from "@/lib/question-domains";
 import { parseXlsxFirstSheet } from "@/lib/xlsx-parser";
 import { isTerminalRun } from "@/lib/run-status";
 import { copyText } from "@/lib/clipboard";
+import { appendFrom, listQuery } from "@/lib/navigation";
 
 type Question = { id: string; question: string; domainKey?: string | null; serviceKey: string | null; criteria?: unknown; sourceType: string; datasetVersion: string; createdAt?: string | null };
 type QuestionScoreRow = { questionId: string; datasetVersion: string; runId: string; serviceKey: string; startedAt?: string; scores: ScoreSummaryValue };
@@ -97,7 +98,7 @@ function taskText(row: QuestionScoreRow) {
   return "";
 }
 
-function ScoreLine({ row }: { row: QuestionScoreRow }) {
+function ScoreLine({ row, listHref }: { row: QuestionScoreRow; listHref: string }) {
   const deepSeek = row.scores.deepSeekScore;
   const qwen = row.scores.qwenScore;
   const items = [deepSeek, qwen].filter(Boolean);
@@ -108,34 +109,34 @@ function ScoreLine({ row }: { row: QuestionScoreRow }) {
   const task = taskText(row);
   const service = serviceNames[row.serviceKey] || row.serviceKey;
   const full = `${service} · DeepSeek ${scoreDetail(deepSeek)} · 千问 ${scoreDetail(qwen)}${task ? ` · ${task}` : ""}`;
-  return <Link className="score-bank-line" href={`/runs/${row.runId}`} title={full}>
+  return <Link className="score-bank-line" href={appendFrom(`/runs/${row.runId}`, listHref)} title={full}>
     <span className="score-bank-service">{shortServiceNames[row.serviceKey] || service}</span>
     <span className="score-bank-values">{summary}</span>
     {task && <span className="score-bank-task">{task}</span>}
   </Link>;
 }
 
-function QuestionScores({ rows, state }: { rows: QuestionScoreRow[]; state: string }) {
+function QuestionScores({ rows, state, listHref }: { rows: QuestionScoreRow[]; state: string; listHref: string }) {
   if (state !== "ready") return <span className="run-score-note">{state === "failed" ? "评分读取失败" : "读取中…"}</span>;
   if (!rows.length) return <span className="run-score-note">未评分</span>;
   const ordered = [...rows].sort((a,b) => (Date.parse(b.startedAt || "") || 0) - (Date.parse(a.startedAt || "") || 0) || b.runId.localeCompare(a.runId));
   return <div className="score-bank-cell">
-    <ScoreLine row={ordered[0]} />
+    <ScoreLine row={ordered[0]} listHref={listHref} />
     {ordered.length > 1 && <details className="score-bank-more">
       <summary>+{ordered.length - 1}</summary>
-      <div className="score-bank-more-list">{ordered.slice(1).map((row) => <ScoreLine key={row.runId} row={row} />)}</div>
+      <div className="score-bank-more-list">{ordered.slice(1).map((row) => <ScoreLine key={row.runId} row={row} listHref={listHref} />)}</div>
     </details>}
   </div>;
 }
 
-export function QuestionBank() {
+export function QuestionBank({ initialSource = "fixed", initialSearch = "", initialDomain = "", initialPage = 1 }: { initialSource?: "fixed" | "random"; initialSearch?: string; initialDomain?: string; initialPage?: number }) {
   const router = useRouter();
   const [scoreRows, setScoreRows] = useState<QuestionScoreRow[]>([]);
   const [scoresState, setScoresState] = useState("loading");
   const [quickBusy, setQuickBusy] = useState(false);
   const [rows, setRows] = useState<Question[]>([]); const [total, setTotal] = useState(0);
-  const [source, setSource] = useState<"fixed" | "random">("fixed"); const [service, setService] = useState("");
-  const [input, setInput] = useState(""); const [search, setSearch] = useState(""); const [page, setPage] = useState(0); const [tick, setTick] = useState(0);
+  const [source, setSource] = useState<"fixed" | "random">(initialSource); const [service, setService] = useState(initialDomain);
+  const [input, setInput] = useState(initialSearch); const [search, setSearch] = useState(initialSearch.trim()); const [page, setPage] = useState(Math.max(0, initialPage - 1)); const [tick, setTick] = useState(0);
   const [loading, setLoading] = useState(true); const [error, setError] = useState("");
   const [write, setWrite] = useState(false); const [permissionReady, setPermissionReady] = useState(false); const [permissionError, setPermissionError] = useState("");
   const [selected, setSelected] = useState<Record<string, Question>>({});
@@ -186,9 +187,13 @@ export function QuestionBank() {
   const selectedRows = Object.values(selected);
   const allSelected = rows.length > 0 && rows.every((row) => Object.hasOwn(selected, rowKey(row)));
   const someSelected = rows.some((row) => Object.hasOwn(selected, rowKey(row)));
+  const listHref = `/question-bank${listQuery({ source: source === "random" ? "random" : undefined, q: search, domain: service, page: page > 0 ? page + 1 : undefined })}`;
+  useEffect(() => {
+    if (typeof window !== "undefined") window.history.replaceState(null, "", listHref);
+  }, [listHref]);
 
   function openDetail(row: Question) {
-    router.push(`/question-bank/${encodeURIComponent(row.id)}?datasetVersion=${encodeURIComponent(row.datasetVersion)}`);
+    router.push(`/question-bank/${encodeURIComponent(row.id)}?datasetVersion=${encodeURIComponent(row.datasetVersion)}&from=${encodeURIComponent(listHref)}`);
   }
   function openRowMenu(event: ReactMouseEvent<HTMLButtonElement>, row: Question) {
     event.stopPropagation();
@@ -204,7 +209,12 @@ export function QuestionBank() {
   function toggleRow(row: Question) { setSelected((current) => { const next = { ...current }; const key = rowKey(row); if (Object.hasOwn(next, key)) delete next[key]; else next[key] = row; return next; }); }
   function toggleAll() { setSelected((current) => { if (allSelected) { const next = { ...current }; rows.forEach((row) => delete next[rowKey(row)]); return next; } const next = { ...current }; rows.forEach((row) => { next[rowKey(row)] = row; }); return next; }); }
   function clearFilters() { setInput(""); setSearch(""); setService(""); setPage(0); }
-  useEffect(() => { const timer = setTimeout(() => { setSearch(input.trim()); setPage(0); }, 250); return () => clearTimeout(timer); }, [input]);
+  const firstSearch = useRef(true);
+  useEffect(() => {
+    if (firstSearch.current) { firstSearch.current = false; return; }
+    const timer = setTimeout(() => { setSearch(input.trim()); setPage(0); }, 250);
+    return () => clearTimeout(timer);
+  }, [input]);
   useEffect(() => {
     if (!rowMenu) return;
     const onPointerDown = (event: PointerEvent) => {
@@ -287,7 +297,7 @@ export function QuestionBank() {
   function generateStandards(row: Question) {
     try {
       sessionStorage.setItem("evaluation-standards-selected-question", JSON.stringify({ id: row.id, datasetVersion: row.datasetVersion, question: row.question, domainKey: row.domainKey || null, sourceType: row.sourceType }));
-      router.push("/standards?returnTo=%2Fquestion-bank");
+      router.push(`/standards?returnTo=${encodeURIComponent(listHref)}`);
       setDetail(null);
     } catch { toast("error", "无法带入题目，请在测评助手重新选择。"); }
   }
@@ -383,7 +393,7 @@ export function QuestionBank() {
             {canManage && <th className="col-check"><Checkbox checked={allSelected} indeterminate={someSelected && !allSelected} onChange={toggleAll} aria-label="全选本页题目" /></th>}
             <th scope="col">题目</th>
             <th scope="col" className="col-service">领域</th>
-            <th scope="col" className="col-time">更新时间</th>
+            <th scope="col" className="col-time">创建时间</th>
             <th scope="col" className="col-score">评分（本版本最近运行）</th>
             <th scope="col" className="col-action"><span className="sr-only">操作</span></th>
           </tr></thead>
@@ -394,7 +404,7 @@ export function QuestionBank() {
               <td className="col-question"><button type="button" className="row-question" title={row.question} onClick={() => openDetail(row)}>{row.question}</button></td>
               <td className="col-service">{domainLabel(row)}{row.serviceKey && <> · 服务：{serviceNames[row.serviceKey] || row.serviceKey}</>}</td>
               <td className="col-time">{formatDate(row.createdAt)}</td>
-              <td className="col-score"><QuestionScores rows={scoreRows.filter(v => v.questionId === row.id && v.datasetVersion === row.datasetVersion)} state={scoresState} /></td>
+              <td className="col-score"><QuestionScores rows={scoreRows.filter(v => v.questionId === row.id && v.datasetVersion === row.datasetVersion)} state={scoresState} listHref={listHref} /></td>
               <td className="col-action"><button type="button" className="icon-button bank-row-more" aria-label={`更多操作：${row.question.slice(0, 24)}`} aria-haspopup="menu" aria-expanded={rowMenu?.row === row} onClick={(event) => openRowMenu(event, row)}><Icon name="more" /></button></td>
             </tr>;
           })}</tbody>

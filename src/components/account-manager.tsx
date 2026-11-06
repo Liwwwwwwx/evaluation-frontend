@@ -60,7 +60,7 @@ export function AccountManager() {
     {messageHolder}
     <div className={styles.content}>
       <header className={styles.header}>
-        <div><p className={styles.eyebrow}>账号与权限</p><h1 id="account-page-title">用户管理</h1><p className={styles.description}>管理平台账号，统一分配评测使用权限。</p></div>
+        <div><p className={styles.eyebrow}>账号与权限</p><h1 id="account-page-title">用户管理</h1><p className={styles.description}>查看和管理平台账号；新用户默认获得评测读写权限。</p></div>
         <Button type="button" variant="primary" onClick={() => setCreateOpen(true)}><span className={styles.plus} aria-hidden="true">＋</span>创建用户</Button>
       </header>
 
@@ -77,7 +77,7 @@ export function AccountManager() {
 
         {loading ? <EmptyState compact state="loading" title="正在读取用户列表…" /> : error ? <EmptyState compact state="error" title="无法读取用户列表" description={error} action={<Button variant="secondary" onClick={() => setReload(value => value + 1)}>重新加载</Button>} /> : !result?.items.length ? <EmptyState compact state="empty" title={search ? "没有找到匹配的用户" : "暂无评测账号"} description={search ? "请尝试其他用户名或显示名称。" : "创建账号后，用户会显示在这里。"} action={search ? <Button variant="secondary" onClick={() => setInput("")}>清除搜索</Button> : <Button variant="secondary" onClick={() => setCreateOpen(true)}>创建用户</Button>} /> : <>
           <div className={styles.tableWrap}><table className={styles.table}>
-            <thead><tr><th scope="col">用户</th><th scope="col">账号角色</th><th scope="col">评测权限</th><th scope="col">创建时间</th><th scope="col">操作</th></tr></thead>
+            <thead><tr><th scope="col">用户</th><th scope="col">账号角色</th><th scope="col">默认权限</th><th scope="col">创建时间</th><th scope="col">操作</th></tr></thead>
             <tbody>{result.items.map(account => <tr key={account.id}>
               <td><div className={styles.identity}><span className={styles.avatar} aria-hidden="true">{(account.displayName || account.username).trim().slice(0, 1).toUpperCase()}</span><span className={styles.name}><strong>{account.displayName || account.username}</strong><span>@{account.username}</span></span></div></td>
               <td><span className={styles.role}>{account.username === "admin" ? "管理员" : "评测成员"}</span></td>

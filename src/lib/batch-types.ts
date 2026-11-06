@@ -55,6 +55,8 @@ export type RunBrief = {
   status: "queued" | "running" | "scoring" | "done" | "error" | "paused";
   execution: "completed" | "failed" | "timeout" | "unfinished";
   scores: { deepSeek: number | null; qwen: number | null };
+  displayScores?: { deepSeek: number | null; qwen: number | null };
+  provisionalScores?: { deepSeek: boolean; qwen: boolean };
   error: string | null;
   startedAt: string;
   elapsedMs: number | null;

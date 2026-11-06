@@ -39,6 +39,17 @@
   --color-logo-bg: #202020;
   --color-logo-fg: #ffffff;
   --color-logo-accent: #86b79a;
+  --batch-canvas: #f2f4f6;
+  --batch-surface: #ffffff;
+  --batch-panel: #ffffff;
+  --batch-sheen: linear-gradient(180deg, rgba(255, 255, 255, .95), rgba(255, 255, 255, 0));
+  --batch-line: #e3e6ea;
+  --batch-line-strong: #d4d9df;
+  --batch-glow: rgba(255, 255, 255, .95);
+  --batch-tool: #ffffff;
+  --batch-inset: inset 0 1px 0 rgba(255, 255, 255, .9);
+  --batch-card-shadow: 0 1px 2px rgba(16, 17, 19, .04), 0 18px 40px -32px rgba(16, 17, 19, .35);
+  --batch-card-shadow-hover: 0 2px 4px rgba(16, 17, 19, .05), 0 28px 56px -30px rgba(16, 17, 19, .45);
   --elev-2: 0 3px 16px rgba(0, 0, 0, .08);
   --radius-sm: 8px;
   --radius-md: 10px;
@@ -83,6 +94,17 @@
   --color-logo-bg: #ececec;
   --color-logo-fg: #212121;
   --color-logo-accent: #4c8c6b;
+  --batch-canvas: #17181a;
+  --batch-surface: #1f2124;
+  --batch-panel: #1b1d1f;
+  --batch-sheen: linear-gradient(180deg, rgba(255, 255, 255, .055), rgba(255, 255, 255, .008));
+  --batch-line: rgba(255, 255, 255, .075);
+  --batch-line-strong: rgba(255, 255, 255, .16);
+  --batch-glow: rgba(255, 255, 255, .05);
+  --batch-tool: rgba(255, 255, 255, .035);
+  --batch-inset: inset 0 1px 0 rgba(255, 255, 255, .06);
+  --batch-card-shadow: inset 0 1px 0 rgba(255, 255, 255, .06), 0 18px 44px -30px rgba(0, 0, 0, .9);
+  --batch-card-shadow-hover: inset 0 1px 0 rgba(255, 255, 255, .09), 0 30px 60px -32px rgba(0, 0, 0, 1);
 }
 * { box-sizing: border-box; }
 /* Chrome 121+ 同时支持标准 scrollbar-width 与 ::-webkit-scrollbar，标准属性生效时会禁用自定义滚动条；因此标准属性只留给 Firefox。 */
@@ -728,7 +750,8 @@ a.nav-item.active:hover { background: var(--color-bg-selected); }
   .chat-mobilebar { display: flex; align-items: center; gap: 8px; height: 48px; flex: none; padding: 0 12px; color: var(--color-fg); font-size: 14px; line-height: 20px; font-weight: 600; }
   .chat-drawer[open] { display: block; position: fixed; inset: 0 auto 0 0; width: min(280px, 85vw); height: 100%; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; background: var(--color-bg-subtle); }
   .chat-drawer::backdrop { background: var(--color-overlay); }
-  .chat-drawer .chat-sidebar { width: 100%; height: 100%; }
+  .chat-drawer .chat-sidebar { position: relative; width: 100%; height: 100%; }
+  .chat-drawer-close { position: absolute; top: 8px; right: 8px; z-index: 2; }
   .chat-top { height: 48px; padding: 0 16px; }
   .chat-scroll-inner { padding: 0 16px 32px; }
 }

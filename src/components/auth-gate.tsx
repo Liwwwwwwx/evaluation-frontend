@@ -38,7 +38,11 @@ export function AuthGate({ children }: { children: ReactNode }) {
     let active = true;
     void checkSession().then((result) => {
       if (!active) return;
-      if (result.status === 401) { router.replace("/login"); return; }
+      if (result.status === 401) {
+        const next = `${window.location.pathname}${window.location.search}`;
+        router.replace(`/login?next=${encodeURIComponent(next)}`);
+        return;
+      }
       setUser(result.user);
     }).catch(() => { if (active) setError("无法验证登录状态，请检查认证服务后重试。"); });
     return () => { active = false; };

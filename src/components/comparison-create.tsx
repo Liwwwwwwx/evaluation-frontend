@@ -123,7 +123,7 @@ export function ComparisonCreate() {
       if (!response.ok) throw new Error(comparisonErrorMessage(value, response.status));
       if (!value || typeof value.groupId !== "string") throw new Error("对比组返回格式异常。");
       sessionStorage.removeItem(storageKey); setPending(null);
-      router.push(`/compare/${encodeURIComponent(value.groupId)}`);
+      router.push(`/compare/${encodeURIComponent(value.groupId)}?from=${encodeURIComponent("/compare")}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "无法创建对比测评，请稍后重试。");
     } finally {

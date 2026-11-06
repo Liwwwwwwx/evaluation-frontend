@@ -8,6 +8,7 @@ import { Button, EmptyState, Pagination, StatusDot, ToastStack, useToasts, type 
 import { questionDomains } from "@/lib/question-domains";
 import { buildRunMarkdown, runMarkdownFilename } from "@/lib/run-markdown";
 import { isUncertainRun, runStatusLabel } from "@/lib/run-status";
+import { appendFrom } from "@/lib/navigation";
 import Link from "next/link";
 
 type Run = { runId: string; serviceKey: string; origin: string; question: string; status: string; recoveryState?: string; startedAt: string | null; domainKey?: string | null; comparisonGroupId?: string | null; canRescore?: boolean; scores?: ScoreSummaryValue };
@@ -29,14 +30,14 @@ function statusTone(status: string): StatusTone {
 }
 function domainLabel(key?: string | null) { return questionDomains[key || ""] || "未分类"; }
 
-function RunRow({ run, menuOpen, onMenu }: { run: Run; menuOpen: boolean; onMenu: (event: ReactMouseEvent<HTMLButtonElement>, run: Run) => void }) {
+function RunRow({ run, menuOpen, onMenu, listHref }: { run: Run; menuOpen: boolean; onMenu: (event: ReactMouseEvent<HTMLButtonElement>, run: Run) => void; listHref: string }) {
   const started = dateLabel(run.startedAt);
   const service = names[run.serviceKey] || run.serviceKey;
   const origin = origins[run.origin] || "未知";
   const uncertain = isUncertainRun(run.status, run.recoveryState);
   const status = runStatusLabel(run.status, run.recoveryState);
   return <li className="run-row">
-    <Link className="run-row-link" href={`/runs/${run.runId}`} title={run.question} aria-label={`查看运行：${run.question}`} />
+    <Link className="run-row-link" href={appendFrom(`/runs/${run.runId}`, listHref)} title={run.question} aria-label={`查看运行：${run.question}`} />
     <span className="run-row-main">
       <strong className="run-row-question">{run.question || "未命名题目"}</strong>
       <span className="run-row-meta">{service} · {domainLabel(run.domainKey)} · {origin}{run.comparisonGroupId && " · 双服务对比"}<span className="run-row-inline-time"> · {started}</span></span>
@@ -45,7 +46,7 @@ function RunRow({ run, menuOpen, onMenu }: { run: Run; menuOpen: boolean; onMenu
     <span className="run-row-score"><ScoreSummary scores={run.scores} /></span>
     <time className="run-row-time" dateTime={run.startedAt || undefined}>{started}</time>
     <span className="run-row-actions">
-      {run.comparisonGroupId && <Link className="run-comparison-link" href={`/compare/${encodeURIComponent(run.comparisonGroupId)}`} aria-label={`查看双服务对比：${run.question}`}>对比</Link>}
+      {run.comparisonGroupId && <Link className="run-comparison-link" href={appendFrom(`/compare/${encodeURIComponent(run.comparisonGroupId)}`, listHref)} aria-label={`查看双服务对比：${run.question}`}>对比</Link>}
       <button type="button" className="run-action-button" aria-haspopup="menu" aria-expanded={menuOpen} aria-label={`更多操作：${run.question}`} onClick={(event) => onMenu(event, run)}>
         <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.6" /><circle cx="12" cy="12" r="1.6" /><circle cx="19" cy="12" r="1.6" /></svg>
       </button>
@@ -53,16 +54,17 @@ function RunRow({ run, menuOpen, onMenu }: { run: Run; menuOpen: boolean; onMenu
   </li>;
 }
 
-export function UnifiedRunList() {
-  const [page, setPage] = useState(1);
-  const [query, setQuery] = useState("");
-  const [search, setSearch] = useState("");
-  const [domain, setDomain] = useState("");
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
+export function UnifiedRunList({ initialQuery = "", initialDomain = "", initialFrom = "", initialTo = "", initialPage = 1 }: { initialQuery?: string; initialDomain?: string; initialFrom?: string; initialTo?: string; initialPage?: number }) {
+  const [page, setPage] = useState(initialPage);
+  const [query, setQuery] = useState(initialQuery);
+  const [search, setSearch] = useState(initialQuery.trim());
+  const [domain, setDomain] = useState(initialDomain);
+  const [from, setFrom] = useState(initialFrom);
+  const [to, setTo] = useState(initialTo);
   const [data, setData] = useState<{ items: Run[]; total: number } | null>(null);
   const [error, setError] = useState("");
   const [retry, setRetry] = useState(0);
+  const [refreshTick, setRefreshTick] = useState(0);
   const [filterOpen, setFilterOpen] = useState(false);
   const [menu, setMenu] = useState<MenuState | null>(null);
   const [rescoring, setRescoring] = useState<string | null>(null);
@@ -70,7 +72,9 @@ export function UnifiedRunList() {
   const filterRef = useRef<HTMLDivElement>(null);
   const filterButton = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const firstQuery = useRef(true);
   useEffect(() => {
+    if (firstQuery.current) { firstQuery.current = false; return; }
     const timer = setTimeout(() => { setSearch(query.trim()); setPage(1); }, 250);
     return () => clearTimeout(timer);
   }, [query]);
@@ -86,7 +90,14 @@ export function UnifiedRunList() {
       .then((value) => { setData(value); setError(""); })
       .catch((err) => { if (!controller.signal.aborted) { setData(null); setError(err instanceof Error ? err.message : "读取失败。"); } });
     return () => controller.abort();
-  }, [page, retry, search, domain, from, to]);
+  }, [page, retry, refreshTick, search, domain, from, to]);
+  useEffect(() => {
+    if (!data?.items.some((run) => ["queued", "running", "scoring"].includes(run.status))) return;
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible") setRefreshTick((value) => value + 1);
+    }, 5000);
+    return () => window.clearInterval(timer);
+  }, [data]);
   useEffect(() => {
     if (!filterOpen) return;
     const onPointerDown = (event: PointerEvent) => { if (!filterRef.current?.contains(event.target as Node)) setFilterOpen(false); };
@@ -118,6 +129,16 @@ export function UnifiedRunList() {
   const filtersActive = Boolean(search || domain || from || to);
   const hasChips = Boolean(domain || from || to);
   const filterCount = (domain ? 1 : 0) + (from || to ? 1 : 0);
+  const listParams = new URLSearchParams();
+  if (page > 1) listParams.set("page", String(page));
+  if (search) listParams.set("q", search);
+  if (domain) listParams.set("domain", domain);
+  if (from) listParams.set("from", from);
+  if (to) listParams.set("to", to);
+  const listHref = `/runs${listParams.toString() ? `?${listParams.toString()}` : ""}`;
+  useEffect(() => {
+    if (typeof window !== "undefined") window.history.replaceState(null, "", listHref);
+  }, [listHref]);
   function notify(message: string, tone: ToastTone = "success") {
     pushToast(tone, message);
   }
@@ -189,16 +210,17 @@ export function UnifiedRunList() {
           <div className="runs-filter-foot"><Button type="button" variant="ghost" size="sm" onClick={resetFilters}>清除全部</Button><Button type="button" variant="secondary" onClick={() => setFilterOpen(false)}>完成</Button></div>
         </div>}
       </div>
+      <Button type="button" variant="secondary" onClick={() => setRefreshTick((value) => value + 1)}>刷新</Button>
       {filtersActive && <Button type="button" variant="ghost" size="sm" onClick={resetFilters}>重置</Button>}
     </div>
     {hasChips && <div className="runs-filter-chips">
       {(from || to) && <span className="runs-filter-chip"><span>日期 {from || "不限"} 至 {to || "不限"}</span><button type="button" aria-label="清除日期筛选" onClick={() => { setFrom(""); setTo(""); setPage(1); }}><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M6 6l12 12M18 6 6 18" /></svg></button></span>}
       {domain && <span className="runs-filter-chip"><span>{domain === "unclassified" ? "未分类" : domainLabel(domain)}</span><button type="button" aria-label="清除领域筛选" onClick={() => { setDomain(""); setPage(1); }}><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M6 6l12 12M18 6 6 18" /></svg></button></span>}
     </div>}
-    {error ? <EmptyState state="error" title={error} action={<Button type="button" variant="secondary" onClick={() => setRetry((value) => value + 1)}>重试</Button>} /> : !data ? <EmptyState state="loading" title="正在读取运行记录…" /> : data.total === 0 ? <EmptyState state="empty" title={filtersActive ? "没有匹配的运行记录。" : "暂无统一运行记录。"} action={filtersActive ? <Button type="button" variant="secondary" onClick={resetFilters}>清除筛选</Button> : undefined} /> : <><div className="runs-list-wrap"><div className="runs-list-head" aria-hidden="true"><span>题目</span><span>状态</span><span>评分</span><span>开始时间</span><span>操作</span></div><ul className="runs-list" aria-label="运行记录">{data.items.map((run) => <RunRow key={run.runId} run={run} menuOpen={menu?.run.runId === run.runId} onMenu={toggleMenu} />)}</ul></div><Pagination page={page} pages={pages} total={data.total} pageSize={20} onPageChange={(next) => { setData(null); setPage(next); }} /></>}
+    {error ? <EmptyState state="error" title={error} action={<Button type="button" variant="secondary" onClick={() => setRetry((value) => value + 1)}>重试</Button>} /> : !data ? <EmptyState state="loading" title="正在读取运行记录…" /> : data.total === 0 ? <EmptyState state="empty" title={filtersActive ? "没有匹配的运行记录。" : "暂无统一运行记录。"} action={filtersActive ? <Button type="button" variant="secondary" onClick={resetFilters}>清除筛选</Button> : undefined} /> : <><div className="runs-list-wrap"><div className="runs-list-head" aria-hidden="true"><span>题目</span><span>状态</span><span>评分</span><span>开始时间</span><span>操作</span></div><ul className="runs-list" aria-label="运行记录">{data.items.map((run) => <RunRow key={run.runId} run={run} menuOpen={menu?.run.runId === run.runId} onMenu={toggleMenu} listHref={listHref} />)}</ul></div><Pagination page={page} pages={pages} total={data.total} pageSize={20} onPageChange={(next) => { setData(null); setPage(next); }} /></>}
     {menu && <div ref={menuRef} className="run-action-menu" role="menu" style={{ top: menu.top, left: menu.left }}>
-      <Link className="run-action-item" role="menuitem" href={`/runs/${menu.run.runId}`} onClick={() => setMenu(null)}><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14m-6-6 6 6-6 6" /></svg><span>查看详情</span></Link>
-      {menu.run.comparisonGroupId && <Link className="run-action-item" role="menuitem" href={`/compare/${encodeURIComponent(menu.run.comparisonGroupId)}`} onClick={() => setMenu(null)}><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M5 7h14M5 17h14M9 4 6 7l3 3m6 4 3 3-3 3" /></svg><span>查看双服务对比</span></Link>}
+      <Link className="run-action-item" role="menuitem" href={appendFrom(`/runs/${menu.run.runId}`, listHref)} onClick={() => setMenu(null)}><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14m-6-6 6 6-6 6" /></svg><span>查看详情</span></Link>
+      {menu.run.comparisonGroupId && <Link className="run-action-item" role="menuitem" href={appendFrom(`/compare/${encodeURIComponent(menu.run.comparisonGroupId)}`, listHref)} onClick={() => setMenu(null)}><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M5 7h14M5 17h14M9 4 6 7l3 3m6 4 3 3-3 3" /></svg><span>查看双服务对比</span></Link>}
       <button type="button" className="run-action-item" role="menuitem" onClick={() => void copyQuestion(menu.run)}><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15V5h10" /></svg><span>复制题目</span></button>
       {menu.run.canRescore && <button type="button" className="run-action-item" role="menuitem" disabled={rescoring === menu.run.runId} onClick={() => void rescore(menu.run)}><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M20 7v5h-5M4 17v-5h5" /><path d="M6.1 7a7 7 0 0 1 11.6-1L20 9M4 15l2.3 3A7 7 0 0 0 17.9 17" /></svg><span>{rescoring === menu.run.runId ? "正在提交…" : "重新评分"}</span></button>}
       <button type="button" className="run-action-item" role="menuitem" onClick={() => void exportMarkdown(menu.run)}><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M12 4v11m-4-4 4 4 4-4M5 20h14" /></svg><span>导出 Markdown</span></button>

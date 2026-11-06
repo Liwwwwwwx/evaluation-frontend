@@ -17,7 +17,7 @@ export function Tabs({ items, value, onChange, variant = "underline", ariaLabel,
   items: TabItem[];
   value: string;
   onChange: (value: string) => void;
-  variant?: "underline" | "pill";
+  variant?: "underline" | "pill" | "segmented";
   ariaLabel: string;
   idBase?: string;
   bordered?: boolean;

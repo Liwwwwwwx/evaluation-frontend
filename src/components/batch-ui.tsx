@@ -100,8 +100,9 @@ export function executionTone(execution: string): StatusTone {
   return "info";
 }
 
-export function ScorePair({ deepSeek, qwen }: { deepSeek: number | null; qwen: number | null }) {
-  return <span className={styles.scorePair}><span>DS <b>{formatScore(deepSeek)}</b></span><span>QW <b>{formatScore(qwen)}</b></span></span>;
+export function ScorePair({ deepSeek, qwen, provisional }: { deepSeek: number | null; qwen: number | null; provisional?: { deepSeek: boolean; qwen: boolean } }) {
+  const note = provisional?.deepSeek || provisional?.qwen ? "含暂定评分：评分来源截断，仅供参考" : undefined;
+  return <span className={styles.scorePair} title={note}><span>DS <b>{formatScore(deepSeek)}</b>{provisional?.deepSeek && <span className={styles.scoreProvisional} aria-label="暂定评分">*</span>}</span><span>QW <b>{formatScore(qwen)}</b>{provisional?.qwen && <span className={styles.scoreProvisional} aria-label="暂定评分">*</span>}</span></span>;
 }
 
 export function JudgeMeans({ scores }: { scores: { deepSeek: JudgeSummary; qwen: JudgeSummary } }) {
