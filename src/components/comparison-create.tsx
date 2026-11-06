@@ -25,9 +25,9 @@ function Icon({ name }: { name: IconName }) {
 
 type Pending = { key: string; serviceKeys: [string, string]; question: string; questionId?: string; datasetVersion?: string; sourceType?: string };
 
-const left = "synthesis";
+const left = "alloy";
 const right = "alpha-rsi";
-const max = 200;
+const max = 500;
 
 export function ComparisonCreate() {
   const router = useRouter();
@@ -52,8 +52,12 @@ export function ComparisonCreate() {
       if (saved) {
         const request = JSON.parse(saved) as Pending;
         if (typeof request.key !== "string" || !request.key || !Array.isArray(request.serviceKeys) || request.serviceKeys.length !== 2 || request.serviceKeys.some(key => typeof key !== "string") || typeof request.question !== "string") throw new Error();
-        setPending(request); setQuestion(request.question);
-        if (request.questionId && request.datasetVersion && request.sourceType) setSource({ id: request.questionId, datasetVersion: request.datasetVersion, sourceType: request.sourceType, question: request.question, domainKey: null });
+        if (request.serviceKeys[0] !== left || request.serviceKeys[1] !== right) {
+          sessionStorage.removeItem(storageKey);
+        } else {
+          setPending(request); setQuestion(request.question);
+          if (request.questionId && request.datasetVersion && request.sourceType) setSource({ id: request.questionId, datasetVersion: request.datasetVersion, sourceType: request.sourceType, question: request.question, domainKey: null });
+        }
       }
       setRestored(true);
     } catch { setError("无法读取待确认的对比请求，请检查浏览器会话存储。"); }
@@ -131,7 +135,7 @@ export function ComparisonCreate() {
     }
   }
 
-  const labelOf = (key: string) => services.find((service) => service.key === key)?.label || (key === "synthesis" ? "合成制备" : key === "alpha-rsi" ? "ALPHA 材料 RSI（1110）" : key);
+  const labelOf = (key: string) => services.find((service) => service.key === key)?.label || (key === "alloy" ? "合金材料" : key === "alpha-rsi" ? "ALPHA 材料 RSI（1110）" : key);
   const pairReady = ready;
 
   return <main className="eval-page">
@@ -199,7 +203,7 @@ export function ComparisonCreate() {
       </form>
 
       {pending && <InlineAlert tone="warning" className="eval-alert" action={<><Button href="/runs" target="_blank" rel="noopener noreferrer" variant="secondary" size="sm">查看运行记录</Button><Button type="button" variant="secondary" size="sm" disabled={submitting} onClick={() => { if (window.confirm("请确认已查看运行记录。放弃后重新发起可能产生重复运行，是否继续？")) { sessionStorage.removeItem(storageKey); setPending(null); setError(""); } }}>已核对，放弃原请求</Button></>}>上次对比请求结果尚未确认（{pending.serviceKeys.map(labelOf).join(" 与 ")}）；重试会使用原题目、题库版本和请求标识。</InlineAlert>}
-      {!pairReady && !loading && <InlineAlert tone="danger" className="eval-alert">合成制备或 ALPHA 材料 RSI（1110）尚未启用，暂不能开始对比。</InlineAlert>}
+      {!pairReady && !loading && <InlineAlert tone="danger" className="eval-alert">合金材料或 ALPHA 材料 RSI（1110）尚未启用，暂不能开始对比。</InlineAlert>}
       {generated && <p className="eval-hint">根据两个服务生成 · 请核对题目和服务适用性。</p>}
       {error && <InlineAlert tone="danger" className="eval-alert" action={<Button href="/runs" target="_blank" rel="noopener noreferrer" variant="secondary" size="sm">查看运行记录</Button>}>{error}</InlineAlert>}
       <p className="eval-hint">{loading ? "正在读取可用服务…" : submitting ? "正在创建对比运行，请勿重复提交。" : pending ? "点击发送按钮重试原请求。" : "每次对比保留题目、两份回答及评分状态。"}</p>
