@@ -10,7 +10,7 @@ import { Button, EmptyState, Pagination, Tabs } from "@/components/ui";
 import { DailyReportList } from "@/components/daily-reports";
 import { BatchSchemePanel } from "@/components/batch-scheme-panel";
 import { BatchSchemesList } from "@/components/batch-schemes-list";
-import { BatchStatus, formatDate, formatDateTime, ScorePair, PreviewNote, sourceLabel, stateLabel } from "@/components/batch-ui";
+import { BatchStatus, formatDate, formatDateTime, ScorePairSummary, PreviewNote, sourceLabel, stateLabel } from "@/components/batch-ui";
 import { appendFrom } from "@/lib/navigation";
 import styles from "./batches.module.css";
 
@@ -205,7 +205,7 @@ export function BatchListPage({ basePath, preview = false, initialTab = "configs
               <span><b>{batch.totals.total}</b>/{batch.totals.planned} 已记录</span>
               <span>失败 <b>{batch.totals.failed}</b></span>
               <span>超时 <b>{batch.totals.timeout}</b></span>
-              <span className={styles.cardScores}><ScorePair deepSeek={batch.scores.deepSeek.mean} qwen={batch.scores.qwen.mean} /></span>
+              <span className={styles.cardScores}><ScorePairSummary scores={batch.scores} /></span>
             </div>
             <div className={styles.cardFoot}>
               <Button variant="secondary" size="sm" href={`${basePath}/${batch.batchId}/comparison`}>环比</Button>
