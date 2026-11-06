@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>测评批次 · 版本 B · 轨道主从</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #111213;
+    --bg-deep: #0c0d0e;
+    --line: rgba(255, 255, 255, .075);
+    --line-strong: rgba(255, 255, 255, .15);
+    --fg: #f1f2f3;
+    --fg-muted: #9aa0a6;
+    --fg-subtle: #6b7177;
+    --accent: #8cc2ff;
+    --success: #7fd8a5;
+    --warning: #f0c87d;
+    --danger: #ef9c9c;
+    --ink: #161718;
+    --r-xl: 24px;
+    --r-lg: 18px;
+    --r-md: 13px;
+    --r-sm: 10px;
+    --ease: cubic-bezier(.2, 0, 0, 1);
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; overflow: hidden; background: var(--bg); color: var(--fg);
+    font: 14px/22px -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+  svg { display: block; }
+  .num { font-variant-numeric: tabular-nums; }
+
+  .shell { display: flex; height: 100dvh; }
+  .sidebar {
+    width: 288px; flex: none; display: flex; flex-direction: column; padding: 14px 12px 10px;
+    background: linear-gradient(180deg, #121314, #0d0e0f);
+    border-right: 1px solid var(--line);
+  }
+  .brand { display: flex; align-items: center; gap: 9px; height: 44px; padding: 0 8px 0 6px; font-size: 15px; font-weight: 600; }
+  .brand b { font-weight: 400; color: var(--fg-muted); }
+  .brand svg { width: 30px; height: 30px; }
+  .new-chat {
+    display: flex; align-items: center; gap: 9px; height: 40px; margin: 10px 2px 4px; padding: 0 12px;
+    border: 1px solid var(--line); border-radius: var(--r-md); background: rgba(255, 255, 255, .035);
+    font-size: 13.5px; transition: background 140ms var(--ease), border-color 140ms var(--ease);
+  }
+  .new-chat:hover { background: rgba(255, 255, 255, .07); border-color: var(--line-strong); }
+  .new-chat svg { width: 15px; height: 15px; opacity: .8; }
+  .side-label { padding: 18px 10px 6px; color: var(--fg-subtle); font-size: 11px; }
+  .history { flex: 1; min-height: 0; overflow-y: auto; padding: 0 2px; }
+  .history-group { padding: 8px 10px 2px; color: var(--fg-subtle); font-size: 11px; }
+  .history-item { display: flex; align-items: center; gap: 8px; min-height: 38px; padding: 0 8px; border-radius: var(--r-sm); color: var(--fg-muted); font-size: 12.5px; text-decoration: none; }
+  .history-item:hover { background: rgba(255, 255, 255, .045); color: var(--fg); }
+  .history-item .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--fg-subtle); flex: none; }
+  .history-item .dot.done { background: var(--success); }
+  .history-item .dot.running { background: var(--accent); }
+  .history-item .txt { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .history-item .tag { font-size: 10.5px; color: var(--fg-subtle); }
+  .side-foot { display: grid; gap: 2px; margin-top: 8px; padding-top: 10px; border-top: 1px solid var(--line); }
+  .nav-item { display: flex; align-items: center; gap: 11px; min-height: 40px; padding: 0 10px; border-radius: var(--r-sm); color: var(--fg-muted); font-size: 13px; text-decoration: none; border: 1px solid transparent; }
+  .nav-item:hover { background: rgba(255, 255, 255, .04); color: var(--fg); }
+  .nav-item.active { color: var(--fg); font-weight: 600; background: rgba(255, 255, 255, .075); border-color: rgba(255, 255, 255, .07); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06); }
+  .nav-item svg { width: 17px; height: 17px; opacity: .8; }
+  .account { margin-top: 6px; padding: 2px; display: flex; align-items: center; gap: 10px; min-height: 44px; border-radius: var(--r-sm); }
+  .account:hover { background: rgba(255, 255, 255, .04); }
+  .avatar { width: 30px; height: 30px; flex: none; display: grid; place-items: center; border-radius: 50%; background: rgba(255, 255, 255, .1); font-size: 12px; font-weight: 600; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .16); }
+  .account span { font-size: 13px; }
+
+  .main {
+    position: relative; flex: 1; min-width: 0; overflow-y: auto;
+    background:
+      radial-gradient(900px 500px at 18% -18%, rgba(140, 194, 255, .07), transparent 65%),
+      radial-gradient(900px 600px at 88% -10%, rgba(255, 255, 255, .05), transparent 65%),
+      var(--bg);
+  }
+  .main::before {
+    content: ""; position: fixed; inset: 0; pointer-events: none; opacity: .02;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  .page { position: relative; width: min(100%, 1180px); margin: 0 auto; padding: 40px 34px 36px; }
+
+  .page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
+  .page-head h1 { margin: 0; font-size: 30px; line-height: 38px; font-weight: 600; letter-spacing: -.01em; }
+  .page-head .sub { margin: 8px 0 0; color: var(--fg-muted); font-size: 13px; }
+  .head-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding-top: 5px; }
+  .night { display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 14px 0 12px; border: 1px solid var(--line); border-radius: 999px; background: rgba(255, 255, 255, .035); color: var(--fg-muted); font-size: 12px; }
+  .night .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--success); box-shadow: 0 0 0 4px rgba(127, 216, 165, .12); }
+  .night b { color: var(--fg); font-weight: 600; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; height: 38px; padding: 0 16px; border-radius: 999px; font-size: 12.5px; font-weight: 600; transition: background 140ms var(--ease), border-color 140ms var(--ease), color 140ms var(--ease), transform 140ms var(--ease); }
+  .btn.ghost { color: var(--fg-muted); }
+  .btn.ghost:hover { color: var(--fg); background: rgba(255, 255, 255, .06); }
+  .btn.outline { color: var(--fg); border: 1px solid var(--line); background: rgba(255, 255, 255, .03); }
+  .btn.outline:hover { background: rgba(255, 255, 255, .07); border-color: var(--line-strong); }
+  .btn.primary { color: var(--ink); background: #fff; box-shadow: 0 8px 22px -12px rgba(0, 0, 0, .9); }
+  .btn.primary:hover { background: #ececec; transform: translateY(-1px); }
+  .btn.small { height: 32px; padding: 0 13px; font-size: 12px; }
+
+  /* summary slab */
+  .summary {
+    display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0;
+    margin-top: 26px; padding: 4px;
+    border: 1px solid var(--line); border-radius: var(--r-xl);
+    background: linear-gradient(180deg, rgba(255, 255, 255, .045), rgba(255, 255, 255, .008)), #17191b;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .05);
+  }
+  .summary-cell { padding: 15px 18px; }
+  .summary-cell + .summary-cell { border-left: 1px solid rgba(255, 255, 255, .06); }
+  .summary-cell span { display: block; color: var(--fg-subtle); font-size: 11px; }
+  .summary-cell b { display: block; margin-top: 5px; font-size: 19px; font-weight: 600; letter-spacing: -.01em; }
+  .summary-cell b em { font-style: normal; color: var(--fg-muted); font-size: 12px; font-weight: 400; margin-left: 6px; }
+
+  .segmented { display: inline-flex; gap: 2px; margin-top: 22px; padding: 4px; border: 1px solid var(--line); border-radius: 999px; background: rgba(255, 255, 255, .03); }
+  .segmented button { display: inline-flex; align-items: center; gap: 7px; height: 34px; padding: 0 16px; border-radius: 999px; color: var(--fg-subtle); font-size: 12.5px; font-weight: 600; transition: background 160ms var(--ease), color 160ms var(--ease); }
+  .segmented button:hover { color: var(--fg-muted); }
+  .segmented button[aria-selected="true"] { color: var(--fg); background: rgba(255, 255, 255, .1); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .1), 0 2px 8px rgba(0, 0, 0, .35); }
+
+  .view { display: none; }
+  .view.active { display: block; }
+
+  .split { display: grid; grid-template-columns: 336px minmax(0, 1fr); gap: 18px; margin-top: 18px; align-items: start; }
+
+  /* rail */
+  .rail { display: grid; gap: 6px; }
+  .rail-head { display: flex; align-items: center; justify-content: space-between; padding: 2px 6px 8px; color: var(--fg-subtle); font-size: 11px; }
+  .rail-item {
+    position: relative; width: 100%; display: grid; gap: 5px; padding: 14px 16px; text-align: left;
+    border: 1px solid transparent; border-radius: var(--r-lg);
+    transition: background 160ms var(--ease), border-color 160ms var(--ease), transform 160ms var(--ease);
+  }
+  .rail-item:hover { background: rgba(255, 255, 255, .04); }
+  .rail-item[aria-selected="true"] {
+    background: linear-gradient(180deg, rgba(255, 255, 255, .09), rgba(255, 255, 255, .025));
+    border-color: rgba(255, 255, 255, .16);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .09), inset 2px 0 0 rgba(255, 255, 255, .35), 0 16px 32px -24px rgba(0, 0, 0, .95);
+  }
+  .rail-title { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .rail-title strong { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 14px; font-weight: 600; }
+  .rail-title .tag { flex: none; height: 19px; padding: 0 7px; border-radius: 999px; background: rgba(255, 255, 255, .07); color: var(--fg-muted); font-size: 10px; line-height: 19px; font-weight: 600; }
+  .rail-title .tag.nightly { background: rgba(140, 194, 255, .13); color: var(--accent); }
+  .rail-meta { color: var(--fg-subtle); font-size: 11.5px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .rail-bottom { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 2px; }
+  .rail-count { color: var(--fg-subtle); font-size: 11px; }
+  .rail-count b { color: var(--fg-muted); font-weight: 600; }
+  .rail-owner { color: var(--fg-subtle); font-size: 10.5px; }
+  .rail-item[aria-selected="true"] .rail-owner { color: var(--fg-muted); }
+
+  /* detail slab */
+  .detail {
+    min-width: 0; padding: 22px 24px 20px;
+    border: 1px solid var(--line); border-radius: var(--r-xl);
+    background: linear-gradient(180deg, rgba(255, 255, 255, .055), rgba(255, 255, 255, .012) 36%, rgba(255, 255, 255, .004)), #17191b;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .07), 0 26px 60px -44px rgba(0, 0, 0, 1);
+  }
+  .detail-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  .detail-title { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+  .detail-title h2 { margin: 0; font-size: 20px; line-height: 28px; font-weight: 600; letter-spacing: -.01em; }
+  .chip { display: inline-flex; align-items: center; gap: 5px; height: 21px; padding: 0 8px; border-radius: 999px; background: rgba(255, 255, 255, .06); color: var(--fg-muted); font-size: 10.5px; font-weight: 600; }
+  .chip.nightly { background: rgba(140, 194, 255, .13); color: var(--accent); }
+  .detail-sub { margin: 7px 0 0; color: var(--fg-subtle); font-size: 12px; }
+  .detail-actions { display: flex; align-items: center; gap: 8px; }
+  .detail-actions .btn.small { height: 34px; }
+
+  .detail-body { display: grid; gap: 22px; margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--line); }
+  .block h3 { margin: 0 0 10px; color: var(--fg-subtle); font-size: 10.5px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; }
+  .pools { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .pool { display: flex; align-items: baseline; justify-content: space-between; padding: 13px 15px; border: 1px solid var(--line); border-radius: var(--r-md); background: rgba(255, 255, 255, .03); }
+  .pool span { color: var(--fg-subtle); font-size: 11.5px; }
+  .pool b { font-size: 19px; font-weight: 600; }
+
+  .svc-list { display: grid; gap: 2px; }
+  .svc {
+    display: grid; grid-template-columns: 150px minmax(0, 1fr) 62px 74px; gap: 14px; align-items: center;
+    padding: 10px 2px; border-bottom: 1px solid rgba(255, 255, 255, .045);
+  }
+  .svc:last-child { border-bottom: 0; }
+  .svc-name { font-size: 12.5px; color: var(--fg); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .svc-bar { height: 4px; border-radius: 999px; background: rgba(255, 255, 255, .06); overflow: hidden; }
+  .svc-bar span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, rgba(255, 255, 255, .35), rgba(255, 255, 255, .75)); }
+  .svc-num { color: var(--fg-subtle); font-size: 11.5px; text-align: right; }
+  .svc-num b { color: var(--fg); font-weight: 600; }
+  .svc-total { color: var(--fg-muted); font-size: 11.5px; text-align: right; }
+
+  .meta-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+  .meta-cell { padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--r-md); background: rgba(255, 255, 255, .025); }
+  .meta-cell span { display: block; color: var(--fg-subtle); font-size: 11px; }
+  .meta-cell b { display: block; margin-top: 4px; font-size: 14px; font-weight: 600; }
+
+  .recent { display: grid; gap: 0; }
+  .recent-row { display: grid; grid-template-columns: minmax(0, 1fr) 108px 96px 60px; gap: 12px; align-items: center; padding: 11px 2px; border-bottom: 1px solid rgba(255, 255, 255, .045); font-size: 12px; }
+  .recent-row:last-child { border-bottom: 0; padding-bottom: 2px; }
+  .recent-row .date { color: var(--fg); font-weight: 500; }
+  .recent-row .meta { color: var(--fg-subtle); font-size: 11.5px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .recent-row .link { justify-self: end; color: var(--fg-muted); font-size: 11.5px; }
+  .recent-row .link:hover { color: var(--fg); }
+  .st { display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 9px; border-radius: 999px; background: rgba(255, 255, 255, .05); color: var(--fg-muted); font-size: 10.5px; font-weight: 600; }
+  .st i { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+  .st.done { background: rgba(127, 216, 165, .1); color: var(--success); }
+  .st.partial { background: rgba(240, 200, 125, .1); color: var(--warning); }
+  .st.running { background: rgba(140, 194, 255, .1); color: var(--accent); }
+
+  /* runs / reports reuse detail slab */
+  .wide-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 18px; }
+  .run-card { padding: 20px 22px 18px; border: 1px solid var(--line); border-radius: var(--r-xl); background: linear-gradient(180deg, rgba(255, 255, 255, .05), rgba(255, 255, 255, .008)), #17191b; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .05); }
+  .run-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .run-top h2 { margin: 0; font-size: 15.5px; font-weight: 600; }
+  .run-meta { margin: 6px 0 0; color: var(--fg-subtle); font-size: 11.5px; }
+  .track { height: 5px; margin-top: 15px; border-radius: 999px; background: rgba(255, 255, 255, .07); overflow: hidden; }
+  .track span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, rgba(255, 255, 255, .5), rgba(255, 255, 255, .9)); }
+  .run-stats { display: flex; flex-wrap: wrap; gap: 8px 20px; margin-top: 12px; color: var(--fg-subtle); font-size: 11.5px; }
+  .run-stats b { color: var(--fg); font-weight: 600; }
+  .report-row { display: grid; grid-template-columns: minmax(0, 1fr) 64px 64px 56px; gap: 10px; align-items: center; padding: 11px 0; border-bottom: 1px solid rgba(255, 255, 255, .045); font-size: 12.5px; }
+  .report-row:last-child { border-bottom: 0; }
+  .report-row span { color: var(--fg-muted); }
+  .report-row b { color: var(--fg); font-weight: 600; }
+  .delta { font-size: 11px; color: var(--success); }
+  .delta.down { color: var(--danger); }
+  .note { margin: 12px 0 0; color: var(--fg-subtle); font-size: 11px; }
+
+  .pager { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--line); color: var(--fg-subtle); font-size: 12px; }
+  .page-btn { height: 32px; padding: 0 13px; border: 1px solid var(--line); border-radius: 999px; color: var(--fg-muted); font-size: 12px; background: rgba(255, 255, 255, .02); }
+  .page-btn:hover { color: var(--fg); border-color: var(--line-strong); background: rgba(255, 255, 255, .05); }
+
+  @media (max-width: 1120px) {
+    .split { grid-template-columns: 1fr; }
+    .rail { grid-template-columns: 1fr 1fr; }
+    .rail-head { grid-column: 1 / -1; }
+    .wide-grid { grid-template-columns: 1fr; }
+    .summary { grid-template-columns: 1fr 1fr; }
+    .summary-cell:nth-child(3) { border-left: 0; border-top: 1px solid rgba(255, 255, 255, .06); }
+    .summary-cell:nth-child(4) { border-top: 1px solid rgba(255, 255, 255, .06); }
+  }
+  @media (max-width: 900px) {
+    .sidebar { display: none; }
+    .page { padding: 26px 18px 30px; }
+    .rail { grid-template-columns: 1fr; }
+    .pools, .meta-grid { grid-template-columns: 1fr; }
+    .svc { grid-template-columns: minmax(0, 1fr) 52px 64px; }
+    .svc-bar { display: none; }
+    .recent-row { grid-template-columns: minmax(0, 1fr) 92px 64px; }
+    .recent-row .meta { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition-duration: 0ms !important; } }
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="sidebar">
+    <div class="brand">
+      <svg viewBox="0 0 40 40" fill="none" aria-hidden="true">
+        <rect x="1" y="1" width="38" height="38" rx="12" fill="#ececec" />
+        <path d="M10.5 23.5 16 13l5 10 3.3-6.5 5.2 10" stroke="#212121" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" />
+        <circle cx="29.5" cy="11" r="2" fill="#4c8c6b" />
+      </svg>
+      <span>Science <b>评测</b></span>
+    </div>
+    <button class="new-chat">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M12 5v14M5 12h14" /></svg>
+      新建测评
+    </button>
+    <div class="side-label">近期对话</div>
+    <div class="history">
+      <div class="history-group">昨天</div>
+      <a class="history-item" href="#"><span class="dot done"></span><span class="txt">航空用Al-Zn-Mg-Cu…</span><span class="tag">对比</span></a>
+      <a class="history-item" href="#"><span class="dot done"></span><span class="txt">航空用Al-Zn-Mg-Cu…</span><span class="tag">对比</span></a>
+      <a class="history-item" href="#"><span class="dot done"></span><span class="txt">某承力结构件需在两种…</span><span class="tag">对比</span></a>
+      <a class="history-item" href="#"><span class="dot running"></span><span class="txt">某承力结构件需在两种…</span><span class="tag">对比</span></a>
+      <a class="history-item" href="#"><span class="dot done"></span><span class="txt">某卫星载荷芯片在真空热…</span></a>
+      <div class="history-group">更早</div>
+      <a class="history-item" href="#"><span class="dot done"></span><span class="txt">材料类别 hea_mpea…</span><span class="tag">对比</span></a>
+      <a class="history-item" href="#"><span class="dot done"></span><span class="txt">题目 碳纤维增强聚醚醚酮…</span></a>
+    </div>
+    <nav class="side-foot">
+      <a class="nav-item active" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 8 4.5-8 4.5-8-4.5z" /><path d="m4 12 8 4.5 8-4.5" /><path d="m4 16.5 8 4.5 8-4.5" /></svg>测评批次</a>
+      <a class="nav-item" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5" /><path d="M12 7v5l3 2" /></svg>运行记录</a>
+      <a class="nav-item" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v17H6.5A2.5 2.5 0 0 1 4 17.5z" /><path d="M4 17.5A2.5 2.5 0 0 1 6.5 15H20" /></svg>题库</a>
+      <a class="nav-item" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="6" height="6" rx="1.4" /><rect x="14" y="4" width="6" height="6" rx="1.4" /><rect x="4" y="14" width="6" height="6" rx="1.4" /><rect x="14" y="14" width="6" height="6" rx="1.4" /></svg>测评助手</a>
+      <div class="account"><span class="avatar">A</span><span>admin</span></div>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <div class="page">
+      <header class="page-head">
+        <div>
+          <h1>测评批次</h1>
+          <p class="sub">一个配置就是一套可复用的服务与题池组合。</p>
+        </div>
+        <div class="head-actions">
+          <span class="night"><span class="dot"></span>夜间调度 <b>已开启</b><span style="opacity:.55">· 02:00</span></span>
+          <button class="btn ghost">查看日报</button>
+          <button class="btn primary">＋ 新建批次配置</button>
+        </div>
+      </header>
+
+      <div class="summary">
+        <div class="summary-cell"><span>批次配置</span><b class="num">4 <em>个</em></b></div>
+        <div class="summary-cell"><span>累计运行</span><b class="num">840 <em>次</em></b></div>
+        <div class="summary-cell"><span>当前夜间配置</span><b style="font-size:15px">新材料专项</b></div>
+        <div class="summary-cell"><span>最近夜间批次</span><b style="font-size:15px">11-04 · 部分完成</b></div>
+      </div>
+
+      <nav class="segmented" role="tablist" aria-label="测评批次视图">
+        <button role="tab" aria-selected="true" data-tab="configs">批次配置</button>
+        <button role="tab" aria-selected="false" data-tab="runs">执行记录</button>
+        <button role="tab" aria-selected="false" data-tab="reports">测评日报</button>
+      </nav>
+
+      <section class="view active" data-view="configs">
+        <div class="split">
+          <div class="rail" role="listbox" aria-label="批次配置列表">
+            <div class="rail-head"><span>全部配置</span><span class="num">4 个</span></div>
+            <!-- rail items injected -->
+          </div>
+          <article class="detail" id="detail"></article>
+        </div>
+      </section>
+
+      <section class="view" data-view="runs">
+        <div class="wide-grid">
+          <article class="run-card">
+            <div class="run-top"><h2>2026-11-04 · 多服务随机题</h2><span class="st partial"><i></i>部分完成</span></div>
+            <p class="run-meta">我的测评方案 v1 · 7 个服务 · 更新 11-05 02:01</p>
+            <div class="track"><span style="width:95%"></span></div>
+            <div class="run-stats num"><span><b>247</b> 完成</span><span><b>56</b> 失败</span><span><b>2</b> 超时</span><span><b>15</b> 未结束</span></div>
+          </article>
+          <article class="run-card">
+            <div class="run-top"><h2>2026-11-03 · 多服务随机题</h2><span class="st done"><i></i>已完成</span></div>
+            <p class="run-meta">我的测评方案 v1 · 7 个服务 · 更新 11-04 02:14</p>
+            <div class="track"><span style="width:100%"></span></div>
+            <div class="run-stats num"><span><b>305</b> 完成</span><span><b>10</b> 失败</span><span><b>0</b> 超时</span><span><b>5</b> 未结束</span></div>
+          </article>
+          <article class="run-card">
+            <div class="run-top"><h2>2026-11-03 · 手动组合测评</h2><span class="st running"><i></i>执行中</span></div>
+            <p class="run-meta">新材料专项 v3 · 5 个服务 · 更新 11-03 10:12</p>
+            <div class="track"><span style="width:42%"></span></div>
+            <div class="run-stats num"><span><b>21</b> 完成</span><span><b>1</b> 失败</span><span><b>0</b> 超时</span><span><b>28</b> 未结束</span></div>
+          </article>
+          <article class="run-card">
+            <div class="run-top"><h2>2026-11-02 · 多服务随机题</h2><span class="st done"><i></i>已完成</span></div>
+            <p class="run-meta">航空夜间基线 v2 · 6 个服务 · 更新 11-03 02:06</p>
+            <div class="track"><span style="width:100%"></span></div>
+            <div class="run-stats num"><span><b>300</b> 完成</span><span><b>18</b> 失败</span><span><b>2</b> 超时</span><span><b>0</b> 未结束</span></div>
+          </article>
+        </div>
+        <div class="pager"><span>共 12 个批次</span><div><button class="page-btn">下一页</button></div></div>
+      </section>
+
+      <section class="view" data-view="reports">
+        <div class="wide-grid">
+          <article class="run-card">
+            <div class="run-top"><h2>2026-11-04</h2><span class="note" style="margin:0">夜间自动 · 7 个服务</span></div>
+            <div style="margin-top:10px">
+              <div class="report-row"><span>新材料</span><b class="num">37.5</b><b class="num">5.0</b><span class="delta num">+1.2</span></div>
+              <div class="report-row"><span>合成制备</span><b class="num">29.4</b><b class="num">6.1</b><span class="delta num">+0.4</span></div>
+              <div class="report-row"><span>合金材料</span><b class="num">33.3</b><b class="num">26.1</b><span class="delta down num">−0.8</span></div>
+            </div>
+            <p class="note">均值仅代表当晚有效评分，未包含失败与超时题目。</p>
+          </article>
+          <article class="run-card">
+            <div class="run-top"><h2>2026-11-03</h2><span class="note" style="margin:0">夜间自动 · 6 个服务</span></div>
+            <div style="margin-top:10px">
+              <div class="report-row"><span>新材料</span><b class="num">36.3</b><b class="num">4.8</b><span class="delta num">+0.6</span></div>
+              <div class="report-row"><span>合成制备</span><b class="num">29.0</b><b class="num">5.9</b><span class="delta down num">−0.3</span></div>
+              <div class="report-row"><span>合金材料</span><b class="num">34.1</b><b class="num">26.9</b><span class="delta num">+1.1</span></div>
+            </div>
+            <p class="note">均值仅代表当晚有效评分，未包含失败与超时题目。</p>
+          </article>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+
+
+<script>
+  const configs = [
+    {
+      name: "测评测试", owner: "个人", version: 1, updated: "11-04 17:36", nightly: false,
+      pools: { a: 10, b: 10 }, compare: true,
+      services: [
+        { name: "Mission 主服务", a: 3, s: 3 },
+        { name: "文献检索", a: 2, s: 2 },
+        { name: "航空文献", a: 2, s: 2 },
+        { name: "合金材料", a: 1, s: 1 },
+        { name: "合成制备", a: 1, s: 1 },
+        { name: "新材料", a: 1, s: 1 }
+      ],
+      runs: 70,
+      recent: [
+        { date: "11-03 · 手动组合", state: "done", label: "已完成", done: "60 完成" },
+        { date: "10-28 · 手动组合", state: "done", label: "已完成", done: "60 完成" },
+        { date: "10-21 · 手动组合", state: "partial", label: "部分完成", done: "52 完成" }
+      ]
+    },
+    {
+      name: "我的测评方案", owner: "其他用户", version: 1, updated: "11-04 16:17", nightly: false,
+      pools: { a: 50, b: 50 }, compare: true,
+      services: [
+        { name: "Mission 主服务", a: 12, s: 12 },
+        { name: "文献检索", a: 8, s: 10 },
+        { name: "航空文献", a: 10, s: 6 },
+        { name: "合金材料", a: 8, s: 8 },
+        { name: "合成制备", a: 6, s: 8 },
+        { name: "新材料", a: 4, s: 4 },
+        { name: "ALPHA 1110", a: 2, s: 2 }
+      ],
+      runs: 320,
+      recent: [
+        { date: "11-04 · 多服务随机题", state: "partial", label: "部分完成", done: "247 完成" },
+        { date: "11-03 · 多服务随机题", state: "done", label: "已完成", done: "305 完成" },
+        { date: "11-02 · 多服务随机题", state: "done", label: "已完成", done: "312 完成" }
+      ]
+    },
+    {
+      name: "新材料专项", owner: "个人", version: 3, updated: "11-03 09:42", nightly: true,
+      pools: { a: 20, b: 30 }, compare: false,
+      services: [
+        { name: "新材料", a: 6, s: 10 },
+        { name: "合成制备", a: 5, s: 8 },
+        { name: "合金材料", a: 4, s: 7 },
+        { name: "Mission 主服务", a: 3, s: 3 },
+        { name: "文献检索", a: 2, s: 2 }
+      ],
+      runs: 210,
+      recent: [
+        { date: "11-03 · 手动组合测评", state: "running", label: "执行中", done: "21 完成" },
+        { date: "10-30 · 手动组合测评", state: "done", label: "已完成", done: "50 完成" },
+        { date: "10-23 · 手动组合测评", state: "done", label: "已完成", done: "50 完成" }
+      ]
+    },
+    {
+      name: "航空夜间基线", owner: "其他用户", version: 2, updated: "11-02 22:08", nightly: false,
+      pools: { a: 40, b: 20 }, compare: true,
+      services: [
+        { name: "Mission 主服务", a: 10, s: 5 },
+        { name: "文献检索", a: 9, s: 4 },
+        { name: "航空文献", a: 8, s: 4 },
+        { name: "合金材料", a: 7, s: 4 },
+        { name: "合成制备", a: 4, s: 2 },
+        { name: "新材料", a: 2, s: 1 }
+      ],
+      runs: 240,
+      recent: [
+        { date: "11-02 · 多服务随机题", state: "done", label: "已完成", done: "300 完成" },
+        { date: "11-01 · 多服务随机题", state: "done", label: "已完成", done: "298 完成" },
+        { date: "10-31 · 多服务随机题", state: "done", label: "已完成", done: "301 完成" }
+      ]
+    }
+  ];
+
+  const rail = document.querySelector(".rail");
+  const detail = document.getElementById("detail");
+  let selected = 0;
+
+  function renderRail() {
+    rail.querySelectorAll(".rail-item").forEach(el => el.remove());
+    configs.forEach((item, index) => {
+      const button = document.createElement("button");
+      button.className = "rail-item";
+      button.setAttribute("role", "option");
+      button.setAttribute("aria-selected", String(index === selected));
+      button.dataset.index = index;
+      button.innerHTML = `
+        <span class="rail-title">
+          <strong>${item.name}</strong>
+          ${item.nightly ? `<span class="tag nightly">夜间</span>` : ``}
+        </span>
+        <span class="rail-meta">v${item.version} · ${item.services.length} 个服务 · 更新 ${item.updated}</span>
+        <span class="rail-bottom">
+          <span class="rail-count num"><b>${item.runs}</b> 次运行</span>
+          <span class="rail-owner">${item.owner === "个人" ? "个人" : "其他用户"}</span>
+        </span>`;
+      button.addEventListener("click", () => { selected = index; renderRail(); renderDetail(); });
+      rail.appendChild(button);
+    });
+  }
+
+  function renderDetail() {
+    const item = configs[selected];
+    const max = Math.max(...item.services.map(s => s.a + s.s));
+    detail.innerHTML = `
+      <div class="detail-head">
+        <div>
+          <div class="detail-title">
+            <h2>${item.name}</h2>
+            ${item.nightly ? `<span class="chip nightly">夜间配置</span>` : ``}
+          </div>
+          <p class="detail-sub">v${item.version} · ${item.owner === "个人" ? "个人配置" : "其他用户配置"} · 更新 ${item.updated}</p>
+        </div>
+        <div class="detail-actions">
+          <button class="btn outline small">编辑</button>
+          <button class="btn primary small">发起测评</button>
+        </div>
+      </div>
+      <div class="detail-body">
+        <section class="block">
+          <h3>题池</h3>
+          <div class="pools">
+            <div class="pool"><span>航空材料</span><b class="num">${item.pools.a} 题</b></div>
+            <div class="pool"><span>新材料合成</span><b class="num">${item.pools.b} 题</b></div>
+          </div>
+        </section>
+        <section class="block">
+          <h3>服务题量</h3>
+          <div class="svc-list">
+            ${item.services.map(s => `
+              <div class="svc">
+                <span class="svc-name">${s.name}</span>
+                <span class="svc-bar"><span style="width:${Math.round((s.a + s.s) / max * 100)}%"></span></span>
+                <span class="svc-num num"><b>${s.a}</b> / ${s.s}</span>
+                <span class="svc-total num">${s.a + s.s} 次</span>
+              </div>`).join("")}
+          </div>
+        </section>
+        <section class="block">
+          <h3>运行</h3>
+          <div class="meta-grid">
+            <div class="meta-cell"><span>单次运行</span><b class="num">${item.services.reduce((n, s) => n + s.a + s.s, 0)} 次</b></div>
+            <div class="meta-cell"><span>同题对比</span><b>${item.compare ? "开启" : "关闭"}</b></div>
+            <div class="meta-cell"><span>归属</span><b>${item.owner}</b></div>
+          </div>
+        </section>
+        <section class="block">
+          <h3>最近执行</h3>
+          <div class="recent">
+            ${item.recent.map(r => `
+              <div class="recent-row">
+                <span class="date">${r.date}</span>
+                <span class="st ${r.state}"><i></i>${r.label}</span>
+                <span class="meta num">${r.done}</span>
+                <button class="link">查看</button>
+              </div>`).join("")}
+          </div>
+        </section>
+      </div>`;
+  }
+
+  renderRail();
+  renderDetail();
+
+  document.querySelectorAll(".segmented button").forEach(tab => tab.addEventListener("click", () => {
+    document.querySelectorAll(".segmented button").forEach(t => t.setAttribute("aria-selected", String(t === tab)));
+    document.querySelectorAll(".view").forEach(v => v.classList.toggle("active", v.dataset.view === tab.dataset.tab));
+  }));
+</script>
+</body>
+</html>

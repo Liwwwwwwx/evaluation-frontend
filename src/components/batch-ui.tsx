@@ -100,8 +100,28 @@ export function executionTone(execution: string): StatusTone {
   return "info";
 }
 
-export function ScorePair({ deepSeek, qwen }: { deepSeek: number | null; qwen: number | null }) {
-  return <span className={styles.scorePair}><span>DS <b>{formatScore(deepSeek)}</b></span><span>QW <b>{formatScore(qwen)}</b></span></span>;
+export function ScorePair({ deepSeek, qwen, provisional }: { deepSeek: number | null; qwen: number | null; provisional?: { deepSeek: boolean; qwen: boolean } }) {
+  const note = provisional?.deepSeek || provisional?.qwen ? "含暂定评分：评分来源截断，仅供参考" : undefined;
+  return <span className={styles.scorePair} title={note}><span>DS <b>{formatScore(deepSeek)}</b>{provisional?.deepSeek && <span className={styles.scoreProvisional} aria-label="暂定评分">*</span>}</span><span>QW <b>{formatScore(qwen)}</b>{provisional?.qwen && <span className={styles.scoreProvisional} aria-label="暂定评分">*</span>}</span></span>;
+}
+
+function compactJudgeState(judge: JudgeSummary) {
+  if (judge.ready > 0 || judge.provisional > 0) return "";
+  if (judge.pending > 0) return "评分中";
+  if (judge.failed > 0) return "评分失败";
+  if (judge.unavailable > 0) return "未配置";
+  if (judge.absent > 0) return "无评分";
+  if (judge.invalid) return "评分无效";
+  return "无记录";
+}
+
+export function ScorePairSummary({ scores }: { scores: { deepSeek: JudgeSummary; qwen: JudgeSummary } }) {
+  return <span className={styles.scorePair}>
+    {([["DS", scores.deepSeek], ["QW", scores.qwen]] as const).map(([key, judge]) => {
+      const state = compactJudgeState(judge);
+      return <span key={key} title={judgeStateDescription(judge)}>{key} <b>{formatMean(judge)}</b>{state && <span className={styles.scoreState}>{state}</span>}</span>;
+    })}
+  </span>;
 }
 
 export function JudgeMeans({ scores }: { scores: { deepSeek: JudgeSummary; qwen: JudgeSummary } }) {

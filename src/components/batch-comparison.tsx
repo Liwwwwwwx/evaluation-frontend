@@ -6,6 +6,7 @@ import { previewComparisonFor } from "@/lib/batch-preview";
 import { serviceLabel, type BatchComparison, type ComparisonQuestion } from "@/lib/batch-types";
 import { BackLink, Badge, Button, EmptyState, type StatusTone } from "@/components/ui";
 import { deltaTone, formatDelta, formatScore, PreviewNote } from "@/components/batch-ui";
+import { appendFrom } from "@/lib/navigation";
 import styles from "./batches.module.css";
 
 const levelLabels: Record<ComparisonQuestion["level"], string> = {
@@ -24,7 +25,7 @@ const levelTones: Record<ComparisonQuestion["level"], StatusTone> = {
   fixed: "success",
 };
 
-export function BatchComparisonPage({ batchId, basePath, preview = false }: { batchId: string; basePath: string; preview?: boolean }) {
+export function BatchComparisonPage({ batchId, basePath, preview = false, backHref, backLabel = "返回批次详情", selfHref }: { batchId: string; basePath: string; preview?: boolean; backHref?: string; backLabel?: string; selfHref?: string }) {
   const [comparison, setComparison] = useState<BatchComparison | null>(null);
   const [error, setError] = useState("");
   const [retry, setRetry] = useState(0);
@@ -54,8 +55,10 @@ export function BatchComparisonPage({ batchId, basePath, preview = false }: { ba
 
   if (!comparison) {
     return <main className={`${styles.page} ${styles.comparePage}`}>
+      <div className={styles.pageInner}>
       {preview && <PreviewNote />}
-      {error ? <EmptyState state="error" title="无法读取批次环比" description={error} action={<div className={styles.headerActions}><Button variant="secondary" onClick={() => setRetry((value) => value + 1)}>重试</Button><Button href={`${basePath}/${batchId}`} variant="secondary">返回批次详情</Button></div>} /> : <EmptyState state="loading" title="正在读取批次环比…" />}
+      {error ? <EmptyState state="error" title="无法读取批次环比" description={error} action={<div className={styles.headerActions}><Button variant="secondary" onClick={() => setRetry((value) => value + 1)}>重试</Button><Button href={backHref || `${basePath}/${batchId}`} variant="secondary">{backLabel}</Button></div>} /> : <EmptyState state="loading" title="正在读取批次环比…" />}
+      </div>
     </main>;
   }
 
@@ -64,6 +67,7 @@ export function BatchComparisonPage({ batchId, basePath, preview = false }: { ba
   const stable = comparison.questions.filter((question) => question.level === "stable");
 
   return <main className={`${styles.page} ${styles.comparePage}`} aria-labelledby="comparison-title">
+    <div className={styles.pageInner}>
     {preview && <PreviewNote />}
     <header className={styles.header}>
       <div>
@@ -71,8 +75,8 @@ export function BatchComparisonPage({ batchId, basePath, preview = false }: { ba
         <p>{comparison.base.date} 对比 {comparison.previous?.date || "无可比批次"} · 比较阈值 ±{comparison.thresholdPoints} 分</p>
       </div>
       <div className={styles.headerActions}>
-        <BackLink href={`${basePath}/${batchId}`}>返回批次详情</BackLink>
-        {comparison.previous && <Button href={`${basePath}/${comparison.previous.batchId}`} variant="secondary">查看上次批次</Button>}
+        <BackLink href={backHref || `${basePath}/${batchId}`}>{backLabel}</BackLink>
+        {comparison.previous && <Button href={appendFrom(`${basePath}/${comparison.previous.batchId}`, selfHref || `${basePath}/${batchId}/comparison`)} variant="secondary">查看上次批次</Button>}
       </div>
     </header>
 
@@ -124,6 +128,7 @@ export function BatchComparisonPage({ batchId, basePath, preview = false }: { ba
     </>}
 
     <p className={styles.note}>环比结论只用于定位问题；模型评分不等于科学正确率。点进批次详情可查看低分题和失败原因。</p>
+    </div>
   </main>;
 }
 

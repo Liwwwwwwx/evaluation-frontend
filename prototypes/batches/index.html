@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>测评批次 · 三版原型</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0f1011;
+    --panel: #16181a;
+    --line: rgba(255, 255, 255, .09);
+    --fg: #f1f2f3;
+    --muted: #9aa0a6;
+    --subtle: #6b7177;
+    --ease: cubic-bezier(.2, 0, 0, 1);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; color: var(--fg);
+    background:
+      radial-gradient(900px 420px at 50% -10%, rgba(255, 255, 255, .06), transparent 65%),
+      var(--bg);
+    font: 14px/22px -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: inherit; }
+  .wrap { width: min(100%, 1360px); margin: 0 auto; padding: 34px 24px 40px; }
+  .head { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+  .eyebrow { margin: 0 0 8px; color: var(--subtle); font-size: 10.5px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; }
+  h1 { margin: 0; font-size: 27px; line-height: 36px; font-weight: 600; letter-spacing: -.01em; }
+  .sub { margin: 8px 0 0; color: var(--muted); font-size: 13px; }
+  .open-tip { color: var(--subtle); font-size: 12px; }
+  .open-tip a { color: var(--muted); }
+
+  .switch { display: flex; gap: 10px; margin: 26px 0 16px; flex-wrap: wrap; }
+  .opt {
+    flex: 1; min-width: 250px; display: flex; flex-direction: column; gap: 5px; padding: 14px 16px;
+    border: 1px solid var(--line); border-radius: 16px; background: rgba(255, 255, 255, .025);
+    text-align: left; color: var(--muted); transition: background 160ms var(--ease), border-color 160ms var(--ease), color 160ms var(--ease);
+  }
+  .opt:hover { background: rgba(255, 255, 255, .05); color: var(--fg); }
+  .opt[aria-pressed="true"] {
+    background: linear-gradient(180deg, rgba(255, 255, 255, .08), rgba(255, 255, 255, .02));
+    border-color: rgba(255, 255, 255, .18); color: var(--fg);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08), 0 18px 40px -30px rgba(0, 0, 0, .9);
+  }
+  .opt .tag { display: inline-flex; align-items: center; gap: 7px; font-size: 13.5px; font-weight: 600; }
+  .opt .tag i { width: 6px; height: 6px; border-radius: 50%; background: #8cc2ff; }
+  .opt.v3 .tag i { background: #f1f2f3; }
+  .opt small { color: var(--subtle); font-size: 11.5px; line-height: 17px; }
+  .opt[aria-pressed="true"] small { color: var(--muted); }
+
+  .stage {
+    position: relative; border: 1px solid var(--line); border-radius: 20px; overflow: hidden;
+    background: #121314; box-shadow: 0 40px 90px -50px rgba(0, 0, 0, 1);
+  }
+  .stage-head {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 10px 14px; border-bottom: 1px solid var(--line); background: #17191b;
+  }
+  .dots { display: flex; gap: 6px; }
+  .dots i { width: 9px; height: 9px; border-radius: 50%; background: rgba(255, 255, 255, .16); }
+  .stage-title { color: var(--subtle); font-size: 11.5px; }
+  .stage-title b { color: var(--muted); font-weight: 600; }
+  .stage-head a { color: var(--muted); font-size: 11.5px; text-decoration: none; border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px; }
+  .stage-head a:hover { color: var(--fg); border-color: rgba(255, 255, 255, .2); }
+  iframe { display: block; width: 100%; height: min(78vh, 860px); min-height: 620px; border: 0; background: #131415; }
+  .foot { margin-top: 18px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+  .card { padding: 14px 16px; border: 1px solid var(--line); border-radius: 14px; background: rgba(255, 255, 255, .02); }
+  .card h2 { margin: 0 0 6px; font-size: 12.5px; font-weight: 600; }
+  .card p { margin: 0; color: var(--subtle); font-size: 11.5px; line-height: 18px; }
+  @media (max-width: 860px) { .foot { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="head">
+    <div>
+      <p class="eyebrow">Science 评测 · 界面方向</p>
+      <h1>测评批次 · 三版质感原型</h1>
+      <p class="sub">统一向登录页的暗色、柔和、有层次的质感靠：低饱和底、悬浮面板、细高光、白色胶囊主按钮。</p>
+    </div>
+    <span class="open-tip">示意数据 · 仅用于比较设计 <a href="./v1-slab.html" target="_blank">新窗口打开当前版本 ↗</a></span>
+  </header>
+
+  <div class="switch" role="group" aria-label="选择原型版本">
+    <button class="opt v1" aria-pressed="true" data-src="./v1-slab.html" data-name="A · 悬浮石板卡">
+      <span class="tag"><i></i>A · 悬浮石板卡</span>
+      <small>双列卡片，改动最小；最接近现在的信息结构，只换质感。</small>
+    </button>
+    <button class="opt v2" aria-pressed="false" data-src="./v2-rail.html" data-name="B · 轨道主从">
+      <span class="tag"><i></i>B · 轨道主从</span>
+      <small>左侧配置轨道 + 右侧常驻详情，选中即看，不再弹抽屉。</small>
+    </button>
+    <button class="opt v3" aria-pressed="false" data-src="./v3-light.html" data-name="C · 柔光浅色">
+      <span class="tag"><i></i>C · 柔光浅色</span>
+      <small>同样的圆润悬浮感，但保留浅色；适合白天与投屏场景。</small>
+    </button>
+  </div>
+
+  <div class="stage">
+    <div class="stage-head">
+      <span class="dots"><i></i><i></i><i></i></span>
+      <span class="stage-title" id="stageTitle"><b>A · 悬浮石板卡</b> · /batches</span>
+      <a id="openLink" href="./v1-slab.html" target="_blank">新窗口打开 ↗</a>
+    </div>
+    <iframe id="stage" src="./v1-slab.html" title="原型预览"></iframe>
+  </div>
+
+  <div class="foot">
+    <div class="card"><h2>共同的质感规则</h2><p>近黑画布 + 顶部柔光、1px 发丝边框、内侧顶部高光、22px 以上圆角、悬停轻微抬升；主操作一律白色胶囊。</p></div>
+    <div class="card"><h2>信息不减少</h2><p>夜间调度、归属、版本、服务数、题池、运行次数、四种操作都保留，只改变层级与呈现方式。</p></div>
+    <div class="card"><h2>待你选定</h2><p>确定方向后再落到 <code>batches.module.css</code> 与卡片组件；在此之前不动现有页面代码。</p></div>
+  </div>
+</div>
+<script>
+  const stage = document.getElementById("stage");
+  const title = document.getElementById("stageTitle");
+  const openLink = document.getElementById("openLink");
+  document.querySelectorAll(".opt").forEach(btn => btn.addEventListener("click", () => {
+    document.querySelectorAll(".opt").forEach(b => b.setAttribute("aria-pressed", String(b === btn)));
+    stage.src = btn.dataset.src;
+    title.innerHTML = "<b>" + btn.dataset.name + "</b> · /batches";
+    openLink.href = btn.dataset.src;
+    document.querySelector(".open-tip a").href = btn.dataset.src;
+  }));
+</script>
+</body>
+</html>

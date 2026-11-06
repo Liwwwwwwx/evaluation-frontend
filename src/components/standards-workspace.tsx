@@ -21,7 +21,7 @@ export function StandardsWorkspace({ returnTo }: { returnTo?: string }) {
     <header className={styles.top}>
       {returnTo && <BackLink href={returnTo} onClick={event => {
         if ((assistant.current?.hasWork() || direct.current?.hasWork()) && !window.confirm("返回后，助手中未保存的内容和评分结果将丢失。确定返回？")) event.preventDefault();
-      }}>{returnTo === "/question-bank" ? "返回题库" : "返回题目详情"}</BackLink>}
+      }}>{returnTo.startsWith("/question-bank/") ? "返回题目详情" : "返回题库"}</BackLink>}
       <div className={styles.hero}>
         <div><h1>测评助手</h1><p>生成可审阅的题目标准，或对已有回答做独立评分。</p></div>
       </div>

@@ -11,6 +11,8 @@ import { RunMarkdownExport } from "@/components/run-markdown-export";
 import { RerunButton } from "@/components/rerun-button";
 import { EndRunButton } from "@/components/end-run-button";
 import { RunCopyButton } from "@/components/run-copy-button";
+import { BackLink } from "@/components/ui";
+import { appendFrom } from "@/lib/navigation";
 import { copyableRunAnswer } from "@/lib/copy-run-answer";
 import { type UnifiedRunSnapshot } from "@/lib/unified-run-poll";
 import { watchLiveUnifiedRun } from "@/lib/unified-run-watch";
@@ -20,7 +22,7 @@ import { isUncertainRun, runStatusLabel } from "@/lib/run-status";
 type Run = UnifiedRunSnapshot;
 const names: Record<string, string> = { "mission-material": "Mission 主服务", "alpha-rsi": "ALPHA 材料 RSI（1110）", alloy: "合金材料", literature: "文献检索", "literature-aircraft": "航空文献", synthesis: "合成制备", "new-material": "新材料" };
 
-export function UnifiedRunDetail({ runId }: { runId: string }) {
+export function UnifiedRunDetail({ runId, backHref = "/runs", backLabel = "返回运行记录", selfHref }: { runId: string; backHref?: string; backLabel?: string; selfHref?: string }) {
   const router = useRouter();
   const [run, setRun] = useState<Run | null>(null);
   const [error, setError] = useState("");
@@ -37,7 +39,7 @@ export function UnifiedRunDetail({ runId }: { runId: string }) {
   const cleared = Boolean(native?.outputClearedAt);
   const replacement = typeof native?.replacementRunId === "string" ? native.replacementRunId : null;
   return <div className="chat-view">
-    <div className="chat-top run-detail-top"><h1>运行详情</h1><span className={`run-dot ${run.status === "done" ? "done" : ["cancelled", "paused"].includes(run.status) ? "cancelled" : run.status === "error" ? "error" : uncertain ? "" : "running"}`} /><span className="run-detail-state">{cleared ? "输出已清除" : runStatusLabel(run.status, run.recoveryState)} · {names[run.serviceKey] || run.serviceKey}</span><div className="run-detail-actions">{run.comparisonGroupId && <Link className="secondary-button" href={`/compare/${encodeURIComponent(run.comparisonGroupId)}`}>查看双服务对比</Link>}{run.canEnd && <EndRunButton runId={runId} onEnded={() => setRetry(value => value + 1)} />}<RerunButton runId={runId} allowed={run.canRerun} preservesOutput={run.rerunPreservesOutput === true} onCreated={id => {
+    <div className="chat-top run-detail-top"><h1>运行详情</h1><span className={`run-dot ${run.status === "done" ? "done" : ["cancelled", "paused"].includes(run.status) ? "cancelled" : run.status === "error" ? "error" : uncertain ? "" : "running"}`} /><span className="run-detail-state">{cleared ? "输出已清除" : runStatusLabel(run.status, run.recoveryState)} · {names[run.serviceKey] || run.serviceKey}</span><div className="run-detail-actions"><BackLink href={backHref}>{backLabel}</BackLink>{run.comparisonGroupId && <Link className="secondary-button" href={appendFrom(`/compare/${encodeURIComponent(run.comparisonGroupId)}`, selfHref || `/runs/${encodeURIComponent(runId)}`)}>查看双服务对比</Link>}{run.canEnd && <EndRunButton runId={runId} onEnded={() => setRetry(value => value + 1)} />}<RerunButton runId={runId} allowed={run.canRerun} preservesOutput={run.rerunPreservesOutput === true} onCreated={id => {
       try { sessionStorage.setItem("evaluation-unified-run", id); } catch { /* 仍可通过新运行地址查看结果。 */ }
       setRun(null); setError("");
       window.dispatchEvent(new Event("evaluation-unified-change"));

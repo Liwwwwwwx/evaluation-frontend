@@ -8,7 +8,7 @@ import { formatDateTime } from "@/components/batch-ui";
 import styles from "./batches.module.css";
 
 type Counts = { aviation: number; synthesis: number };
-type Scheme = { id: string; name: string; version: number; createdBy: string | null; isNightly: boolean; updatedAt: string; config: { pools: Counts; services: Record<string, Counts>; compareSynthesisAlpha: boolean } };
+type Scheme = { id: string; name: string; version: number; createdBy: string | null; isNightly: boolean; updatedAt: string; config: { pools: Counts; services: Record<string, Counts>; compareAlloyAlpha?: boolean; compareSynthesisAlpha?: boolean } };
 type Catalog = { items: Scheme[]; userId: string; canManage: boolean; canSetNightly: boolean; canRun: boolean; storageReady: boolean; nightly: { name: string; version: number } | null; nightlyEnabled: boolean | null };
 const serviceNames: Record<string, string> = { "mission-material": "Mission 主服务", literature: "文献检索", "literature-aircraft": "航空文献", alloy: "合金材料", synthesis: "合成制备", "new-material": "新材料", "alpha-rsi": "ALPHA 1110" };
 const serviceOrder = Object.keys(serviceNames);
@@ -88,9 +88,9 @@ export function BatchSchemesList({ refresh, onOpen, onHistory, preview = false }
               </div>
               <span className={styles.schemeMeta}>v{item.version} · {services.length} 个服务 · 更新 {formatDateTime(item.updatedAt)}</span>
               <div className={styles.schemeStats}>
-                <span>航空 <b>{item.config.pools.aviation}</b> 题</span>
-                <span>合成 <b>{item.config.pools.synthesis}</b> 题</span>
-                <span><b>{schemeTotal(item)}</b> 次运行</span>
+                <span className={styles.schemeStat}><b>{item.config.pools.aviation}</b><span>航空题</span></span>
+                <span className={styles.schemeStat}><b>{item.config.pools.synthesis}</b><span>合成题</span></span>
+                <span className={styles.schemeStat}><b>{schemeTotal(item)}</b><span>运行次数</span></span>
               </div>
               <div className={styles.schemeActions}>
                 <Button size="sm" variant="secondary" onClick={() => setDetail(item)}>配置明细</Button>
@@ -150,7 +150,7 @@ export function BatchSchemesList({ refresh, onOpen, onHistory, preview = false }
           <h3>运行</h3>
           <div className={styles.detailRows}>
             <div className={styles.detailRow}><span>预计运行</span><b>{schemeTotal(detail)} 次</b></div>
-            <div className={styles.detailRow}><span>同题对比</span><b>{detail.config.compareSynthesisAlpha ? "开启" : "关闭"}</b></div>
+            <div className={styles.detailRow}><span>同题对比</span><b>{detail.config.compareAlloyAlpha || detail.config.compareSynthesisAlpha ? "开启" : "关闭"}</b></div>
           </div>
         </section>
       </div>}

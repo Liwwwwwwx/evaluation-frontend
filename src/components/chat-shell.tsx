@@ -7,6 +7,7 @@ import { Logo } from "@/components/logo";
 import { AccountMenu } from "@/components/workspace";
 import { Button, Dialog, InlineAlert, Input } from "@/components/ui";
 import { createRequestKey } from "@/lib/request-key";
+import { appendFrom } from "@/lib/navigation";
 import { isUncertainRun } from "@/lib/run-status";
 import { mergeHistoryStatuses, type HistoryStatus } from "@/lib/run-history-status";
 
@@ -118,7 +119,7 @@ function SidebarBody({ items, error, activeId, onNavigate, onManage, canManage, 
                     <span className="chat-item-text">{item.title || item.question}</span>
                     {activeLabel && <span className="chat-item-status" data-status={uncertain ? "unknown" : item.status}><span className="chat-item-status-dot" aria-hidden="true" />{activeLabel}</span>}
                   </Link>
-                  {item.comparisonGroupId && <Link className="chat-comparison-link" href={`/compare/${encodeURIComponent(item.comparisonGroupId)}`} aria-label={`查看双服务对比：${item.title || item.question}`} onClick={onNavigate}>对比</Link>}
+                  {item.comparisonGroupId && <Link className="chat-comparison-link" href={appendFrom(`/compare/${encodeURIComponent(item.comparisonGroupId)}`, pathname)} aria-label={`查看双服务对比：${item.title || item.question}`} onClick={onNavigate}>对比</Link>}
                   {canManage && <button type="button" className="chat-item-more" aria-label={`管理对话：${(item.title || item.question).slice(0, 24)}`} onClick={() => { onNavigate?.(); onManage(item); }}>•••</button>}
                 </div>;
               })}
@@ -237,6 +238,7 @@ export function ChatShell({ children, preview = false }: { children: ReactNode; 
       </aside>
 
       <dialog className="chat-drawer" ref={drawer} aria-label="运行历史" onClick={(event) => { if (event.target === event.currentTarget) closeDrawer(); }}>
+        <button type="button" className="chat-drawer-close icon-button" aria-label="关闭运行历史" onClick={closeDrawer}><Icon name="close" /></button>
         <div className="chat-sidebar">
           <SidebarBody items={items} error={historyError} activeId={activeId} onNavigate={closeDrawer} onManage={manage} canManage={canManageHistory} storageReady={historyReady} preview={preview} />
         </div>
@@ -252,7 +254,7 @@ export function ChatShell({ children, preview = false }: { children: ReactNode; 
           <button type="button" className="icon-button" aria-label="打开运行历史" onClick={() => drawer.current?.showModal()}>
             <Icon name="menu" />
           </button>
-          <span>{isEvaluate ? "新建测评" : pathname === "/" ? "评测工作台" : pathname.startsWith("/daily-reports") ? "测评日报" : pathname.startsWith("/batches") || pathname.startsWith("/preview/batches") ? "测评批次" : pathname.startsWith("/question-bank") ? "题库" : pathname === "/accounts" ? "用户管理" : pathname === "/standards" || pathname === "/scoring-rules" ? "测评助手" : "运行记录"}</span>
+          <span>{isEvaluate ? "新建测评" : pathname === "/" ? "评测工作台" : pathname.startsWith("/daily-reports") ? "测评日报" : pathname.startsWith("/batches") || pathname.startsWith("/preview/batches") ? "测评批次" : pathname.startsWith("/question-bank") ? "题库" : pathname === "/accounts" ? "用户管理" : pathname === "/standards" || pathname === "/scoring-rules" ? "测评助手" : pathname.startsWith("/compare") ? "对比测评" : "运行记录"}</span>
         </div>
         {children}
       </div>

@@ -1,5 +1,5 @@
 .page { width: 100%; max-width: 1200px; margin: 0 auto; padding: 32px; overflow-wrap: anywhere; color: var(--color-fg); }
-.embedded { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; padding: 14px 4px 0 0; }
+.embedded { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; padding: 18px 2px 0 0; }
 .listArea { min-width: 0; }
 .embedded .listArea { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .embedded .list { flex: 1; min-height: 0; overflow-y: auto; align-content: start; margin: 0; padding-right: 2px; }
@@ -9,6 +9,7 @@
 .statusRow p { margin: 0; }
 .statusRow button { flex: none; }
 .note { margin: 8px 0 0; }
+.detailViewport { flex: 1; min-height: 0; overflow-y: auto; }
 .reading { max-width: 832px; }
 .header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 32px; }
 .headerActions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; flex-shrink: 0; }
@@ -23,23 +24,23 @@
 .form input { min-height: 44px; padding: 8px 12px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); color: var(--color-fg); background: var(--color-bg-elevated); }
 .message { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding: 12px 0; border-left: 2px solid var(--color-warning); padding-left: 16px; font-size: 14px; line-height: 22px; }
 .empty { margin: 32px 0; padding: 24px 0; border-top: 1px solid var(--color-border); font-size: 14px; line-height: 22px; }
-.list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding: 0; margin: 16px 0 24px; list-style: none; }
+.list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; padding: 0; margin: 16px 0 24px; list-style: none; }
 .list li { min-width: 0; }
-.reportCard { position: relative; height: 100%; display: grid; gap: 8px; padding: 16px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-bg); color: var(--color-fg); transition: border-color var(--motion-fast) var(--ease-out), background var(--motion-fast) var(--ease-out); }
-.reportCard:hover { border-color: color-mix(in srgb, var(--color-fg) 22%, var(--color-border)); background: var(--color-bg-subtle); }
+.reportCard { position: relative; height: 100%; display: grid; gap: 8px; padding: 20px 22px 18px; border: 1px solid var(--batch-line); border-radius: 22px; background: var(--batch-sheen), var(--batch-surface); box-shadow: var(--batch-card-shadow); color: var(--color-fg); transition: transform 200ms var(--ease-out), border-color 200ms var(--ease-out), box-shadow 200ms var(--ease-out); }
+.reportCard:hover { transform: translateY(-3px); border-color: var(--batch-line-strong); box-shadow: var(--batch-card-shadow-hover); }
 .reportCard > :not(.reportLink) { position: relative; z-index: 1; pointer-events: none; }
 .reportLink { position: absolute; inset: 0; z-index: 0; border-radius: inherit; }
 .reportLink:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -2px; }
 .reportHead { display: flex; align-items: center; justify-content: space-between; gap: 8px 12px; flex-wrap: wrap; }
-.reportHead strong { font-size: 15px; line-height: 24px; font-weight: 600; font-variant-numeric: tabular-nums; }
-.reportState { display: inline-flex; align-items: center; gap: 6px; color: var(--color-fg-muted); font-size: 12px; line-height: 18px; text-align: right; }
+.reportHead strong { font-size: 16px; line-height: 24px; font-weight: 600; letter-spacing: -.005em; font-variant-numeric: tabular-nums; }
+.reportState { display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 9px; border: 1px solid var(--batch-line); border-radius: var(--radius-full); background: var(--batch-tool); color: var(--color-fg-muted); font-size: 11px; line-height: 20px; font-weight: 600; text-align: right; }
 .reportState i { width: 6px; height: 6px; flex: none; border-radius: 50%; background: var(--color-fg-subtle); }
 .reportState[data-state="ready"] i { background: var(--color-success); }
 .reportState[data-state="generating"] i { background: var(--color-info); }
 .reportState[data-state="failed"] i { background: var(--color-danger); }
-.reportStats { display: flex; flex-wrap: wrap; gap: 4px 16px; color: var(--color-fg-muted); font-size: 12px; line-height: 18px; font-variant-numeric: tabular-nums; }
-.reportStats b { margin-right: 3px; color: var(--color-fg); font-weight: 600; }
-.reportFoot { display: flex; align-items: center; justify-content: flex-end; min-height: 32px; }
+.reportStats { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 22px; margin-top: 8px; padding-top: 15px; border-top: 1px solid var(--batch-line); color: var(--color-fg-muted); font-size: 11px; line-height: 18px; font-variant-numeric: tabular-nums; }
+.reportStats b { margin-right: 3px; color: var(--color-fg); font-size: 19px; line-height: 26px; font-weight: 600; letter-spacing: -.01em; }
+.reportFoot { display: flex; align-items: center; justify-content: flex-end; min-height: 32px; margin-top: 8px; }
 .reportFoot > a, .reportFoot > button { position: relative; z-index: 2; pointer-events: auto; }
 .pagination { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 13px; }
 .back { display: inline-block; min-height: 44px; color: var(--color-fg-muted); font-size: 13px; }

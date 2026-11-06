@@ -82,7 +82,7 @@ export function DailyReportList({ embedded = false }: { embedded?: boolean } = {
   </main>;
 }
 
-export function DailyReportDetail({ date, pending = false }: { date: string; pending?: boolean }) {
+export function DailyReportDetail({ date, pending = false, backHref = "/daily-reports", backLabel = "返回测评日报" }: { date: string; pending?: boolean; backHref?: string; backLabel?: string }) {
   const [data, setData] = useState<Report | null>(null);
   const [error, setError] = useState("");
   const [retry, setRetry] = useState(0);
@@ -106,11 +106,12 @@ export function DailyReportDetail({ date, pending = false }: { date: string; pen
     catch (err) { setError(err instanceof Error ? err.message : "无法重新生成。"); }
     finally { setSubmitting(false); }
   }
-  return <main className={`${styles.page} ${styles.reading}`}>
+  return <div className={styles.detailViewport} role="region" aria-label="测评日报内容" tabIndex={0}>
+  <main className={`${styles.page} ${styles.reading}`}>
     <header className={styles.header}>
       <div><h1>{date} 测评日报</h1></div>
       <div className={styles.headerActions}>
-        <BackLink href="/daily-reports">返回测评日报</BackLink>
+        <BackLink href={backHref}>{backLabel}</BackLink>
         {data?.status === "ready" && data.markdown && <a className="secondary-button" href={`${base}/${date}/markdown`}>下载 Markdown</a>}
       </div>
     </header>
@@ -123,5 +124,5 @@ export function DailyReportDetail({ date, pending = false }: { date: string; pen
       {data.canGenerate && data.status !== "generating" && (data.analysisState !== "ready" || data.status === "failed") && <Button variant="primary" disabled={submitting} onClick={() => void resubmit()}>{submitting ? "正在提交…" : "重试智能总结"}</Button>}
       {data.status === "ready" && data.markdown && <article className={`${styles.report} run-answer`}><AnswerMarkdown content={data.markdown.replace(/^# [^\n]+\n/, "")} /></article>}
     </>}
-  </main>;
+  </main></div>;
 }

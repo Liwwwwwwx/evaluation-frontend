@@ -779,6 +779,41 @@
   font-weight: 600;
 }
 
+.tabs[data-variant="segmented"] {
+  width: max-content;
+  gap: 2px;
+  padding: 4px;
+  border: 1px solid var(--batch-line);
+  border-radius: var(--radius-full);
+  background: var(--batch-tool);
+  box-shadow: var(--batch-inset);
+  overflow-x: auto;
+}
+
+.tabs[data-variant="segmented"] .tab {
+  min-height: 34px;
+  margin: 0;
+  padding: 0 16px;
+  border: 0;
+  border-radius: var(--radius-full);
+  color: var(--color-fg-muted);
+  font-size: 12.5px;
+  line-height: 20px;
+  font-weight: 600;
+}
+
+.tabs[data-variant="segmented"] .tab:not(:disabled):hover {
+  color: var(--color-fg);
+  background: color-mix(in srgb, var(--color-fg) 5%, transparent);
+}
+
+.tabs[data-variant="segmented"] .tab[aria-selected="true"] {
+  color: var(--color-fg);
+  background: color-mix(in srgb, var(--color-fg) 10%, transparent);
+  box-shadow: var(--batch-inset);
+  font-weight: 600;
+}
+
 /* Dialog */
 .dialog {
   width: min(640px, calc(100% - 32px));

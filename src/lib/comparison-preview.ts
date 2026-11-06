@@ -172,9 +172,9 @@ export const previewComparison: Comparison = {
   createdAt: "2026-11-04T10:20:00+08:00",
   runs: [
     {
-      runId: "preview-mission-run",
-      serviceKey: "mission-material",
-      serviceLabel: "Mission 主服务",
+      runId: "preview-alloy-run",
+      serviceKey: "alloy",
+      serviceLabel: "合金材料",
       executionStatus: "succeeded",
       scoringStatus: "ready",
       elapsedMs: 431000,
