@@ -7,7 +7,7 @@ import { createRequestKey } from "@/lib/request-key";
 import styles from "./batch-scheme-panel.module.css";
 
 type Counts = { aviation: number; synthesis: number };
-type Config = { pools: Counts; services: Record<string, Counts>; compareSynthesisAlpha: boolean };
+type Config = { pools: Counts; services: Record<string, Counts>; compareAlloyAlpha: boolean; compareSynthesisAlpha?: boolean };
 type Scheme = { id: string; name: string; version: number; isNightly: boolean; createdBy?: string | null; updatedBy?: string; updatedAt?: string; config: Config };
 type Catalog = { userId: string; storageReady: boolean; canManage: boolean; canSetNightly: boolean; canRun: boolean; defaultConfig: Config; items: Scheme[] };
 type Pending = { key: string; config: Config; schemeId: string | null; schemeVersion: number | null };
@@ -25,6 +25,14 @@ async function api(path: string, body?: unknown, key?: string) {
 
 function totalOf(config: Config) {
   return Object.values(config.services).reduce((sum, item) => sum + item.aviation + item.synthesis, 0);
+}
+
+function withAlloyComparison(config: Config): Config {
+  const normalized = { ...config, compareAlloyAlpha: config.compareAlloyAlpha === true, compareSynthesisAlpha: false };
+  if (!config.compareSynthesisAlpha) return normalized;
+  const alloy = config.services.alloy;
+  if (!alloy || (!alloy.aviation && !alloy.synthesis)) return config;
+  return { ...normalized, compareAlloyAlpha: true, services: { ...config.services, 'alpha-rsi': { ...alloy } } };
 }
 
 function updatedLabel(value: string | undefined) {
@@ -59,7 +67,7 @@ export function BatchSchemePanel({ open, onClose, onStarted, onSaved, initialAct
       const current = initialSchemeId ? value.items.find(item => item.id === initialSchemeId && item.createdBy === value.userId) || null : value.items.find(item => item.createdBy === value.userId) || null;
       if (initialSchemeId && !current) throw new Error("配置不存在或无权操作，请刷新列表。");
       setSelected(current?.id || "");
-      setConfig(structuredClone(initialAction === "create" ? value.defaultConfig : current?.config || value.defaultConfig));
+      setConfig(structuredClone(withAlloyComparison(initialAction === "create" ? value.defaultConfig : current?.config || value.defaultConfig)));
       setName(initialAction === "create" ? "" : current?.name || ""); setNightly(Boolean(current?.isNightly));
       if (initialAction === "create") { setMode("edit"); setEditTarget(null); }
       if (initialAction === "edit" && current) { setMode("edit"); setEditTarget(current); }
@@ -71,13 +79,13 @@ export function BatchSchemePanel({ open, onClose, onStarted, onSaved, initialAct
   function selectScheme(id: string) {
     setSelected(id); setError("");
     const item = catalog?.items.find(value => value.id === id);
-    setConfig(structuredClone(item?.config || catalog!.defaultConfig));
+    setConfig(structuredClone(withAlloyComparison(item?.config || catalog!.defaultConfig)));
   }
 
   function startNew() {
     if (!catalog) return;
     setEditTarget(null); setName(""); setNightly(false);
-    setConfig(structuredClone(catalog.defaultConfig));
+    setConfig(structuredClone(withAlloyComparison(catalog.defaultConfig)));
     setMode("edit"); setError("");
   }
 
@@ -89,14 +97,14 @@ export function BatchSchemePanel({ open, onClose, onStarted, onSaved, initialAct
     setEditTarget(editable ? item : null);
     setName(editable ? item.name : `${item.name}（副本）`);
     setNightly(editable ? item.isNightly : false);
-    setConfig(structuredClone(item.config));
+    setConfig(structuredClone(withAlloyComparison(item.config)));
     setMode("edit"); setError("");
   }
 
   function backToLaunch() {
     if (!catalog || !config) { setMode("launch"); return; }
     const item = selected ? catalog.items.find(value => value.id === selected) : null;
-    setConfig(structuredClone(item?.config || catalog.defaultConfig));
+    setConfig(structuredClone(withAlloyComparison(item?.config || catalog.defaultConfig)));
     setName(item?.name || ""); setNightly(Boolean(item?.isNightly));
     setEditTarget(null); setMode("launch"); setError("");
   }
@@ -106,11 +114,11 @@ export function BatchSchemePanel({ open, onClose, onStarted, onSaved, initialAct
     setConfig(current => {
       if (!current) return current;
       const services = { ...current.services, [service]: { ...current.services[service], [key]: value } };
-      if (current.compareSynthesisAlpha && service === "synthesis") services["alpha-rsi"] = { ...services.synthesis };
+      if (current.compareAlloyAlpha && service === "alloy") services["alpha-rsi"] = { ...services.alloy };
       return { ...current, services };
     });
   }
-  function setPair(checked: boolean) { setConfig(current => current && ({ ...current, compareSynthesisAlpha: checked, services: checked ? { ...current.services, "alpha-rsi": { ...current.services.synthesis } } : current.services })); }
+  function setPair(checked: boolean) { setConfig(current => current && ({ ...current, compareAlloyAlpha: checked, compareSynthesisAlpha: false, services: checked ? { ...current.services, "alpha-rsi": { ...current.services.alloy } } : current.services })); }
 
   async function save() {
     if (!config || !catalog) return;
@@ -124,7 +132,7 @@ export function BatchSchemePanel({ open, onClose, onStarted, onSaved, initialAct
         config,
       });
       const updated = await api(BASE) as Catalog;
-      setCatalog(updated); setSelected(result.item.id); setConfig(structuredClone(result.item.config));
+      setCatalog(updated); setSelected(result.item.id); setConfig(structuredClone(withAlloyComparison(result.item.config)));
       setName(result.item.name); setNightly(result.item.isNightly); setEditTarget(null); setMode("launch");
       pushToast("success", result.item.isNightly ? "配置已保存为夜间配置" : "配置已保存");
       onSaved?.();
@@ -154,7 +162,7 @@ export function BatchSchemePanel({ open, onClose, onStarted, onSaved, initialAct
   const overLimit = total > 320;
   const selectedScheme = catalog?.items.find(item => item.id === selected) || null;
   const canEditSelected = !selectedScheme || selectedScheme.createdBy === catalog?.userId;
-  const summary = config ? `预计生成 ${config.pools.aviation + config.pools.synthesis} 道题 · ${total} 次运行 · ${config.compareSynthesisAlpha ? config.services.synthesis.synthesis : 0} 组同题对比（每批最多 320 次）` : "";
+  const summary = config ? `预计生成 ${config.pools.aviation + config.pools.synthesis} 道题 · ${total} 次运行 · ${config.compareAlloyAlpha ? config.services['alpha-rsi'].aviation + config.services['alpha-rsi'].synthesis : 0} 组同题对比（每批最多 320 次）` : "";
   const launch = mode === "launch";
 
   return <Dialog
@@ -193,7 +201,7 @@ export function BatchSchemePanel({ open, onClose, onStarted, onSaved, initialAct
       </div>
       <div className={styles.launchSummary}>
         <span>题池：航空材料 {config.pools.aviation} · 新材料合成 {config.pools.synthesis}</span>
-        <span>运行：{total} 次 · 同题对比：{config.compareSynthesisAlpha ? "开" : "关"}</span>
+        <span>运行：{total} 次 · 同题对比：{config.compareAlloyAlpha ? "开" : "关"}</span>
       </div>
       {overLimit && <InlineAlert tone="danger">总运行次数 {total} 超过每批 320 次上限，请减少题量。</InlineAlert>}
       {pending && <InlineAlert tone="warning">上次发起结果尚未确认；重试会使用原配置和原请求，不会重新创建批次。</InlineAlert>}
@@ -215,16 +223,16 @@ export function BatchSchemePanel({ open, onClose, onStarted, onSaved, initialAct
       <section className={styles.section}>
         <div className={styles.sectionHead}>
           <h3>服务题量</h3>
-          <Checkbox checked={config.compareSynthesisAlpha} onChange={setPair} label="1110 同题对比" />
+          <Checkbox checked={config.compareAlloyAlpha} onChange={setPair} label="1110 同题对比" />
         </div>
-        {config.compareSynthesisAlpha && <p className={styles.pairHint}>1110 的题量跟随合成制备，同题生成两条运行。</p>}
+        {config.compareAlloyAlpha && <p className={styles.pairHint}>1110 的题量跟随合金材料，同题生成两条运行。</p>}
         <div className={styles.tableWrap}>
           <table>
             <caption className="sr-only">各服务使用题量</caption>
             <thead><tr><th>服务</th><th>航空</th><th>合成</th><th>合计</th></tr></thead>
             <tbody>{SERVICES.map(([key, label]) => <tr key={key}>
               <th scope="row">{label}</th>
-              {(["aviation", "synthesis"] as const).map(pool => <td key={pool}><input className={styles.numInput} aria-label={`${label} ${pool === "aviation" ? "航空材料" : "合成"}题数`} type="number" min={0} max={100} disabled={key === "synthesis" && pool === "aviation" || key === "alpha-rsi" && config.compareSynthesisAlpha} value={config.services[key][pool]} onChange={(event) => setCount(key, pool, Number(event.target.value))} /></td>)}
+              {(["aviation", "synthesis"] as const).map(pool => <td key={pool}><input className={styles.numInput} aria-label={`${label} ${pool === "aviation" ? "航空材料" : "合成"}题数`} type="number" min={0} max={100} disabled={key === "synthesis" && pool === "aviation" || key === "alpha-rsi" && config.compareAlloyAlpha} value={config.services[key][pool]} onChange={(event) => setCount(key, pool, Number(event.target.value))} /></td>)}
               <td className={styles.totalCell}>{config.services[key].aviation + config.services[key].synthesis}</td>
             </tr>)}</tbody>
           </table>

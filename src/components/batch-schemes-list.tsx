@@ -8,7 +8,7 @@ import { formatDateTime } from "@/components/batch-ui";
 import styles from "./batches.module.css";
 
 type Counts = { aviation: number; synthesis: number };
-type Scheme = { id: string; name: string; version: number; createdBy: string | null; isNightly: boolean; updatedAt: string; config: { pools: Counts; services: Record<string, Counts>; compareSynthesisAlpha: boolean } };
+type Scheme = { id: string; name: string; version: number; createdBy: string | null; isNightly: boolean; updatedAt: string; config: { pools: Counts; services: Record<string, Counts>; compareAlloyAlpha?: boolean; compareSynthesisAlpha?: boolean } };
 type Catalog = { items: Scheme[]; userId: string; canManage: boolean; canSetNightly: boolean; canRun: boolean; storageReady: boolean; nightly: { name: string; version: number } | null; nightlyEnabled: boolean | null };
 const serviceNames: Record<string, string> = { "mission-material": "Mission 主服务", literature: "文献检索", "literature-aircraft": "航空文献", alloy: "合金材料", synthesis: "合成制备", "new-material": "新材料", "alpha-rsi": "ALPHA 1110" };
 const serviceOrder = Object.keys(serviceNames);
@@ -150,7 +150,7 @@ export function BatchSchemesList({ refresh, onOpen, onHistory, preview = false }
           <h3>运行</h3>
           <div className={styles.detailRows}>
             <div className={styles.detailRow}><span>预计运行</span><b>{schemeTotal(detail)} 次</b></div>
-            <div className={styles.detailRow}><span>同题对比</span><b>{detail.config.compareSynthesisAlpha ? "开启" : "关闭"}</b></div>
+            <div className={styles.detailRow}><span>同题对比</span><b>{detail.config.compareAlloyAlpha || detail.config.compareSynthesisAlpha ? "开启" : "关闭"}</b></div>
           </div>
         </section>
       </div>}

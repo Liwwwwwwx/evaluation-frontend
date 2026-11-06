@@ -336,7 +336,8 @@ type PreviewScheme = {
   config: {
     pools: { aviation: number; synthesis: number };
     services: Record<string, { aviation: number; synthesis: number }>;
-    compareSynthesisAlpha: boolean;
+    compareAlloyAlpha?: boolean;
+    compareSynthesisAlpha?: boolean;
   };
 };
 
@@ -367,8 +368,9 @@ export const previewSchemeCatalog: {
       updatedAt: "2026-11-02T23:42:00+08:00",
       config: {
         pools: { aviation: 4, synthesis: 4 },
-        services: { "mission-material": { aviation: 4, synthesis: 0 }, synthesis: { aviation: 0, synthesis: 4 } },
-        compareSynthesisAlpha: true,
+        services: { "mission-material": { aviation: 4, synthesis: 0 }, alloy: { aviation: 4, synthesis: 0 }, "alpha-rsi": { aviation: 4, synthesis: 0 } },
+        compareAlloyAlpha: true,
+        compareSynthesisAlpha: false,
       },
     },
     {
@@ -380,8 +382,9 @@ export const previewSchemeCatalog: {
       updatedAt: "2026-11-01T02:05:00+08:00",
       config: {
         pools: { aviation: 20, synthesis: 20 },
-        services: { "mission-material": { aviation: 10, synthesis: 0 }, literature: { aviation: 10, synthesis: 0 }, synthesis: { aviation: 0, synthesis: 20 } },
-        compareSynthesisAlpha: true,
+        services: { "mission-material": { aviation: 10, synthesis: 0 }, literature: { aviation: 10, synthesis: 0 }, alloy: { aviation: 20, synthesis: 0 }, "alpha-rsi": { aviation: 20, synthesis: 0 } },
+        compareAlloyAlpha: true,
+        compareSynthesisAlpha: false,
       },
     },
     {
@@ -394,6 +397,7 @@ export const previewSchemeCatalog: {
       config: {
         pools: { aviation: 6, synthesis: 2 },
         services: { alloy: { aviation: 3, synthesis: 0 }, "new-material": { aviation: 3, synthesis: 2 } },
+        compareAlloyAlpha: false,
         compareSynthesisAlpha: false,
       },
     },
