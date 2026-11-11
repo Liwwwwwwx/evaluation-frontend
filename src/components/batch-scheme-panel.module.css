@@ -250,19 +250,17 @@
 }
 
 .tableWrap th:first-child {
-  width: 44%;
+  width: 32%;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .tableWrap th:nth-child(2),
-.tableWrap th:nth-child(3) {
-  width: 20%;
-}
-
+.tableWrap th:nth-child(3),
+.tableWrap th:nth-child(4),
 .tableWrap th:last-child {
-  width: 16%;
+  width: 17%;
 }
 
 .tableWrap thead th:nth-child(n + 2),
@@ -282,7 +280,7 @@
 
 .tableWrap .numInput {
   height: 28px;
-  text-align: center;
+  text-align: right;
 }
 
 .totalCell {

@@ -338,6 +338,7 @@ type PreviewScheme = {
     services: Record<string, { aviation: number; synthesis: number }>;
     compareAlloyAlpha?: boolean;
     compareSynthesisAlpha?: boolean;
+    concurrency?: Record<string, number>;
   };
 };
 
@@ -349,6 +350,7 @@ export const previewSchemeCatalog: {
   storageReady: boolean;
   nightlyEnabled: boolean | null;
   nightly: { name: string; version: number } | null;
+  concurrencyCaps: Record<string, number>;
   items: PreviewScheme[];
 } = {
   userId: "preview-user",
@@ -358,6 +360,7 @@ export const previewSchemeCatalog: {
   storageReady: true,
   nightlyEnabled: true,
   nightly: { name: "基础夜间方案", version: 2 },
+  concurrencyCaps: { "mission-material": 5, literature: 5, "literature-aircraft": 1, alloy: 5, synthesis: 5, "new-material": 5, "alpha-rsi": 5 },
   items: [
     {
       id: "preview-scheme-own",
@@ -371,6 +374,7 @@ export const previewSchemeCatalog: {
         services: { "mission-material": { aviation: 4, synthesis: 0 }, alloy: { aviation: 4, synthesis: 0 }, "alpha-rsi": { aviation: 4, synthesis: 0 } },
         compareAlloyAlpha: true,
         compareSynthesisAlpha: false,
+        concurrency: { "mission-material": 2, literature: 5, "literature-aircraft": 1, alloy: 3, synthesis: 5, "new-material": 5, "alpha-rsi": 3 },
       },
     },
     {

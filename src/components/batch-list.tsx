@@ -51,7 +51,7 @@ export function BatchListPage({ basePath, preview = false, initialTab = "configs
   const [retry, setRetry] = useState(0);
   const [showSchemes, setShowSchemes] = useState(false);
   const [schemeFilter, setSchemeFilter] = useState<{ id: string; name: string } | null>(initialSchemeId ? { id: initialSchemeId, name: initialSchemeName || "已保存配置" } : null);
-  const [schemeAction, setSchemeAction] = useState<"create" | "edit" | "launch">("create");
+  const [schemeAction, setSchemeAction] = useState<"create" | "edit" | "editDefault" | "launch">("create");
   const [schemeTarget, setSchemeTarget] = useState("");
   const [schemeRefresh, setSchemeRefresh] = useState(0);
   const [from, setFrom] = useState(initialFrom);
@@ -104,7 +104,7 @@ export function BatchListPage({ basePath, preview = false, initialTab = "configs
   function changeSource(value: "all" | "nightly" | BatchSource) { setSource(value); setPage(1); }
   function changeState(value: "all" | BatchState) { setState(value); setPage(1); }
   function reset() { setSource("all"); setState("all"); setSchemeFilter(null); setFrom(""); setTo(""); setPage(1); }
-  function openScheme(action: "create" | "edit" | "launch", id = "") { setSchemeAction(action); setSchemeTarget(id); setShowSchemes(true); }
+  function openScheme(action: "create" | "edit" | "editDefault" | "launch", id = "") { setSchemeAction(action); setSchemeTarget(id); setShowSchemes(true); }
 
   const pages = Math.max(1, Math.ceil((data?.total || 0) / PAGE_SIZE));
   const safePage = Math.min(page, pages);
@@ -134,16 +134,16 @@ export function BatchListPage({ basePath, preview = false, initialTab = "configs
   return <main className={styles.page} aria-labelledby="batches-title">
     <div className={styles.pageInner}>
     {preview && <PreviewNote />}
-    <header className={styles.header}>
+    <header className={`${styles.header} ${styles.batchesHeader}`}>
       <div>
         <h1 id="batches-title">测评批次</h1>
         <p>{tab === "configs" ? "管理可重复使用的个人批次配置。" : tab === "batches" ? "查看夜间和手动测评的独立执行记录。" : "按日期查看夜间自动测评日报。"}</p>
       </div>
+      <div className={styles.viewTabs}>
+        <Tabs variant="segmented" ariaLabel="测评批次视图" items={preview ? [viewTabs[0], viewTabs[1]] : viewTabs} value={tab} onChange={(value) => { setTab(value as ViewTab); setFilterOpen(false); }} />
+      </div>
     </header>
     <BatchSchemePanel open={showSchemes && !preview} initialAction={schemeAction} initialSchemeId={schemeTarget} onClose={() => setShowSchemes(false)} onSaved={() => setSchemeRefresh(value => value + 1)} onStarted={() => { setShowSchemes(false); setTab("batches"); setSource("all"); setPage(1); setRetry(value => value + 1); }} />
-    <div className={styles.toolbar}>
-      <Tabs variant="segmented" ariaLabel="测评批次视图" items={preview ? [viewTabs[0], viewTabs[1]] : viewTabs} value={tab} onChange={(value) => { setTab(value as ViewTab); setFilterOpen(false); }} />
-    </div>
     {tab === "batches" && <>
     <div className={styles.listControls}>
       <p className={styles.summaryLine}>

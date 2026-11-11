@@ -7,14 +7,20 @@ import { createRequestKey } from "@/lib/request-key";
 import styles from "./batch-scheme-panel.module.css";
 
 type Counts = { aviation: number; synthesis: number };
-type Config = { pools: Counts; services: Record<string, Counts>; compareAlloyAlpha: boolean; compareSynthesisAlpha?: boolean };
+type Config = { pools: Counts; services: Record<string, Counts>; compareAlloyAlpha: boolean; compareSynthesisAlpha?: boolean; concurrency?: Record<string, number> };
 type Scheme = { id: string; name: string; version: number; isNightly: boolean; createdBy?: string | null; updatedBy?: string; updatedAt?: string; config: Config };
-type Catalog = { userId: string; storageReady: boolean; canManage: boolean; canSetNightly: boolean; canRun: boolean; defaultConfig: Config; items: Scheme[] };
+type Catalog = { userId: string; storageReady: boolean; canManage: boolean; canSetNightly: boolean; canRun: boolean; defaultConfig: Config; concurrencyCaps?: Record<string, number> | null; items: Scheme[] };
 type Pending = { key: string; config: Config; schemeId: string | null; schemeVersion: number | null };
 type Mode = "launch" | "edit";
 const BASE = "/api/evaluation/unified/batch-schemes";
 const PENDING = "evaluation-manual-batch-pending";
 const SERVICES: [string, string][] = [["mission-material", "Mission 主服务"], ["literature", "文献检索"], ["literature-aircraft", "航空文献"], ["alloy", "合金材料"], ["synthesis", "合成制备"], ["new-material", "新材料"], ["alpha-rsi", "ALPHA 1110"]];
+const DEFAULT_CAPS: Record<string, number> = { "mission-material": 5, literature: 5, "literature-aircraft": 1, alloy: 5, synthesis: 5, "new-material": 5, "alpha-rsi": 5 };
+
+function capsOf(catalog: Catalog | null) { return { ...DEFAULT_CAPS, ...(catalog?.concurrencyCaps || {}) }; }
+function withConcurrency(config: Config, caps: Record<string, number>): Config {
+  return { ...config, concurrency: Object.fromEntries(SERVICES.map(([key]) => [key, config.concurrency?.[key] ?? caps[key]])) };
+}
 
 async function api(path: string, body?: unknown, key?: string) {
   const response = await fetch(path, { cache: "no-store", ...(body === undefined ? {} : { method: "POST", headers: { "Content-Type": "application/json", "Idempotency-Key": key || createRequestKey() }, body: JSON.stringify(body) }) });
@@ -42,7 +48,7 @@ function updatedLabel(value: string | undefined) {
   return new Intl.DateTimeFormat("zh-CN", { timeZone: "Asia/Shanghai", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false }).format(date).replace(/\//g, "-");
 }
 
-export function BatchSchemePanel({ open, onClose, onStarted, onSaved, initialAction = "launch", initialSchemeId = "" }: { open: boolean; onClose: () => void; onStarted: () => void; onSaved?: () => void; initialAction?: "create" | "edit" | "launch"; initialSchemeId?: string }) {
+export function BatchSchemePanel({ open, onClose, onStarted, onSaved, initialAction = "launch", initialSchemeId = "" }: { open: boolean; onClose: () => void; onStarted: () => void; onSaved?: () => void; initialAction?: "create" | "edit" | "editDefault" | "launch"; initialSchemeId?: string }) {
   const router = useRouter();
   const { toasts, push: pushToast, dismiss: dismissToast } = useToasts();
   const [catalog, setCatalog] = useState<Catalog | null>(null);
@@ -52,6 +58,7 @@ export function BatchSchemePanel({ open, onClose, onStarted, onSaved, initialAct
   const [editTarget, setEditTarget] = useState<Scheme | null>(null);
   const [name, setName] = useState("");
   const [nightly, setNightly] = useState(false);
+  const [nightlyCreate, setNightlyCreate] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<Pending | null>(null);
@@ -59,16 +66,19 @@ export function BatchSchemePanel({ open, onClose, onStarted, onSaved, initialAct
   useEffect(() => {
     if (!open) return;
     let alive = true;
-    setCatalog(null); setError(""); setMode("launch"); setEditTarget(null);
+    setCatalog(null); setError(""); setMode("launch"); setEditTarget(null); setNightlyCreate(initialAction === "editDefault");
     api(BASE).then((value: Catalog) => {
       if (!alive) return;
       if (!("nightlyEnabled" in value) || !Array.isArray(value.items)) throw new Error("后端版本尚未更新，暂无法管理个人批次配置。");
       setCatalog(value);
+      const editDefault = initialAction === "editDefault";
       const current = initialSchemeId ? value.items.find(item => item.id === initialSchemeId && item.createdBy === value.userId) || null : value.items.find(item => item.createdBy === value.userId) || null;
       if (initialSchemeId && !current) throw new Error("配置不存在或无权操作，请刷新列表。");
       setSelected(current?.id || "");
-      setConfig(structuredClone(withAlloyComparison(initialAction === "create" ? value.defaultConfig : current?.config || value.defaultConfig)));
-      setName(initialAction === "create" ? "" : current?.name || ""); setNightly(Boolean(current?.isNightly));
+      const base = withAlloyComparison(editDefault || initialAction === "create" ? value.defaultConfig : current?.config || value.defaultConfig);
+      setConfig(structuredClone(initialAction === "launch" ? base : withConcurrency(base, capsOf(value))));
+      setName(editDefault ? "内置默认配置" : initialAction === "create" ? "" : current?.name || ""); setNightly(Boolean(!editDefault && current?.isNightly));
+      if (editDefault) { setMode("edit"); setEditTarget(null); }
       if (initialAction === "create") { setMode("edit"); setEditTarget(null); }
       if (initialAction === "edit" && current) { setMode("edit"); setEditTarget(current); }
       try { const saved = sessionStorage.getItem(`${PENDING}:${value.userId}`); setPending(saved ? JSON.parse(saved) as Pending : null); } catch { setPending(null); }
@@ -84,8 +94,8 @@ export function BatchSchemePanel({ open, onClose, onStarted, onSaved, initialAct
 
   function startNew() {
     if (!catalog) return;
-    setEditTarget(null); setName(""); setNightly(false);
-    setConfig(structuredClone(withAlloyComparison(catalog.defaultConfig)));
+    setEditTarget(null); setName(""); setNightly(false); setNightlyCreate(false);
+    setConfig(structuredClone(withConcurrency(withAlloyComparison(catalog.defaultConfig), capsOf(catalog))));
     setMode("edit"); setError("");
   }
 
@@ -96,8 +106,8 @@ export function BatchSchemePanel({ open, onClose, onStarted, onSaved, initialAct
     const editable = item.createdBy === catalog.userId;
     setEditTarget(editable ? item : null);
     setName(editable ? item.name : `${item.name}（副本）`);
-    setNightly(editable ? item.isNightly : false);
-    setConfig(structuredClone(withAlloyComparison(item.config)));
+    setNightly(editable ? item.isNightly : false); setNightlyCreate(false);
+    setConfig(structuredClone(withConcurrency(withAlloyComparison(item.config), capsOf(catalog))));
     setMode("edit"); setError("");
   }
 
@@ -105,7 +115,7 @@ export function BatchSchemePanel({ open, onClose, onStarted, onSaved, initialAct
     if (!catalog || !config) { setMode("launch"); return; }
     const item = selected ? catalog.items.find(value => value.id === selected) : null;
     setConfig(structuredClone(withAlloyComparison(item?.config || catalog.defaultConfig)));
-    setName(item?.name || ""); setNightly(Boolean(item?.isNightly));
+    setName(item?.name || ""); setNightly(Boolean(item?.isNightly)); setNightlyCreate(false);
     setEditTarget(null); setMode("launch"); setError("");
   }
 
@@ -119,6 +129,11 @@ export function BatchSchemePanel({ open, onClose, onStarted, onSaved, initialAct
     });
   }
   function setPair(checked: boolean) { setConfig(current => current && ({ ...current, compareAlloyAlpha: checked, compareSynthesisAlpha: false, services: checked ? { ...current.services, "alpha-rsi": { ...current.services.alloy } } : current.services })); }
+  function setConcurrency(service: string, value: number) {
+    const cap = capsOf(catalog)[service] ?? 5;
+    const next = Math.max(1, Math.min(cap, Math.round(Number.isFinite(value) ? value : 1)));
+    setConfig(current => current && ({ ...current, concurrency: { ...current.concurrency, [service]: next } }));
+  }
 
   async function save() {
     if (!config || !catalog) return;
@@ -128,12 +143,12 @@ export function BatchSchemePanel({ open, onClose, onStarted, onSaved, initialAct
         ...(editTarget ? { id: editTarget.id, version: editTarget.version } : {}),
         name,
         version: editTarget?.version || 0,
-        isNightly: false,
+        isNightly: nightlyCreate,
         config,
       });
       const updated = await api(BASE) as Catalog;
       setCatalog(updated); setSelected(result.item.id); setConfig(structuredClone(withAlloyComparison(result.item.config)));
-      setName(result.item.name); setNightly(result.item.isNightly); setEditTarget(null); setMode("launch");
+      setName(result.item.name); setNightly(result.item.isNightly); setNightlyCreate(false); setEditTarget(null); setMode("launch");
       pushToast("success", result.item.isNightly ? "配置已保存为夜间配置" : "配置已保存");
       onSaved?.();
       onClose();
@@ -160,6 +175,7 @@ export function BatchSchemePanel({ open, onClose, onStarted, onSaved, initialAct
 
   const total = config ? totalOf(config) : 0;
   const overLimit = total > 320;
+  const caps = capsOf(catalog);
   const selectedScheme = catalog?.items.find(item => item.id === selected) || null;
   const canEditSelected = !selectedScheme || selectedScheme.createdBy === catalog?.userId;
   const summary = config ? `预计生成 ${config.pools.aviation + config.pools.synthesis} 道题 · ${total} 次运行 · ${config.compareAlloyAlpha ? config.services['alpha-rsi'].aviation + config.services['alpha-rsi'].synthesis : 0} 组同题对比（每批最多 320 次）` : "";
@@ -168,13 +184,13 @@ export function BatchSchemePanel({ open, onClose, onStarted, onSaved, initialAct
   return <Dialog
     open={open}
     onClose={onClose}
-    title={launch ? "发起批次" : editTarget ? "编辑批次配置" : "新建批次配置"}
-    description={launch ? "选择一个已保存的批次配置，确认题量和分配后发起；新建或修改请进入配置编辑。" : "配置题池和各服务题量；保存后回到列表，不会自动发起批次。"}
+    title={launch ? "发起批次" : nightlyCreate ? "修改夜间默认配置" : editTarget ? "编辑批次配置" : "新建批次配置"}
+    description={launch ? "选择一个已保存的批次配置，确认题量和分配后发起；新建或修改请进入配置编辑。" : nightlyCreate ? "修改内置默认配置并保存为夜间方案，从后续新批次生效；不会自动发起批次。" : "配置题池和各服务题量；保存后回到列表，不会自动发起批次。"}
     className={styles.dialog}
     contentClassName={styles.sheetContent}
     busy={busy}
     footerSticky
-    footerStart={<span className={styles.footerNote}>手动批次不计入夜间日报</span>}
+    footerStart={<span className={styles.footerNote}>{nightlyCreate ? "保存后设为夜间方案，后续夜间批次生效" : "手动批次不计入夜间日报"}</span>}
     footer={launch ? <>
       {catalog?.canManage && <Button variant="secondary" disabled={busy} onClick={startNew}>新建配置</Button>}
       {selectedScheme && catalog?.canManage && <Button variant="secondary" disabled={busy} onClick={startEdit}>{canEditSelected ? "编辑配置" : "另存为新配置"}</Button>}
@@ -202,6 +218,7 @@ export function BatchSchemePanel({ open, onClose, onStarted, onSaved, initialAct
       <div className={styles.launchSummary}>
         <span>题池：航空材料 {config.pools.aviation} · 新材料合成 {config.pools.synthesis}</span>
         <span>运行：{total} 次 · 同题对比：{config.compareAlloyAlpha ? "开" : "关"}</span>
+        {config.concurrency && <span>并发：{SERVICES.filter(([key]) => config.services[key].aviation + config.services[key].synthesis > 0).map(([key, label]) => `${label} ${config.concurrency?.[key] ?? caps[key]}`).join(" · ")}</span>}
       </div>
       {overLimit && <InlineAlert tone="danger">总运行次数 {total} 超过每批 320 次上限，请减少题量。</InlineAlert>}
       {pending && <InlineAlert tone="warning">上次发起结果尚未确认；重试会使用原配置和原请求，不会重新创建批次。</InlineAlert>}
@@ -210,7 +227,7 @@ export function BatchSchemePanel({ open, onClose, onStarted, onSaved, initialAct
         <Input label="配置名称" value={name} maxLength={80} placeholder="例如：夜间材料测评" onChange={(event) => setName(event.target.value)} disabled={busy} />
         {nightly && <span>此配置为夜间配置，保存后对后续夜间执行生效。</span>}
       </div>
-      <p className={styles.saveHint}>{editTarget ? `正在编辑「${editTarget.name}」，保存后更新该配置。` : "保存后会创建一个新配置，不会自动发起批次。"}</p>
+      <p className={styles.saveHint}>{editTarget ? `正在编辑「${editTarget.name}」，保存后更新该配置。` : nightlyCreate ? "内置默认配置保留为兜底；保存后生成夜间方案，后续夜间批次使用该方案。" : "保存后会创建一个新配置，不会自动发起批次。"}</p>
 
       <section className={styles.section}>
         <div className={styles.sectionHead}><h3>题池</h3><span>每个题池本次生成的题目数</span></div>
@@ -228,15 +245,17 @@ export function BatchSchemePanel({ open, onClose, onStarted, onSaved, initialAct
         {config.compareAlloyAlpha && <p className={styles.pairHint}>1110 的题量跟随合金材料，同题生成两条运行。</p>}
         <div className={styles.tableWrap}>
           <table>
-            <caption className="sr-only">各服务使用题量</caption>
-            <thead><tr><th>服务</th><th>航空</th><th>合成</th><th>合计</th></tr></thead>
+            <caption className="sr-only">各服务使用题量与并发上限</caption>
+            <thead><tr><th>服务</th><th>航空</th><th>合成</th><th>并发</th><th>合计</th></tr></thead>
             <tbody>{SERVICES.map(([key, label]) => <tr key={key}>
               <th scope="row">{label}</th>
               {(["aviation", "synthesis"] as const).map(pool => <td key={pool}><input className={styles.numInput} aria-label={`${label} ${pool === "aviation" ? "航空材料" : "合成"}题数`} type="number" min={0} max={100} disabled={key === "synthesis" && pool === "aviation" || key === "alpha-rsi" && config.compareAlloyAlpha} value={config.services[key][pool]} onChange={(event) => setCount(key, pool, Number(event.target.value))} /></td>)}
+              <td><input className={styles.numInput} aria-label={`${label} 并发上限`} title={`该批次内 ${label} 同时执行的运行数上限（1–${caps[key]}）`} type="number" min={1} max={caps[key]} value={config.concurrency?.[key] ?? caps[key]} onChange={(event) => setConcurrency(key, Number(event.target.value))} /></td>
               <td className={styles.totalCell}>{config.services[key].aviation + config.services[key].synthesis}</td>
             </tr>)}</tbody>
           </table>
         </div>
+        <p className={styles.pairHint}>并发为该批次内每个服务同时执行的运行数上限，保存后对后续新发起的批次生效。</p>
       </section>
       <p className={styles.editorSummary}>{summary}</p>
       {overLimit && <InlineAlert tone="danger">总运行次数 {total} 超过每批 320 次上限，请减少题量。</InlineAlert>}
