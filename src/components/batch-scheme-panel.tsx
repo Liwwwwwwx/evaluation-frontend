@@ -6,8 +6,9 @@ import { Button, Checkbox, Dialog, InlineAlert, Input, ToastStack, useToasts } f
 import { createRequestKey } from "@/lib/request-key";
 import styles from "./batch-scheme-panel.module.css";
 
-type Counts = { aviation: number; synthesis: number };
-type Config = { pools: Counts; services: Record<string, Counts>; compareAlloyAlpha: boolean; compareSynthesisAlpha?: boolean; concurrency?: Record<string, number> };
+type NumberInput = number | "";
+type Counts = { aviation: NumberInput; synthesis: NumberInput };
+type Config = { pools: Counts; services: Record<string, Counts>; compareAlloyAlpha: boolean; compareSynthesisAlpha?: boolean; concurrency?: Record<string, NumberInput> };
 type Scheme = { id: string; name: string; version: number; isNightly: boolean; createdBy?: string | null; updatedBy?: string; updatedAt?: string; config: Config };
 type Catalog = { userId: string; storageReady: boolean; canManage: boolean; canSetNightly: boolean; canRun: boolean; defaultConfig: Config; concurrencyCaps?: Record<string, number> | null; items: Scheme[] };
 type Pending = { key: string; config: Config; schemeId: string | null; schemeVersion: number | null };
@@ -18,6 +19,8 @@ const SERVICES: [string, string][] = [["mission-material", "Mission 主服务"],
 const DEFAULT_CAPS: Record<string, number> = { "mission-material": 5, literature: 5, "literature-aircraft": 1, alloy: 5, synthesis: 5, "new-material": 5, "alpha-rsi": 5 };
 
 function capsOf(catalog: Catalog | null) { return { ...DEFAULT_CAPS, ...(catalog?.concurrencyCaps || {}) }; }
+function numberInput(value: string): NumberInput { return value === "" ? "" : Number(value); }
+function countTotal(counts: Counts) { return Number(counts.aviation) + Number(counts.synthesis); }
 function withConcurrency(config: Config, caps: Record<string, number>): Config {
   return { ...config, concurrency: Object.fromEntries(SERVICES.map(([key]) => [key, config.concurrency?.[key] ?? caps[key]])) };
 }
@@ -30,7 +33,7 @@ async function api(path: string, body?: unknown, key?: string) {
 }
 
 function totalOf(config: Config) {
-  return Object.values(config.services).reduce((sum, item) => sum + item.aviation + item.synthesis, 0);
+  return Object.values(config.services).reduce((sum, item) => sum + countTotal(item), 0);
 }
 
 function withAlloyComparison(config: Config): Config {
@@ -119,8 +122,8 @@ export function BatchSchemePanel({ open, onClose, onStarted, onSaved, initialAct
     setEditTarget(null); setMode("launch"); setError("");
   }
 
-  function setPool(key: keyof Counts, value: number) { setConfig(current => current && ({ ...current, pools: { ...current.pools, [key]: value } })); }
-  function setCount(service: string, key: keyof Counts, value: number) {
+  function setPool(key: keyof Counts, value: NumberInput) { setConfig(current => current && ({ ...current, pools: { ...current.pools, [key]: value } })); }
+  function setCount(service: string, key: keyof Counts, value: NumberInput) {
     setConfig(current => {
       if (!current) return current;
       const services = { ...current.services, [service]: { ...current.services[service], [key]: value } };
@@ -129,14 +132,14 @@ export function BatchSchemePanel({ open, onClose, onStarted, onSaved, initialAct
     });
   }
   function setPair(checked: boolean) { setConfig(current => current && ({ ...current, compareAlloyAlpha: checked, compareSynthesisAlpha: false, services: checked ? { ...current.services, "alpha-rsi": { ...current.services.alloy } } : current.services })); }
-  function setConcurrency(service: string, value: number) {
+  function setConcurrency(service: string, value: NumberInput) {
     const cap = capsOf(catalog)[service] ?? 5;
-    const next = Math.max(1, Math.min(cap, Math.round(Number.isFinite(value) ? value : 1)));
+    const next = value === "" || value === 0 ? value : Math.max(1, Math.min(cap, Math.round(Number.isFinite(value) ? value : 1)));
     setConfig(current => current && ({ ...current, concurrency: { ...current.concurrency, [service]: next } }));
   }
 
   async function save() {
-    if (!config || !catalog) return;
+    if (!config || !catalog || incompleteFields) return;
     setBusy(true); setError("");
     try {
       const result = await api(BASE, {
@@ -156,7 +159,7 @@ export function BatchSchemePanel({ open, onClose, onStarted, onSaved, initialAct
   }
 
   async function run() {
-    if (!config || !catalog?.canRun) return;
+    if (!config || !catalog?.canRun || incompleteFields) return;
     const item = selected ? catalog.items.find(value => value.id === selected) : null;
     const request = pending || { key: createRequestKey(), config: structuredClone(config), schemeId: item?.id || null, schemeVersion: item?.version ?? null };
     const pendingKey = `${PENDING}:${catalog.userId}`;
@@ -175,10 +178,14 @@ export function BatchSchemePanel({ open, onClose, onStarted, onSaved, initialAct
 
   const total = config ? totalOf(config) : 0;
   const overLimit = total > 320;
+  const incompletePools = config ? Object.values(config.pools).some(value => value === "") : false;
+  const incompleteServices = config ? Object.values(config.services).some(counts => Object.values(counts).some(value => value === "")) : false;
+  const incompleteConcurrency = config ? Object.values(config.concurrency || {}).some(value => value === "" || value === 0) : false;
+  const incompleteFields = incompletePools || incompleteServices || incompleteConcurrency;
   const caps = capsOf(catalog);
   const selectedScheme = catalog?.items.find(item => item.id === selected) || null;
   const canEditSelected = !selectedScheme || selectedScheme.createdBy === catalog?.userId;
-  const summary = config ? `预计生成 ${config.pools.aviation + config.pools.synthesis} 道题 · ${total} 次运行 · ${config.compareAlloyAlpha ? config.services['alpha-rsi'].aviation + config.services['alpha-rsi'].synthesis : 0} 组同题对比（每批最多 320 次）` : "";
+  const summary = config && !incompletePools && !incompleteServices ? `预计生成 ${countTotal(config.pools)} 道题 · ${total} 次运行 · ${config.compareAlloyAlpha ? countTotal(config.services['alpha-rsi']) : 0} 组同题对比（每批最多 320 次）` : "";
   const launch = mode === "launch";
 
   return <Dialog
@@ -194,10 +201,10 @@ export function BatchSchemePanel({ open, onClose, onStarted, onSaved, initialAct
     footer={launch ? <>
       {catalog?.canManage && <Button variant="secondary" disabled={busy} onClick={startNew}>新建配置</Button>}
       {selectedScheme && catalog?.canManage && <Button variant="secondary" disabled={busy} onClick={startEdit}>{canEditSelected ? "编辑配置" : "另存为新配置"}</Button>}
-      <Button variant="primary" disabled={busy || !catalog?.canRun || overLimit || !config} loading={busy} onClick={run}>{pending ? "查询或重试原批次" : "发起批次"}</Button>
+      <Button variant="primary" disabled={busy || !catalog?.canRun || overLimit || incompleteFields || !config} loading={busy} onClick={run}>{pending ? "查询或重试原批次" : "发起批次"}</Button>
     </> : <>
       <Button variant="secondary" disabled={busy} onClick={backToLaunch}>返回发起</Button>
-      <Button variant="primary" disabled={busy || !name.trim() || overLimit} loading={busy} onClick={save}>保存配置</Button>
+      <Button variant="primary" disabled={busy || !name.trim() || overLimit || incompleteFields} loading={busy} onClick={save}>保存配置</Button>
     </>}
   >
     <div className={styles.sheetBody}>
@@ -218,7 +225,7 @@ export function BatchSchemePanel({ open, onClose, onStarted, onSaved, initialAct
       <div className={styles.launchSummary}>
         <span>题池：航空材料 {config.pools.aviation} · 新材料合成 {config.pools.synthesis}</span>
         <span>运行：{total} 次 · 同题对比：{config.compareAlloyAlpha ? "开" : "关"}</span>
-        {config.concurrency && <span>并发：{SERVICES.filter(([key]) => config.services[key].aviation + config.services[key].synthesis > 0).map(([key, label]) => `${label} ${config.concurrency?.[key] ?? caps[key]}`).join(" · ")}</span>}
+        {config.concurrency && <span>并发：{SERVICES.filter(([key]) => countTotal(config.services[key]) > 0).map(([key, label]) => `${label} ${config.concurrency?.[key] ?? caps[key]}`).join(" · ")}</span>}
       </div>
       {overLimit && <InlineAlert tone="danger">总运行次数 {total} 超过每批 320 次上限，请减少题量。</InlineAlert>}
       {pending && <InlineAlert tone="warning">上次发起结果尚未确认；重试会使用原配置和原请求，不会重新创建批次。</InlineAlert>}
@@ -232,9 +239,10 @@ export function BatchSchemePanel({ open, onClose, onStarted, onSaved, initialAct
       <section className={styles.section}>
         <div className={styles.sectionHead}><h3>题池</h3><span>每个题池本次生成的题目数</span></div>
         <div className={styles.pools}>
-          <label className={styles.field}><span className={styles.fieldLabel}>航空材料</span><input className={styles.numInput} type="number" min={0} max={100} value={config.pools.aviation} onChange={(event) => setPool("aviation", Number(event.target.value))} /></label>
-          <label className={styles.field}><span className={styles.fieldLabel}>新材料合成</span><input className={styles.numInput} type="number" min={0} max={100} value={config.pools.synthesis} onChange={(event) => setPool("synthesis", Number(event.target.value))} /></label>
+          <label className={styles.field}><span className={styles.fieldLabel}>航空材料</span><input className={styles.numInput} type="number" min={0} max={100} aria-invalid={config.pools.aviation === ""} value={String(config.pools.aviation)} onChange={(event) => setPool("aviation", numberInput(event.target.value))} /></label>
+          <label className={styles.field}><span className={styles.fieldLabel}>新材料合成</span><input className={styles.numInput} type="number" min={0} max={100} aria-invalid={config.pools.synthesis === ""} value={String(config.pools.synthesis)} onChange={(event) => setPool("synthesis", numberInput(event.target.value))} /></label>
         </div>
+        {incompletePools && <InlineAlert tone="danger">请填写所有题池的题量。</InlineAlert>}
       </section>
 
       <section className={styles.section}>
@@ -249,13 +257,15 @@ export function BatchSchemePanel({ open, onClose, onStarted, onSaved, initialAct
             <thead><tr><th>服务</th><th>航空</th><th>合成</th><th>并发</th><th>合计</th></tr></thead>
             <tbody>{SERVICES.map(([key, label]) => <tr key={key}>
               <th scope="row">{label}</th>
-              {(["aviation", "synthesis"] as const).map(pool => <td key={pool}><input className={styles.numInput} aria-label={`${label} ${pool === "aviation" ? "航空材料" : "合成"}题数`} type="number" min={0} max={100} disabled={key === "synthesis" && pool === "aviation" || key === "alpha-rsi" && config.compareAlloyAlpha} value={config.services[key][pool]} onChange={(event) => setCount(key, pool, Number(event.target.value))} /></td>)}
-              <td><input className={styles.numInput} aria-label={`${label} 并发上限`} title={`该批次内 ${label} 同时执行的运行数上限（1–${caps[key]}）`} type="number" min={1} max={caps[key]} value={config.concurrency?.[key] ?? caps[key]} onChange={(event) => setConcurrency(key, Number(event.target.value))} /></td>
-              <td className={styles.totalCell}>{config.services[key].aviation + config.services[key].synthesis}</td>
+              {(["aviation", "synthesis"] as const).map(pool => <td key={pool}><input className={styles.numInput} aria-label={`${label} ${pool === "aviation" ? "航空材料" : "合成"}题数`} aria-invalid={config.services[key][pool] === ""} type="number" min={0} max={100} disabled={key === "synthesis" && pool === "aviation" || key === "alpha-rsi" && config.compareAlloyAlpha} value={String(config.services[key][pool])} onChange={(event) => setCount(key, pool, numberInput(event.target.value))} /></td>)}
+              <td><input className={styles.numInput} aria-label={`${label} 并发上限`} aria-invalid={config.concurrency?.[key] === "" || config.concurrency?.[key] === 0} title={`该批次内 ${label} 同时执行的运行数上限（1–${caps[key]}）`} type="number" min={1} max={caps[key]} value={String(config.concurrency?.[key] ?? caps[key])} onChange={(event) => setConcurrency(key, numberInput(event.target.value))} /></td>
+              <td className={styles.totalCell}>{config.services[key].aviation === "" || config.services[key].synthesis === "" ? "—" : countTotal(config.services[key])}</td>
             </tr>)}</tbody>
           </table>
         </div>
         <p className={styles.pairHint}>并发为该批次内每个服务同时执行的运行数上限，保存后对后续新发起的批次生效。</p>
+        {incompleteServices && <InlineAlert tone="danger">请填写所有服务的题量。</InlineAlert>}
+        {incompleteConcurrency && <InlineAlert tone="danger">请填写 1 至服务上限范围内的并发值。</InlineAlert>}
       </section>
       <p className={styles.editorSummary}>{summary}</p>
       {overLimit && <InlineAlert tone="danger">总运行次数 {total} 超过每批 320 次上限，请减少题量。</InlineAlert>}
