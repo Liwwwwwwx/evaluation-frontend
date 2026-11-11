@@ -10,7 +10,7 @@ import styles from "./daily-reports.module.css";
 
 type Item = { date: string; status: string; analysisState: string; total: number; completed: number; unfinished: number; updatedAt: string };
 type Catalog = { items: Item[]; total: number; enabled: boolean; preferred: string; configured: boolean; storageReady: boolean; canGenerate: boolean };
-type Report = { date: string; status: string; analysisState: string; markdown: string | null; error: string | null; model: string | null; provider: string | null; canGenerate: boolean; notificationState: string | null; snapshot: { inProgress: boolean } };
+type Report = { date: string; status: string; analysisState: string; markdown: string | null; error: string | null; model: string | null; provider: string | null; canGenerate: boolean; notificationState: string | null; share?: { url: string; expiresAt: string } | null; snapshot: { inProgress: boolean } };
 const states: Record<string, string> = { generating: "正在生成", ready: "已生成", failed: "生成中断" };
 const analysisStates: Record<string, string> = { ready: "含智能总结", pending: "等待智能总结", unavailable: "仅统计 · 暂无智能总结", failed: "仅统计 · 智能总结失败" };
 const base = "/api/evaluation/unified/daily-reports";
@@ -112,6 +112,7 @@ export function DailyReportDetail({ date, pending = false, backHref = "/daily-re
       <div><h1>{date} 测评日报</h1></div>
       <div className={styles.headerActions}>
         <BackLink href={backHref}>{backLabel}</BackLink>
+        {data?.share && <a className="secondary-button" href={data.share.url} target="_blank" rel="noreferrer noopener">免登录分享</a>}
         {data?.status === "ready" && data.markdown && <a className="secondary-button" href={`${base}/${date}/markdown`}>下载 Markdown</a>}
       </div>
     </header>
