@@ -51,13 +51,16 @@
 
 .header h1 { margin: 0; font-size: 30px; line-height: 38px; font-weight: 600; letter-spacing: -.012em; }
 .header p { margin: 8px 0 0; color: var(--color-fg-muted); font-size: 13px; line-height: 21px; }
+.header.batchesHeader { margin-bottom: 0; }
 .headerActions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; padding-top: 5px; }
 
 .titleRow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .titleRow h1 { margin: 0; }
 .subtitle { margin-top: 8px !important; }
 
-.toolbar { flex: none; display: flex; align-items: center; margin-bottom: 0; }
+/* 视图页签与标题同行：44px 页签条对 38px 标题行做 -3px 视觉居中 */
+.viewTabs { display: flex; align-items: center; justify-content: flex-end; min-width: 0; margin-top: -3px; }
+.viewTabs > [role="tablist"] { max-width: 100%; }
 
 .listControls { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 10px 20px; flex-wrap: wrap; min-height: 40px; margin: 18px 0 14px; padding: 0; }
 .filters { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
@@ -143,14 +146,31 @@
   box-shadow: var(--batch-card-shadow);
   transition: transform 200ms var(--ease-out), border-color 200ms var(--ease-out), box-shadow 200ms var(--ease-out);
 }
-.schemeCard:hover,
+/* 配置卡带展开菜单，悬停不抬升，避免菜单随卡片跳动 */
+.schemeCard:hover { border-color: var(--batch-line-strong); box-shadow: var(--batch-card-shadow-hover); }
 .dataCard:hover,
 .reportCard:hover { transform: translateY(-3px); border-color: var(--batch-line-strong); box-shadow: var(--batch-card-shadow-hover); }
+
+/* 夜间执行方案：整行常显，与个人配置区分 */
+.schemeCardNightly {
+  grid-column: 1 / -1;
+  border-color: var(--batch-line-strong);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--color-fg) 6%, transparent), transparent 60%),
+    var(--batch-sheen), var(--batch-surface);
+  box-shadow: var(--batch-card-shadow), 0 0 0 1px color-mix(in srgb, var(--color-fg) 8%, transparent);
+}
+.schemeCardNightly::before {
+  content: ""; position: absolute; left: 0; top: 22px; bottom: 22px; width: 3px;
+  border-radius: 0 var(--radius-full) var(--radius-full) 0; background: var(--color-fg); opacity: .28;
+}
+.schemeCardNightly:hover { border-color: color-mix(in srgb, var(--color-fg) 26%, var(--batch-line-strong)); }
+.schemeCardNightly .schemeNightly { height: 22px; line-height: 22px; font-size: 11px; }
 
 .schemeCardHead { display: flex; align-items: center; justify-content: space-between; gap: 8px 12px; flex-wrap: wrap; }
 .schemeTitle { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .schemeTitle strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 16px; line-height: 24px; font-weight: 600; letter-spacing: -.005em; }
-.schemeNightly { flex: none; height: 21px; padding: 0 8px; border-radius: var(--radius-full); background: color-mix(in srgb, var(--color-accent) 14%, transparent); color: var(--color-accent); font-size: 10.5px; line-height: 21px; font-weight: 600; }
+.schemeNightly { flex: none; height: 21px; padding: 0 8px; border-radius: var(--radius-full); background: color-mix(in srgb, var(--color-fg) 12%, transparent); color: var(--color-fg); font-size: 10.5px; line-height: 21px; font-weight: 600; }
 .schemeMeta { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--color-fg-muted); font-size: 12px; line-height: 18px; }
 .schemeOwner { flex: none; display: inline-flex; align-items: center; height: 21px; padding: 0 8px; border: 1px solid var(--batch-line); border-radius: var(--radius-full); background: var(--batch-tool); color: var(--color-fg-muted); font-size: 10.5px; line-height: 19px; font-weight: 600; white-space: nowrap; }
 .schemeStats {
@@ -192,6 +212,7 @@
 .detailTable td { height: 38px; padding: 0 10px; border-bottom: 1px solid var(--batch-line); text-align: right; color: var(--color-fg-muted); }
 .detailTable tbody th { height: 38px; border-bottom: 1px solid var(--batch-line); background: transparent; color: var(--color-fg); font-size: 12.5px; font-weight: 400; text-align: left; }
 .detailTable tbody tr:last-child th, .detailTable tbody tr:last-child td { border-bottom: 0; }
+.detailHint { margin: 6px 0 0; color: var(--color-fg-muted); font-size: 11px; line-height: 17px; }
 .detailRows { border-top: 1px solid var(--batch-line); }
 .detailRow { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--batch-line); font-size: 12.5px; line-height: 20px; }
 .detailRow:last-child { border-bottom: 0; }
@@ -448,6 +469,7 @@
   .pageInner { padding: 24px 16px 20px; }
   .header h1 { font-size: 25px; line-height: 33px; }
   .headerActions { width: auto; }
+  .viewTabs { width: 100%; margin-top: 0; }
   .detailSide { grid-template-columns: 1fr; }
   .modeBanner { flex-direction: column; }
   .detailDialog { height: calc(100dvh - 16px); max-height: calc(100dvh - 16px); margin: 8px; }

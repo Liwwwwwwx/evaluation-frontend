@@ -8,8 +8,9 @@ import { formatDateTime } from "@/components/batch-ui";
 import styles from "./batches.module.css";
 
 type Counts = { aviation: number; synthesis: number };
-type Scheme = { id: string; name: string; version: number; createdBy: string | null; isNightly: boolean; updatedAt: string; config: { pools: Counts; services: Record<string, Counts>; compareAlloyAlpha?: boolean; compareSynthesisAlpha?: boolean } };
-type Catalog = { items: Scheme[]; userId: string; canManage: boolean; canSetNightly: boolean; canRun: boolean; storageReady: boolean; nightly: { name: string; version: number } | null; nightlyEnabled: boolean | null };
+type SchemeConfig = { pools: Counts; services: Record<string, Counts>; compareAlloyAlpha?: boolean; compareSynthesisAlpha?: boolean; concurrency?: Record<string, number> };
+type Scheme = { id: string; name: string; version: number; createdBy: string | null; isNightly: boolean; updatedAt: string; config: SchemeConfig };
+type Catalog = { items: Scheme[]; userId: string; canManage: boolean; canSetNightly: boolean; canRun: boolean; storageReady: boolean; nightly: { name: string; version: number } | null; nightlyEnabled: boolean | null; defaultConfig?: SchemeConfig; concurrencyCaps?: Record<string, number> | null };
 const serviceNames: Record<string, string> = { "mission-material": "Mission 主服务", literature: "文献检索", "literature-aircraft": "航空文献", alloy: "合金材料", synthesis: "合成制备", "new-material": "新材料", "alpha-rsi": "ALPHA 1110" };
 const serviceOrder = Object.keys(serviceNames);
 const PAGE_SIZE = 8;
@@ -24,7 +25,7 @@ function schemeTotal(item: Scheme) {
   return schemeServices(item).reduce((sum, [, count]) => sum + count.aviation + count.synthesis, 0);
 }
 
-export function BatchSchemesList({ refresh, onOpen, onHistory, preview = false }: { refresh: number; onOpen: (action: "create" | "edit" | "launch", id?: string) => void; onHistory: (id: string, name: string) => void; preview?: boolean }) {
+export function BatchSchemesList({ refresh, onOpen, onHistory, preview = false }: { refresh: number; onOpen: (action: "create" | "edit" | "editDefault" | "launch", id?: string) => void; onHistory: (id: string, name: string) => void; preview?: boolean }) {
   const [catalog, setCatalog] = useState<Catalog | null>(preview ? previewSchemeCatalog : null);
   const [error, setError] = useState("");
   const [retry, setRetry] = useState(0);
@@ -53,11 +54,18 @@ export function BatchSchemesList({ refresh, onOpen, onHistory, preview = false }
     } catch (err) { setError(err instanceof Error ? err.message : "操作失败"); setPending(null); }
     finally { setBusy(false); }
   }
-  const schemePages = Math.max(1, Math.ceil((catalog?.items.length || 0) / PAGE_SIZE));
+  const gridItems = catalog ? catalog.items.filter(item => !item.isNightly) : [];
+  const schemePages = Math.max(1, Math.ceil(gridItems.length / PAGE_SIZE));
   const schemePage = Math.min(page, schemePages);
-  const schemeItems = catalog ? catalog.items.slice((schemePage - 1) * PAGE_SIZE, schemePage * PAGE_SIZE) : [];
+  const schemeItems = gridItems.slice((schemePage - 1) * PAGE_SIZE, schemePage * PAGE_SIZE);
   const nightlyState = catalog?.nightlyEnabled === null ? "状态待确认" : catalog?.nightlyEnabled ? "已开启" : "未开启";
   const nightlyConfig = catalog?.storageReady ? catalog?.nightly ? `${catalog.nightly.name} v${catalog.nightly.version}` : "内置默认配置" : "待确认";
+  // 夜间实际使用的方案可能未显式指定：此时展示内置默认配置，避免管理员看不到夜间在跑什么。
+  const nightlyScheme = catalog?.nightly ? catalog.items.find(item => item.isNightly) || null : null;
+  const nightlyCard: { name: string; version: number; item: Scheme | null; builtin: boolean } | null = !catalog ? null : catalog.nightly
+    ? { name: catalog.nightly.name, version: catalog.nightly.version, item: nightlyScheme, builtin: false }
+    : { name: "内置默认配置", version: 0, builtin: true, item: catalog.defaultConfig ? { id: "builtin-nightly", name: "内置默认配置", version: 0, createdBy: null, isNightly: true, updatedAt: "", config: catalog.defaultConfig } : null };
+  const nightlyItem = nightlyCard?.item || null;
 
   return <div className={styles.schemeManagement}>
     {error && <InlineAlert tone="danger" action={<Button size="sm" onClick={() => setRetry(value => value + 1)}>重试</Button>}>{error}</InlineAlert>}
@@ -66,14 +74,47 @@ export function BatchSchemesList({ refresh, onOpen, onHistory, preview = false }
       <div className={styles.schemeStatusBar}>
         <span className={styles.schemeStatusValue} title={`北京时间 02:00–02:10 · 归属前一晚 · 当前配置：${nightlyConfig}`}>
           <span className={styles.schemeStatusDot} data-on={catalog.nightlyEnabled === true ? "true" : catalog.nightlyEnabled === false ? "false" : "unknown"} />
-          夜间调度{nightlyState}{catalog.nightlyEnabled ? ` · ${nightlyConfig}` : ""}
+          夜间调度{nightlyState}{catalog.storageReady ? ` · ${nightlyConfig}` : ""}
         </span>
         {catalog.canManage && <Button className={styles.schemeCreate} variant="primary" onClick={() => onOpen("create")}>新建批次配置</Button>}
       </div>
       {!catalog.storageReady ? <InlineAlert tone="warning">批次配置管理尚未完成数据库迁移。</InlineAlert> : <>
         <div className={styles.schemeListArea}>
-        {!catalog.items.length && <EmptyState state="empty" title="暂无批次配置" description="创建配置后可以重复发起测评。" />}
-        {schemeItems.length > 0 && <ul className={styles.schemeGrid}>
+        {!gridItems.length && <EmptyState state="empty" title="暂无批次配置" description="创建配置后可以重复发起测评。" />}
+        {(nightlyCard || schemeItems.length > 0) && <ul className={styles.schemeGrid}>
+          {nightlyCard && <li className={`${styles.schemeCard} ${styles.schemeCardNightly}`} aria-label="夜间执行方案">
+            <div className={styles.schemeCardHead}>
+              <div className={styles.schemeTitle}>
+                <strong>{nightlyCard.name}</strong>
+                <span className={styles.schemeNightly}>夜间执行</span>
+              </div>
+              <span className={styles.schemeOwner}>{nightlyCard.builtin ? "系统内置" : nightlyItem?.createdBy === catalog.userId ? "个人" : nightlyItem?.createdBy ? "其他用户" : "未知"}</span>
+            </div>
+            {nightlyItem ? <>
+              <span className={styles.schemeMeta}>{nightlyCard.builtin ? `内置默认 · ${schemeServices(nightlyItem).length} 个服务 · 未指定方案时使用` : `v${nightlyItem.version} · ${schemeServices(nightlyItem).length} 个服务 · 更新 ${formatDateTime(nightlyItem.updatedAt)}`}</span>
+              <div className={styles.schemeStats}>
+                <span className={styles.schemeStat}><b>{nightlyItem.config.pools.aviation}</b><span>航空题</span></span>
+                <span className={styles.schemeStat}><b>{nightlyItem.config.pools.synthesis}</b><span>合成题</span></span>
+                <span className={styles.schemeStat}><b>{schemeTotal(nightlyItem)}</b><span>运行次数</span></span>
+              </div>
+              <div className={styles.schemeActions}>
+                <Button size="sm" variant="secondary" onClick={() => setDetail(nightlyItem)}>配置明细</Button>
+                {nightlyCard.builtin && catalog.canSetNightly && <Button size="sm" variant="secondary" onClick={() => onOpen("editDefault")}>编辑</Button>}
+                {!nightlyCard.builtin && <>
+                  <span className={styles.schemeActionSpacer} />
+                  <Button size="sm" variant="secondary" onClick={() => onHistory(nightlyItem.id, nightlyItem.name)}>执行记录</Button>
+                  {nightlyItem.createdBy === catalog.userId && catalog.canRun && <Button size="sm" variant="secondary" onClick={() => onOpen("launch", nightlyItem.id)}>发起测评</Button>}
+                  {nightlyItem.createdBy === catalog.userId && catalog.canManage && <details className={styles.schemeMore}>
+                    <summary>更多</summary>
+                    <div className={styles.schemeMoreMenu}>
+                      <button type="button" onClick={(event) => { event.currentTarget.closest("details")?.removeAttribute("open"); onOpen("edit", nightlyItem.id); }}>编辑</button>
+                      <button type="button" disabled title="请先由管理员切换夜间配置" onClick={(event) => { event.currentTarget.closest("details")?.removeAttribute("open"); setPending({ action: "remove", item: nightlyItem }); }}>删除</button>
+                    </div>
+                  </details>}
+                </>}
+              </div>
+            </> : <span className={styles.schemeMeta}>v{nightlyCard.version} · 由管理员维护，当前账号无权查看该方案明细。</span>}
+          </li>}
           {schemeItems.map(item => {
             const own = item.createdBy === catalog.userId;
             const services = schemeServices(item);
@@ -110,7 +151,7 @@ export function BatchSchemesList({ refresh, onOpen, onHistory, preview = false }
           })}
         </ul>}
         </div>
-        <Pagination page={schemePage} pages={schemePages} total={catalog.items.length} pageSize={PAGE_SIZE} onPageChange={setPage} />
+        <Pagination page={schemePage} pages={schemePages} total={gridItems.length} pageSize={PAGE_SIZE} onPageChange={setPage} />
       </>}
     </>}
     <ConfirmDialog open={!!pending} onClose={() => setPending(null)} onConfirm={() => void confirm()} busy={busy} danger={pending?.action === "remove"} title={pending?.action === "remove" ? "删除批次配置" : "切换夜间配置"} description={pending?.action === "remove" ? `删除「${pending.item.name}」后不能再用于发起，已有执行记录会保留。` : `将「${pending?.item.name || ""}」设为夜间配置，从后续新批次生效。`} confirmLabel={pending?.action === "remove" ? "删除配置" : "确认切换"} />
@@ -118,7 +159,7 @@ export function BatchSchemesList({ refresh, onOpen, onHistory, preview = false }
       open={!!detail}
       onClose={() => setDetail(null)}
       title={detail?.name || "配置明细"}
-      description={detail ? `v${detail.version} · ${detail.createdBy === catalog?.userId ? "个人配置" : detail.createdBy ? "其他用户配置" : "创建人未知"} · 更新 ${formatDateTime(detail.updatedAt)}` : undefined}
+      description={detail ? `${detail.version ? `v${detail.version}` : "内置默认"} · ${detail.version === 0 ? "系统内置" : detail.createdBy === catalog?.userId ? "个人配置" : detail.createdBy ? "其他用户配置" : "创建人未知"}${detail.updatedAt ? ` · 更新 ${formatDateTime(detail.updatedAt)}` : ""}` : undefined}
       className={styles.detailDialog}
       contentClassName={styles.detailSheet}
       footerSticky
@@ -136,15 +177,17 @@ export function BatchSchemesList({ refresh, onOpen, onHistory, preview = false }
         <section className={styles.detailSection}>
           <h3>服务题量</h3>
           <table className={styles.detailTable}>
-            <caption className="sr-only">各服务使用题量</caption>
-            <thead><tr><th>服务</th><th>航空</th><th>合成</th><th>合计</th></tr></thead>
+            <caption className="sr-only">各服务使用题量与并发上限</caption>
+            <thead><tr><th>服务</th><th>航空</th><th>合成</th><th>并发</th><th>合计</th></tr></thead>
             <tbody>{schemeServices(detail).map(([key, count]) => <tr key={key}>
               <th scope="row">{serviceNames[key] || key}</th>
               <td>{count.aviation}</td>
               <td>{count.synthesis}</td>
+              <td>{detail.config.concurrency?.[key] ?? catalog?.concurrencyCaps?.[key] ?? 5}</td>
               <td>{count.aviation + count.synthesis}</td>
             </tr>)}</tbody>
           </table>
+          {!detail.config.concurrency && <p className={styles.detailHint}>并发未单独设置，按服务默认上限执行。</p>}
         </section>
         <section className={styles.detailSection}>
           <h3>运行</h3>
