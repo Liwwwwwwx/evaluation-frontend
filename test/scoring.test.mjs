@@ -30,6 +30,12 @@ test('评分展示零分、不适用、参考分、不足与两家不同状态�
  for (const value of ['0 / 100', '不适用', '评分失败', '仅供参考', '条件缺失', '补充温度条件', '不取平均']) assert.ok(html.includes(value), value);
  assert.ok(!html.includes('<script>')); assert.ok(html.includes('&lt;script&gt;'));
 });
+test('评分卡按评委显示实际发送图片的数量与未读取状态', () => {
+ const withImages={...quality,source:{truncated:false,imageCoverage:{found:3,sent:3,overflow:false}}};
+ const partial={...quality,source:{truncated:true,imageCoverage:{found:3,sent:0,overflow:false}}};
+ const html=render({deepSeekScore:{status:'ready',quality:withImages},qwenScore:{status:'ready',quality:partial}},{scoring:{version:'evaluation-v1'}});
+ assert.match(html,/已发送 3 \/ 3 张图片给模型/);assert.match(html,/发现 3 张图片，未发送给模型/);assert.match(html,/输入不完整/);
+});
 test('评分清单摘要区分未评分、未配置、失败和真实零分', () => {
  const summary = scores => renderToStaticMarkup(React.createElement(ScoreSummary, { scores }));
  assert.match(summary(null), /未评分/);

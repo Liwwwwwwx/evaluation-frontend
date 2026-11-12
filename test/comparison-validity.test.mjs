@@ -24,3 +24,11 @@ test('仅在规则、评委和完整有效结果一致时允许分数比较', ()
     assert.equal(comparableJudge(a, changed, 'deepSeekScore', false), false);
   }
 });
+
+test('图片评分和历史纯文字评分不能直接比较', () => {
+  const old = run(); const current = run();
+  current.scores.deepSeekScore.quality.source.imageCoverage = { found: 2, sent: 2, overflow: false };
+  assert.equal(comparableJudge(old, current, 'deepSeekScore', false), false);
+  old.scores.deepSeekScore.quality.source.imageCoverage = { found: 0, sent: 0, overflow: false };
+  assert.equal(comparableJudge(old, current, 'deepSeekScore', false), true);
+});

@@ -32,3 +32,11 @@ test('默认对比视图显示两侧执行状态及失败原因',()=>{
   const html=renderToStaticMarkup(React.createElement(RunComparison,{comparison}));
   assert.match(html,/排队中/);assert.match(html,/执行失败/);assert.match(html,/服务连接失败/);assert.match(html,/评分暂不可比较/);
 });
+
+test('对比页显示每位评委的图片覆盖情况',()=>{
+  const left=run('alloy','合金材料','succeeded');const right=run('alpha-rsi','1110','succeeded');
+  left.scores.deepSeekScore={status:'ready',model:'model',quality:{version:'evaluation-v1',total:80,dimensions:{},comment:'',source:{imageCoverage:{found:2,sent:2,overflow:false}}}};
+  const comparison={groupId:'test',question:'测试问题',rule:{name:'测试规则',version:1},createdAt:'2026-11-04T00:00:00Z',runs:[left,right]};
+  const html=renderToStaticMarkup(React.createElement(RunComparison,{comparison}));
+  assert.match(html,/已发送 2 \/ 2 张图片给模型/);
+});

@@ -2,6 +2,7 @@ import { normalizeAnswerMarkdown } from "@/lib/answer-markdown";
 import { conversationSegments } from "@/lib/conversation-layout";
 import { record, records, text } from "@/lib/structured-results";
 import { type UnifiedRunSnapshot } from "@/lib/unified-run-poll";
+import { imageCoverageLabel } from "@/lib/score-image-coverage";
 
 const scoreStates: Record<string, string> = { pending: "评分中", ready: "已完成", failed: "评分失败", unavailable: "未配置", absent: "无评分", partial: "部分完成", skipped: "不适用", unknown: "状态未知" };
 const scoreNames: Record<string, string> = { deepSeekScore: "DeepSeek", qwenScore: "千问", quality: "质量解读" };
@@ -50,7 +51,10 @@ function modelReport(name: string, value: unknown): string[] {
     }
     lines.push("");
   }
-  if (record(quality?.source)?.truncated === true) lines.push("> 评分仅基于截断后的正文。", "");
+  const source = record(quality?.source);
+  const imageCoverage = imageCoverageLabel(source?.imageCoverage);
+  if (imageCoverage) lines.push(`> ${imageCoverage}。`, "");
+  if (source?.truncated === true) lines.push("> 评分输入不完整，分数仅供参考。", "");
   return lines;
 }
 

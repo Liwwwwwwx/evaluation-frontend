@@ -1,3 +1,5 @@
+import { imageCoverageLabel } from "@/lib/score-image-coverage";
+
 type RecordValue = Record<string, unknown>;
 function object(value: unknown): RecordValue | null {
   return value && typeof value === "object" && !Array.isArray(value) ? value as RecordValue : null;
@@ -107,6 +109,7 @@ function JudgeCard({ value, name }: { value: unknown; name: string }) {
   const qualification = object(quality?.qualification);
   const gaps = stringList(quality?.gaps); const suggestions = stringList(quality?.suggestions);
   const truncated = object(quality?.source)?.truncated === true;
+  const imageCoverage = imageCoverageLabel(object(quality?.source)?.imageCoverage);
   const state = states[text(item?.status)] || "无评分";
   const failures: string[] = [];
   if (qualification?.status === "not_qualified") {
@@ -124,6 +127,7 @@ function JudgeCard({ value, name }: { value: unknown; name: string }) {
     {ready && score === null && <p className="run-score-note">评分结果缺少有效的总分。</p>}
     {ready && task && <p className="score-card-task">任务完成度 · {taskStates[text(task.status)] || "无法确认"}</p>}
     {ready && qualification && <p className="score-card-task">内容判定 · {qualificationStates[text(qualification.status)] || "无法判断"}{typeof qualification.passScore === "number" && Number.isFinite(qualification.passScore) ? ` · 合格线 ${Number(qualification.passScore)} 分` : ""}</p>}
+    {ready && imageCoverage && <p className="run-score-note">{imageCoverage}</p>}
     {ready && qualification?.status === "not_qualified" && <div className="score-qualification"><strong>未达标原因</strong>{failures.length ? <ul>{failures.map((reason, index) => <li key={index}>{reason}</li>)}</ul> : <p>当前记录未保存可明确展示的触发原因，请核对本次评判标准与评委结果。</p>}</div>}
     {ready && dimensions && <div className="score-visual">{Object.entries(dimensions).map(([key, v]) => { const d = object(v); if (!d) return null; const applicable = d.applicable !== false; const dimScore = typeof d.score === "number" && Number.isFinite(d.score) ? d.score : null; const weight = typeof d.weight === "number" && Number.isFinite(d.weight) ? Math.round(Number(d.weight) * 100) : null; return <div className="score-visual-row" key={key}><span className="score-visual-label">{text(d.label) || key}{weight !== null ? ` · ${weight}%` : ""}</span><span className="score-visual-value">{!applicable ? "不适用" : dimScore !== null ? `${dimScore} / 100` : "缺少评分"}</span>{applicable && dimScore !== null && <span className="score-visual-bar" aria-hidden="true"><i style={{ width: `${Math.max(0, Math.min(100, dimScore))}%` }} /></span>}{applicable && text(d.note) && <span className="score-visual-note">{text(d.note)}</span>}</div>; })}</div>}
     {ready && gaps.length > 0 && <FindingList label="扣分原因" items={gaps} />}

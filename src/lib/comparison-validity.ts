@@ -16,7 +16,9 @@ function ruleHash(run: ComparisonRun): string | null {
 export function comparableJudge(left: ComparisonRun, right: ComparisonRun, key: JudgeKey, preview: boolean): boolean {
   const a = left.scores[key]; const b = right.scores[key];
   const sameRule = preview || (!!ruleHash(left) && ruleHash(left) === ruleHash(right));
+  const sameImageMode = Boolean(a.quality?.source?.imageCoverage) === Boolean(b.quality?.source?.imageCoverage);
   return sameRule && left.executionStatus === "succeeded" && right.executionStatus === "succeeded"
+    && sameImageMode
     && !left.answerTruncated && !right.answerTruncated && !a.quality?.source?.truncated && !b.quality?.source?.truncated
     && !!a.model && a.model === b.model && totalOf(a) !== null && totalOf(b) !== null;
 }
