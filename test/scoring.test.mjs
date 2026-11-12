@@ -36,6 +36,13 @@ test('评分卡按评委显示实际发送图片的数量与未读取状态', ()
  const html=render({deepSeekScore:{status:'ready',quality:withImages},qwenScore:{status:'ready',quality:partial}},{scoring:{version:'evaluation-v1'}});
  assert.match(html,/已发送 3 \/ 3 张图片给模型/);assert.match(html,/发现 3 张图片，未发送给模型/);assert.match(html,/输入不完整/);
 });
+test('正文外部引用图片单独计数，不显示输入不完整', () => {
+ const external={...quality,source:{truncated:false,imageCoverage:{found:1,sent:1,overflow:false,external:2}}};
+ const html=render({deepSeekScore:{status:'ready',quality:external}},{scoring:{version:'evaluation-v1'}});
+ assert.match(html,/已发送 1 \/ 1 张图片给模型；另有 2 张正文引用的外部图片未纳入评分/);
+ assert.ok(!html.includes('输入不完整'));
+ assert.match(html,/评分完成/);
+});
 test('评分清单摘要区分未评分、未配置、失败和真实零分', () => {
  const summary = scores => renderToStaticMarkup(React.createElement(ScoreSummary, { scores }));
  assert.match(summary(null), /未评分/);

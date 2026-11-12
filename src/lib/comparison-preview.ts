@@ -13,7 +13,7 @@ export type ComparisonJudge = {
   quality: {
     version: "evaluation-v1";
     total: number;
-    source?: { truncated?: boolean; imageCoverage?: { found: number; sent: number; overflow?: boolean } };
+    source?: { truncated?: boolean; imageCoverage?: { found: number; sent: number; overflow?: boolean; external?: number } };
     dimensions: Record<string, { label: string; score: number; weight: number; applicable?: boolean; note?: string }>;
     taskCompletion?: { status: string; reason?: string; requirements?: ComparisonRequirement[] };
     qualification?: { status: string; passScore?: number };
