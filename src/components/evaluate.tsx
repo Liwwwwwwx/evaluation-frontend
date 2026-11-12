@@ -90,6 +90,8 @@ export function Evaluate() {
     sessionStorage.removeItem("evaluation-unified-run");
     window.dispatchEvent(new Event("evaluation-unified-change"));
     setRun(null); setSubmitting(false); setRecovering(false); setSubmitError("");
+    // 待确认请求必须保留原题才能重试；其余情况清空输入，避免新建测评后仍残留上一题。
+    if (!sessionStorage.getItem("evaluation-unified-pending")) { setDraft(""); setSource(null); }
   }, []);
 
   const [pickerOpen, setPickerOpen] = useState(false);
