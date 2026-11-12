@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { AnswerMarkdown } from "@/components/answer-markdown";
 import { ConversationAnswer } from "@/components/conversation-answer";
 import { BackLink, StatusDot, Tabs, type StatusTone } from "@/components/ui";
@@ -118,9 +119,13 @@ function executionTone(status: string): StatusTone {
   return status === "succeeded" ? "success" : status === "queued" || status === "running" ? "info" : status === "cancelled" ? "neutral" : "danger";
 }
 
-function ServiceSummaryBlock({ run }: { run: ComparisonRun }) {
+function ServiceSummaryBlock({ run, preview }: { run: ComparisonRun; preview: boolean }) {
   return <div className={styles.serviceBlock}>
-    <div className={styles.serviceInfo}><strong>{run.serviceLabel}</strong><span><StatusDot tone={executionTone(run.executionStatus)}>{executionLabels[run.executionStatus] || "状态未知"}</StatusDot> · {formatElapsed(run.elapsedMs)} · {qualificationSummary(run)}</span>{run.error && <span role="alert">执行错误：{run.error}</span>}{judgeKeys.map(key => { const label = imageCoverageLabel(run.scores[key].quality?.source?.imageCoverage); return label ? <span key={key}>{judgeLabels[key]}：{label}</span> : null; })}</div>
+    <div className={styles.serviceInfo}>
+      <div className={styles.serviceTitle}><strong>{run.serviceLabel}</strong>{!preview && <Link href={`/runs/${encodeURIComponent(run.runId)}`} aria-label={`查看${run.serviceLabel}运行详情`}>查看详情</Link>}</div>
+      <div className={styles.serviceMeta}><StatusDot tone={executionTone(run.executionStatus)}>{executionLabels[run.executionStatus] || "状态未知"}</StatusDot><span>{formatElapsed(run.elapsedMs)}</span><span>{qualificationSummary(run)}</span></div>
+      {run.error && <span role="alert">执行错误：{run.error}</span>}{judgeKeys.map(key => { const label = imageCoverageLabel(run.scores[key].quality?.source?.imageCoverage); return label ? <span key={key}>{judgeLabels[key]}：{label}</span> : null; })}
+    </div>
     <div className={styles.scoreLine}>{judgeKeys.map((key) => <span key={key}><em>{judgeLabels[key]}</em><b>{scoreShort(run.scores[key])}</b></span>)}</div>
   </div>;
 }
@@ -248,9 +253,9 @@ export function RunComparison({ comparison, preview = false, backHref = "/runs",
         </div>
       </div>
       <div className={styles.serviceSummary}>
-        <ServiceSummaryBlock run={left} />
+        <ServiceSummaryBlock run={left} preview={preview} />
         <span className={styles.vs}>VS</span>
-        <ServiceSummaryBlock run={right} />
+        <ServiceSummaryBlock run={right} preview={preview} />
       </div>
     </div>
 

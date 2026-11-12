@@ -10,12 +10,14 @@ const stub = code => `data:text/javascript;base64,${Buffer.from(code).toString('
 const react = import.meta.resolve('react');
 const ui = stub(`import React from ${JSON.stringify(react)}; export function BackLink({children}){return React.createElement('a',null,children)}; export function StatusDot({children,tone}){return React.createElement('span',{'data-tone':tone},children)}; export function Tabs(){return null}`);
 const answer = stub(`export function AnswerMarkdown(){return null}; export function ConversationAnswer(){return null}`);
+const link = stub(`import React from ${JSON.stringify(react)}; export default function Link({children,...props}){return React.createElement('a',props,children)}`);
 function source(path) {
   if (cache.has(path)) return cache.get(path);
   const file = new URL(path, import.meta.url);
   const compiled = ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText;
   const code = compiled.replace(/import styles from "[^"]+\.module\.css";/g, 'const styles = new Proxy({}, { get: (_, key) => key });').replace(/from "([^"]+)"/g, (_, specifier) => {
     if (specifier === '@/components/ui') return `from "${ui}"`;
+    if (specifier === 'next/link') return `from "${link}"`;
     if (['@/components/answer-markdown','@/components/conversation-answer'].includes(specifier)) return `from "${answer}"`;
     if (specifier.startsWith('@/')) return `from "${source('../src/' + specifier.slice(2) + '.ts')}"`;
     if (specifier.startsWith('.')) return `from "${source(new URL(specifier + '.ts', file).href)}"`;
@@ -39,4 +41,11 @@ test('对比页显示每位评委的图片覆盖情况',()=>{
   const comparison={groupId:'test',question:'测试问题',rule:{name:'测试规则',version:1},createdAt:'2026-11-04T00:00:00Z',runs:[left,right]};
   const html=renderToStaticMarkup(React.createElement(RunComparison,{comparison}));
   assert.match(html,/已发送 2 \/ 2 张图片给模型/);
+});
+
+test('对比页提供两侧运行详情入口，预览页不生成无效链接',()=>{
+  const comparison={groupId:'test',question:'测试问题',rule:{name:'测试规则',version:1},createdAt:'2026-11-04T00:00:00Z',runs:[run('alloy','合金材料','succeeded'),run('alpha-rsi','1110','succeeded')]};
+  const html=renderToStaticMarkup(React.createElement(RunComparison,{comparison}));
+  assert.match(html,/href="\/runs\/alloy"/); assert.match(html,/href="\/runs\/alpha-rsi"/);
+  assert.doesNotMatch(renderToStaticMarkup(React.createElement(RunComparison,{comparison,preview:true})),/href="\/runs\//);
 });
