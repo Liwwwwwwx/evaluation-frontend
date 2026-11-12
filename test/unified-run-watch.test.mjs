@@ -50,6 +50,22 @@ test('状态、评分与结束实时更新，结束后补读权限且停止继�
   t.mock.timers.tick(60000); await flush(); assert.equal(reads, 2);
 });
 
+test('已取消和失败记录重评时仍接收实时评分，并保留原执行状态', async t => {
+  for (const [status, executionStatus] of [['cancelled', 'cancelled'], ['error', 'failed']]) {
+    const live = stream(); const states = []; const calls = [];
+    const scoring = { attemptId: 'attempt', expiresAt: new Date(Date.now() + 60000).toISOString(), finishedAt: null };
+    const original = snapshot({ status, executionStatus, run: { status: status === 'cancelled' ? 'running' : 'error', scoring } });
+    const stop = watchLiveUnifiedRun(id, { onData: value => states.push(value), onError: assert.fail, request: async url => { calls.push(url); return url.endsWith('/events') ? live.response() : Response.json(original); } });
+    await flush(); assert.deepEqual(calls, [base, base + '/events']);
+    live.push('run', { runId: id, status: original.run.status, scoring });
+    live.push('score', { runId: id, scores: { deepSeekScore: { status: 'ready' } }, scoringStatus: 'ready' });
+    await flush();
+    assert.equal(states.at(-1).status, status); assert.equal(states.at(-1).executionStatus, executionStatus);
+    assert.equal(states.at(-1).scores.deepSeekScore.status, 'ready');
+    stop(); live.close(); await flush();
+  }
+});
+
 test('自动补充重新发起时替换首轮正文，新一轮增量不与旧内容混合', async t => {
   const live = stream(); const states = [];
   const stop = watchLiveUnifiedRun(id, { onData: value => states.push(value), onError: assert.fail, request: async url => url.endsWith('/events') ? live.response() : Response.json(snapshot({answer:'首轮追问'})) }); t.after(stop);
