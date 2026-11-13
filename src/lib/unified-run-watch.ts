@@ -1,5 +1,5 @@
 import { readUnifiedStream } from "@/lib/unified-stream";
-import { watchUnifiedRun, type UnifiedRunSnapshot } from "@/lib/unified-run-poll";
+import { isRunActive, watchUnifiedRun, type UnifiedRunSnapshot } from "@/lib/unified-run-poll";
 
 // 查看已有运行也使用实时事件；连接失败时沿用有界重试的只读轮询。
 export function watchLiveUnifiedRun(runId: string, {
@@ -16,7 +16,6 @@ export function watchLiveUnifiedRun(runId: string, {
   let attempts = 0;
   let lastStatus = "";
   let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
-  const active = (status: string) => ["queued", "running", "scoring"].includes(status);
   const update = (data: UnifiedRunSnapshot) => {
     if (stopped) return;
     current = data;
@@ -30,7 +29,7 @@ export function watchLiveUnifiedRun(runId: string, {
   const poll = (reconnect = false) => {
     if (!stopped) stopPolling = watchUnifiedRun(runId, { onData: data => {
       update(data);
-      if (!stopped && reconnect && active(data.status) && data.recoveryState !== "snapshot_only" && attempts <= maxReconnects) {
+      if (!stopped && reconnect && isRunActive(data) && data.recoveryState !== "snapshot_only" && attempts <= maxReconnects) {
         stopPolling();
         reconnectTimer = setTimeout(() => { if (!stopped) void subscribe(); }, 1000 * 2 ** (attempts - 1));
       }
@@ -67,8 +66,9 @@ export function watchLiveUnifiedRun(runId: string, {
         } else if (event === "state") {
           update({ ...current, run: data.run ?? current.run, canReply: typeof data.canReply === "boolean" ? data.canReply : current.canReply });
         } else if (event === "run") {
-          const failed = data.status === "error";
-          update({ ...current, run: data, status: failed ? "error" : "scoring", executionStatus: failed ? "failed" : "succeeded" });
+          const cancelled = current.status === "cancelled" || current.executionStatus === "cancelled";
+          const failed = data.status === "error" || current.executionStatus === "failed";
+          update({ ...current, run: data, status: cancelled ? "cancelled" : failed ? "error" : "scoring", executionStatus: cancelled ? "cancelled" : failed ? "failed" : "succeeded" });
         } else if (event === "score") {
           update({ ...current, scores: data.scores ?? current.scores, scoringStatus: typeof data.scoringStatus === "string" ? data.scoringStatus : current.scoringStatus, scoreError: typeof data.scoreError === "string" ? data.scoreError : null });
         } else if (event === "done") {
@@ -102,7 +102,7 @@ export function watchLiveUnifiedRun(runId: string, {
   stopPolling = watchUnifiedRun(runId, {
     onData: data => {
       update(data);
-      if (!stopped && active(data.status) && data.recoveryState !== "snapshot_only") {
+      if (!stopped && isRunActive(data) && data.recoveryState !== "snapshot_only") {
         stopPolling();
         void subscribe();
       }

@@ -12,7 +12,7 @@ import { isTerminalRun } from "@/lib/run-status";
 import { copyText } from "@/lib/clipboard";
 import { appendFrom, listQuery } from "@/lib/navigation";
 
-type Question = { id: string; question: string; domainKey?: string | null; serviceKey: string | null; criteria?: unknown; sourceType: string; datasetVersion: string; createdAt?: string | null };
+type Question = { id: string; question: string; domainKey?: string | null; serviceKey: string | null; criteria?: unknown; sourceType: string; datasetVersion: string; createdAt?: string | null; testSet?: string | null; applicableServices?: string[] | null };
 type QuestionScoreRow = { questionId: string; datasetVersion: string; runId: string; serviceKey: string; startedAt?: string; scores: ScoreSummaryValue };
 type Draft = { domainKey?: string; serviceKey?: string; question: string };
 type RowMenu = { row: Question; top: number; left: number; trigger: HTMLButtonElement };
@@ -129,13 +129,14 @@ function QuestionScores({ rows, state, listHref }: { rows: QuestionScoreRow[]; s
   </div>;
 }
 
-export function QuestionBank({ initialSource = "fixed", initialSearch = "", initialDomain = "", initialPage = 1 }: { initialSource?: "fixed" | "random"; initialSearch?: string; initialDomain?: string; initialPage?: number }) {
+export function QuestionBank({ initialSource = "fixed", initialSearch = "", initialDomain = "", initialTestSet = "", initialPage = 1 }: { initialSource?: "fixed" | "random"; initialSearch?: string; initialDomain?: string; initialTestSet?: string; initialPage?: number }) {
   const router = useRouter();
   const [scoreRows, setScoreRows] = useState<QuestionScoreRow[]>([]);
   const [scoresState, setScoresState] = useState("loading");
   const [quickBusy, setQuickBusy] = useState(false);
   const [rows, setRows] = useState<Question[]>([]); const [total, setTotal] = useState(0);
   const [source, setSource] = useState<"fixed" | "random">(initialSource); const [service, setService] = useState(initialDomain);
+  const [testSet, setTestSet] = useState(initialTestSet); const [testSets, setTestSets] = useState<{ name: string; count: number }[]>([]);
   const [input, setInput] = useState(initialSearch); const [search, setSearch] = useState(initialSearch.trim()); const [page, setPage] = useState(Math.max(0, initialPage - 1)); const [tick, setTick] = useState(0);
   const [loading, setLoading] = useState(true); const [error, setError] = useState("");
   const [write, setWrite] = useState(false); const [permissionReady, setPermissionReady] = useState(false); const [permissionError, setPermissionError] = useState("");
@@ -163,16 +164,25 @@ export function QuestionBank({ initialSource = "fixed", initialSearch = "", init
 
   useEffect(() => { const controller = new AbortController(); jsonRequest("/api/question-bank/access", { signal: controller.signal }).then((data) => setWrite(canWrite(data.access?.permissions))).catch(() => { if (!controller.signal.aborted) { setWrite(false); setPermissionError("无法确认导入权限，请刷新页面重试。"); } }).finally(() => { if (!controller.signal.aborted) setPermissionReady(true); }); return () => controller.abort(); }, []);
 
+  useEffect(() => {
+    if (!permissionReady) return;
+    const controller = new AbortController();
+    jsonRequest("/api/question-bank/test-sets", { signal: controller.signal }).then(data => {
+      if (!controller.signal.aborted && Array.isArray(data.items)) setTestSets(data.items.filter((item: { name?: unknown; count?: unknown }) => typeof item?.name === "string" && typeof item?.count === "number"));
+    }).catch(() => { if (!controller.signal.aborted) setTestSets([]); });
+    return () => controller.abort();
+  }, [permissionReady]);
+
   const load = useCallback(async () => {
     const request = ++requestId.current; setLoading(true); setError("");
     const params = new URLSearchParams({ source, status: "active", limit: String(pageSize), offset: String(page * pageSize) });
-    if (service) params.set("domain", service); if (search) params.set("search", search);
+    if (service) params.set("domain", service); if (source === "fixed" && testSet) params.set("testSet", testSet); if (search) params.set("search", search);
     try { const data = await jsonRequest(`/api/question-bank/questions?${params}`); if (request !== requestId.current) return; if (!Array.isArray(data.items) || typeof data.total !== "number") throw new Error("题库数据格式异常，请稍后重试。"); setRows(data.items); setScoreRows([]); setScoresState("loading"); setTotal(data.total); }
     catch (err) { if (request === requestId.current) { setError(getMessage(err)); setRows([]); setTotal(0); } }
     finally { if (request === requestId.current) setLoading(false); }
-  }, [source, service, search, page]);
+  }, [source, service, testSet, search, page]);
   useEffect(() => { if (!permissionReady) return; const activeRequest = requestId; const timeout = setTimeout(() => void load(), 0); return () => { clearTimeout(timeout); activeRequest.current++; }; }, [load, permissionReady, tick]);
-  useEffect(() => { setSelected({}); }, [source, service, search, page]);
+  useEffect(() => { setSelected({}); }, [source, service, testSet, search, page]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -187,7 +197,7 @@ export function QuestionBank({ initialSource = "fixed", initialSearch = "", init
   const selectedRows = Object.values(selected);
   const allSelected = rows.length > 0 && rows.every((row) => Object.hasOwn(selected, rowKey(row)));
   const someSelected = rows.some((row) => Object.hasOwn(selected, rowKey(row)));
-  const listHref = `/question-bank${listQuery({ source: source === "random" ? "random" : undefined, q: search, domain: service, page: page > 0 ? page + 1 : undefined })}`;
+  const listHref = `/question-bank${listQuery({ source: source === "random" ? "random" : undefined, q: search, domain: service, testSet, page: page > 0 ? page + 1 : undefined })}`;
   useEffect(() => {
     if (typeof window !== "undefined") window.history.replaceState(null, "", listHref);
   }, [listHref]);
@@ -208,7 +218,7 @@ export function QuestionBank({ initialSource = "fixed", initialSearch = "", init
   }
   function toggleRow(row: Question) { setSelected((current) => { const next = { ...current }; const key = rowKey(row); if (Object.hasOwn(next, key)) delete next[key]; else next[key] = row; return next; }); }
   function toggleAll() { setSelected((current) => { if (allSelected) { const next = { ...current }; rows.forEach((row) => delete next[rowKey(row)]); return next; } const next = { ...current }; rows.forEach((row) => { next[rowKey(row)] = row; }); return next; }); }
-  function clearFilters() { setInput(""); setSearch(""); setService(""); setPage(0); }
+  function clearFilters() { setInput(""); setSearch(""); setService(""); setTestSet(""); setPage(0); }
   const firstSearch = useRef(true);
   useEffect(() => {
     if (firstSearch.current) { firstSearch.current = false; return; }
@@ -354,7 +364,7 @@ export function QuestionBank({ initialSource = "fixed", initialSearch = "", init
         ariaLabel="题目类型"
         idBase="bank-source"
         value={source}
-        onChange={(value) => { setSource(value as "fixed" | "random"); setPage(0); }}
+        onChange={(value) => { const next = value as "fixed" | "random"; setSource(next); if (next === "random") setTestSet(""); setPage(0); }}
         items={[{ value: "fixed", label: "固定题" }, { value: "random", label: "随机题" }]}
       />
       <div className="bank-filters">
@@ -371,6 +381,14 @@ export function QuestionBank({ initialSource = "fixed", initialSearch = "", init
           onChange={(value) => { setService(value); setPage(0); }}
           options={[{ value: "", label: "全部领域" }, { value: "unclassified", label: "未分类" }, ...Object.entries(domains).map(([key, label]) => ({ value: key, label }))]}
         />
+        {source === "fixed" && <Select
+          variant="bare"
+          hideLabel
+          label="筛选测试集"
+          value={testSet}
+          onChange={(value) => { setTestSet(value); setPage(0); }}
+          options={[{ value: "", label: testSets.length ? `全部测试集（${testSets.length}）` : "暂无测试集" }, ...testSets.map(set => ({ value: set.name, label: `${set.name}（${set.count}）` }))]}
+        />}
       </div>
     </div>
 
@@ -402,7 +420,7 @@ export function QuestionBank({ initialSource = "fixed", initialSearch = "", init
             return <tr key={key} className={checked ? "selected" : ""}>
               {canManage && <td className="col-check"><Checkbox checked={checked} onChange={() => toggleRow(row)} aria-label={`选择题目：${row.question.slice(0, 24)}`} /></td>}
               <td className="col-question"><button type="button" className="row-question" title={row.question} onClick={() => openDetail(row)}>{row.question}</button></td>
-              <td className="col-service">{domainLabel(row)}{row.serviceKey && <> · 服务：{serviceNames[row.serviceKey] || row.serviceKey}</>}</td>
+              <td className="col-service">{domainLabel(row)}{row.serviceKey && <> · 服务：{serviceNames[row.serviceKey] || row.serviceKey}</>}{row.testSet && <> · {row.testSet}</>}</td>
               <td className="col-time">{formatDate(row.createdAt)}</td>
               <td className="col-score"><QuestionScores rows={scoreRows.filter(v => v.questionId === row.id && v.datasetVersion === row.datasetVersion)} state={scoresState} listHref={listHref} /></td>
               <td className="col-action"><button type="button" className="icon-button bank-row-more" aria-label={`更多操作：${row.question.slice(0, 24)}`} aria-haspopup="menu" aria-expanded={rowMenu?.row === row} onClick={(event) => openRowMenu(event, row)}><Icon name="more" /></button></td>
@@ -412,8 +430,8 @@ export function QuestionBank({ initialSource = "fixed", initialSearch = "", init
       </div>
       : <EmptyState
         state="empty"
-        title={search || service ? "没有找到符合条件的题目。" : "题库还没有题目。"}
-        action={search || service
+        title={search || service || testSet ? "没有找到符合条件的题目。" : "题库还没有题目。"}
+        action={search || service || testSet
           ? <Button variant="secondary" onClick={clearFilters}>清除筛选</Button>
           : write && (source === "fixed" ? <Button variant="primary" onClick={() => openImport("manual")}>导入题目</Button> : <Button variant="primary" onClick={() => openImport("generate")}>生成随机题</Button>)}
       />)}
@@ -425,7 +443,7 @@ export function QuestionBank({ initialSource = "fixed", initialSearch = "", init
       open={!!detail}
       onClose={() => setDetail(null)}
       title="题目详情"
-      description={detail ? `${domainLabel(detail)} · ${detail.sourceType === "random" ? "随机题" : "固定题"}` : undefined}
+      description={detail ? `${detail.testSet ? `${detail.testSet} · ` : ""}${domainLabel(detail)} · ${detail.sourceType === "random" ? "随机题" : "固定题"}` : undefined}
       footer={detail ? <>
         <Button type="button" variant="secondary" onClick={() => setDetail(null)}>关闭</Button>
         <Button type="button" variant="secondary" onClick={() => void copyQuestion(detail.question)}><Icon name="copy" />复制题目</Button>

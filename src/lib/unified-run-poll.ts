@@ -7,6 +7,13 @@ export type UnifiedRunSnapshot = {
   startedAt?: string | null; finishedAt?: string | null;
 };
 
+export function isRunActive(data: UnifiedRunSnapshot): boolean {
+  if (["queued", "running", "scoring"].includes(data.status)) return true;
+  const run = data.run && typeof data.run === "object" ? data.run as Record<string, unknown> : null;
+  const scoring = run?.scoring && typeof run.scoring === "object" ? run.scoring as Record<string, unknown> : null;
+  return !!(scoring?.attemptId && !scoring.finishedAt && typeof scoring.expiresAt === "string" && Date.parse(scoring.expiresAt) > Date.now());
+}
+
 // 只读取已有运行。串行轮询、有限重试，并丢弃取消后的迟到响应。
 export function watchUnifiedRun(runId: string, {
   onData, onError, request = fetch, intervalMs = 5000, retryDelayMs = 1000,
@@ -33,7 +40,7 @@ export function watchUnifiedRun(runId: string, {
       if (stopped) return;
       failures = 0;
       onData(data as UnifiedRunSnapshot);
-      if (!stopped && ["queued", "running", "scoring"].includes(data.status)) timer = setTimeout(() => void load(), intervalMs);
+      if (!stopped && isRunActive(data as UnifiedRunSnapshot)) timer = setTimeout(() => void load(), intervalMs);
     } catch (error) {
       if (stopped) return;
       const retrying = retryable && ++failures <= 3;

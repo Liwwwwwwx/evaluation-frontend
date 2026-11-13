@@ -166,7 +166,7 @@ export function Select({ value, options, onChange, label, placeholder = "请选�
             onClick={() => choose(option.value)}
           >
             <span className={styles.selectCheck} aria-hidden="true">{active ? "✓" : ""}</span>
-            <span>{option.label}</span>
+            <span className={styles.selectOptionLabel}>{option.label}</span>
             {option.hint && <span className={styles.selectHint}>{option.hint}</span>}
           </button>;
         })}

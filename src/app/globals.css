@@ -474,12 +474,15 @@ a.nav-item.active:hover { background: var(--color-bg-selected); }
 .chat-item-row { display: flex; align-items: center; border-radius: 8px; }
 .chat-item-row:hover, .chat-item-row:focus-within { background: var(--color-bg-hover); }
 .chat-item-row.active { background: var(--color-bg-selected); }
-.chat-item { display: flex; flex: 1; min-width: 0; align-items: center; gap: 8px; min-height: 44px; padding: 0 8px; color: var(--color-fg); font-size: 13px; line-height: 20px; }
+.chat-item { display: flex; flex: 1; min-width: 0; align-items: center; gap: 8px; min-height: 56px; padding: 6px 8px; color: var(--color-fg); font-size: 13px; line-height: 20px; }
 .chat-item-more { flex: none; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 8px; background: transparent; color: var(--color-fg-muted); cursor: pointer; }
 .chat-item-more:hover { background: var(--color-bg-selected); color: var(--color-fg); }
 .chat-comparison-link, .run-comparison-link { flex: none; min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; color: var(--color-fg-muted); font-size: 12px; border-radius: 8px; }
 .chat-comparison-link:hover, .run-comparison-link:hover { background: var(--color-bg-selected); color: var(--color-fg); }
+.chat-item-content { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.chat-item-title-line { min-width: 0; display: flex; align-items: center; gap: 8px; }
 .chat-item-text { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.chat-item-service { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--color-fg-muted); font-size: 11px; line-height: 16px; font-weight: 600; }
 .chat-item-status { flex: none; display: inline-flex; align-items: center; gap: 5px; color: var(--color-fg-muted); font-size: 10.5px; line-height: 20px; font-weight: 600; white-space: nowrap; }
 .chat-item-status-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
 .chat-item-status[data-status="running"] { color: var(--color-info); }
@@ -573,6 +576,13 @@ a.nav-item.active:hover { background: var(--color-bg-selected); }
 .run-action-item:hover:not(:disabled) { background: var(--color-bg-hover); }
 .run-action-item:disabled { color: var(--color-fg-subtle); }
 .run-action-item > svg { width: 15px; height: 15px; color: var(--color-fg-muted); }
+.run-action-danger { color: var(--color-danger); }
+.runs-selection { display: flex; align-items: center; gap: 8px; margin-left: auto; color: var(--color-fg-muted); font-size: 12px; }
+.runs-list-wrap[data-selectable="true"] .runs-list-head,
+.runs-list-wrap[data-selectable="true"] .run-row { grid-template-columns: 28px minmax(0, 1fr) 84px 260px 132px 76px; }
+.run-row-check, .run-row-check-head { position: relative; z-index: 2; display: flex; align-items: center; pointer-events: auto; }
+.runs-list > .run-row > .run-row-check { z-index: 2; pointer-events: auto; }
+.run-row-check-head { z-index: 3; }
 @media (max-width: 900px) {
   .runs-list-head { display: none; }
   .run-row { grid-template-columns: minmax(0, 1fr) 76px; column-gap: 12px; row-gap: 4px; padding: 12px; }
@@ -582,6 +592,12 @@ a.nav-item.active:hover { background: var(--color-bg-selected); }
   .run-row-score { grid-column: 1 / -1; grid-row: 3; }
   .run-row-time { display: none; }
   .run-row-inline-time { display: inline; }
+  .runs-list-wrap[data-selectable="true"] .run-row { grid-template-columns: 28px minmax(0, 1fr) 76px; }
+  .runs-list-wrap[data-selectable="true"] .run-row-check { grid-column: 1; grid-row: 1; align-self: start; }
+  .runs-list-wrap[data-selectable="true"] .run-row-main { grid-column: 2; grid-row: 1; }
+  .runs-list-wrap[data-selectable="true"] .run-row-actions { grid-column: 3; grid-row: 1; }
+  .runs-list-wrap[data-selectable="true"] .run-row-status { grid-column: 2; grid-row: 2; }
+  .runs-list-wrap[data-selectable="true"] .run-row-score { grid-column: 1 / -1; grid-row: 3; }
 }
 @media (max-width: 640px) { .run-row-question { -webkit-line-clamp: 2; } }
 @media (max-width: 767px) { .runs-list-page { padding: 24px 16px 0; } }

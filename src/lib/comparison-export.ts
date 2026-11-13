@@ -1,6 +1,7 @@
 import type { Comparison, ComparisonRequirement, ComparisonRun } from "./comparison-preview";
 import { comparableJudge, totalOf } from "@/lib/comparison-validity";
 import { buildRunAnswerMarkdown } from "@/lib/run-markdown";
+import { imageCoverageLabel } from "@/lib/score-image-coverage";
 
 type JudgeKey = "deepSeekScore" | "qwenScore";
 type RequirementRow = { label: string; left?: ComparisonRequirement; right?: ComparisonRequirement; same: boolean; winner: string };
@@ -100,7 +101,9 @@ function judgeSection(run: ComparisonRun, key: JudgeKey) {
       for (const item of quality.suggestions) lines.push(`  - ${item}`);
     }
     if (quality.comment) lines.push(`- 总评：${quality.comment}`);
-    const source = (quality as { source?: { truncated?: boolean } }).source;
+    const source = quality.source;
+    const imageCoverage = imageCoverageLabel(source?.imageCoverage);
+    if (imageCoverage) lines.push(`- 图片：${imageCoverage}`);
     if (source?.truncated) lines.push("- 注意：评分输入不完整，分数仅供参考。");
   } else if (judge.error) {
     lines.push(`- 错误：${judge.error}`);

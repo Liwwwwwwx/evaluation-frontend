@@ -75,7 +75,7 @@ const comparison = {
   createdAt: "2026-11-04T05:44:00.000Z",
   runs: [
     run("synthesis", "合成制备", "合成制备的完整回答", 37.5, leftRequirements),
-    run("alpha-rsi", "ALPHA 材料 RSI（1110）", "1110 的完整回答", 55, rightRequirements),
+    run("alpha-rsi", "材料 RSI", "1110 的完整回答", 55, rightRequirements),
   ],
 };
 
@@ -94,7 +94,7 @@ test("对比内容导出包含概览、逐项核对和差异摘要", () => {
   const value = buildComparisonMarkdown(comparison);
   assert.match(value, /对比测评 · 对比内容/);
   assert.match(value, /合成制备/);
-  assert.match(value, /ALPHA 材料 RSI（1110）/);
+  assert.match(value, /材料 RSI/);
   assert.match(value, /## 逐项核对/);
   assert.match(value, /给出挤压工艺路线/);
   assert.match(value, /## 差异摘要/);

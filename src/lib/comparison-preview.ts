@@ -13,7 +13,7 @@ export type ComparisonJudge = {
   quality: {
     version: "evaluation-v1";
     total: number;
-    source?: { truncated?: boolean };
+    source?: { truncated?: boolean; imageCoverage?: { found: number; sent: number; overflow?: boolean; external?: number } };
     dimensions: Record<string, { label: string; score: number; weight: number; applicable?: boolean; note?: string }>;
     taskCompletion?: { status: string; reason?: string; requirements?: ComparisonRequirement[] };
     qualification?: { status: string; passScore?: number };
@@ -204,7 +204,7 @@ export const previewComparison: Comparison = {
     {
       runId: "preview-alpha-rsi-run",
       serviceKey: "alpha-rsi",
-      serviceLabel: "ALPHA 材料 RSI · 1110",
+      serviceLabel: "材料 RSI",
       executionStatus: "succeeded",
       scoringStatus: "ready",
       elapsedMs: 448000,

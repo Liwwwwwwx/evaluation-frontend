@@ -10,9 +10,11 @@ import { createRequestKey } from "@/lib/request-key";
 import { appendFrom } from "@/lib/navigation";
 import { isUncertainRun } from "@/lib/run-status";
 import { mergeHistoryStatuses, type HistoryStatus } from "@/lib/run-history-status";
+import { evaluationServiceCatalog } from "@/lib/evaluation-services";
 
 type HistoryItem = {
   id: string;
+  serviceKey?: string | null;
   question: string;
   title?: string | null;
   status: string;
@@ -46,6 +48,12 @@ function statusClass(status: string) {
 
 const activeStatusLabels: Record<string, string> = { queued: "排队中", running: "运行中", scoring: "评分中" };
 
+function serviceLabels(key?: string | null) {
+  const normalized = typeof key === "string" ? key.trim() : "";
+  const full = evaluationServiceCatalog.find(item => item.key === normalized)?.label || normalized || "服务未知";
+  return { full, short: full };
+}
+
 function groupLabel(value: string | null) {
   if (!value) return "更早";
   const date = new Date(value);
@@ -58,7 +66,7 @@ function groupLabel(value: string | null) {
   return "更早";
 }
 
-function SidebarBody({ items, error, activeId, onNavigate, onManage, canManage, storageReady, preview = false }: {
+export function SidebarBody({ items, error, activeId, onNavigate, onManage, canManage, storageReady, preview = false }: {
   items: HistoryItem[];
   error: string;
   activeId: string | null;
@@ -108,16 +116,19 @@ function SidebarBody({ items, error, activeId, onNavigate, onManage, canManage, 
               {group.items.map((item) => {
                 const uncertain = isUncertainRun(item.status, item.recoveryState);
                 const activeLabel = uncertain ? "状态待确认" : activeStatusLabels[item.status];
+                const service = serviceLabels(item.serviceKey);
                 return <div key={item.id} className={`chat-item-row${item.id === activeId ? " active" : ""}`} data-running={!uncertain && item.status === "running" ? "true" : undefined}>
                   <Link
                     className="chat-item"
                     href={`/runs/${item.id}`}
-                    title={item.title || item.question}
+                    title={`${item.title || item.question} · ${service.full}`}
                     onClick={onNavigate}
                   >
                     <span className={statusClass(uncertain ? "unknown" : item.status)} />
-                    <span className="chat-item-text">{item.title || item.question}</span>
-                    {activeLabel && <span className="chat-item-status" data-status={uncertain ? "unknown" : item.status}><span className="chat-item-status-dot" aria-hidden="true" />{activeLabel}</span>}
+                    <span className="chat-item-content">
+                      <span className="chat-item-title-line"><span className="chat-item-text">{item.title || item.question}</span>{activeLabel && <span className="chat-item-status" data-status={uncertain ? "unknown" : item.status}><span className="chat-item-status-dot" aria-hidden="true" />{activeLabel}</span>}</span>
+                      <span className="chat-item-service" title={service.full}>{service.short}</span>
+                    </span>
                   </Link>
                   {item.comparisonGroupId && <Link className="chat-comparison-link" href={appendFrom(`/compare/${encodeURIComponent(item.comparisonGroupId)}`, pathname)} aria-label={`查看双服务对比：${item.title || item.question}`} onClick={onNavigate}>对比</Link>}
                   {canManage && <button type="button" className="chat-item-more" aria-label={`管理对话：${(item.title || item.question).slice(0, 24)}`} onClick={() => { onNavigate?.(); onManage(item); }}>•••</button>}
@@ -170,7 +181,7 @@ export function ChatShell({ children, preview = false }: { children: ReactNode; 
       const timeout = setTimeout(() => controller.abort(), 15000);
       fetch("/api/evaluation/unified/history", { cache: "no-store", signal: controller.signal })
         .then(async (response) => { if (response.status === 404 || response.status === 503) { const fallback = await fetch("/api/evaluation/unified/runs?origin=manual&page=1&pageSize=50", { cache: "no-store", signal: controller.signal }); if (!fallback.ok) throw new Error("加载失败"); return { ...await fallback.json(), storageReady: false, canManage: false }; } if (!response.ok) throw new Error("加载失败"); return response.json(); })
-        .then((value) => { if (active && request === historyRequest.current) { if (!Array.isArray(value.items)) throw new Error("格式异常"); const next = value.items.map((item: { runId: string; question: string; title?: string | null; status: string; recoveryState?: string; startedAt: string | null; comparisonGroupId?: string | null }) => ({ id: item.runId, question: item.question, title: item.title, status: item.status, recoveryState: item.recoveryState, startedAt: item.startedAt, comparisonGroupId: item.comparisonGroupId })); setItems(mergeHistoryStatuses(next, statusUpdates.current, sequence)); for (const [id, update] of statusUpdates.current) if (update.sequence <= sequence) statusUpdates.current.delete(id); setHistoryReady(value.storageReady === true); setCanManageHistory(value.canManage === true); setHistoryError(""); } })
+        .then((value) => { if (active && request === historyRequest.current) { if (!Array.isArray(value.items)) throw new Error("格式异常"); const next = value.items.map((item: { runId: string; serviceKey?: string | null; question: string; title?: string | null; status: string; recoveryState?: string; startedAt: string | null; comparisonGroupId?: string | null }) => ({ id: item.runId, serviceKey: typeof item.serviceKey === "string" ? item.serviceKey : null, question: item.question, title: item.title, status: item.status, recoveryState: item.recoveryState, startedAt: item.startedAt, comparisonGroupId: item.comparisonGroupId })); setItems(mergeHistoryStatuses(next, statusUpdates.current, sequence)); for (const [id, update] of statusUpdates.current) if (update.sequence <= sequence) statusUpdates.current.delete(id); setHistoryReady(value.storageReady === true); setCanManageHistory(value.canManage === true); setHistoryError(""); } })
         .catch(() => { if (active && request === historyRequest.current) setHistoryError("无法读取对话记录，请稍后重试。"); })
         .finally(() => { clearTimeout(timeout); pending.delete(controller); });
     };

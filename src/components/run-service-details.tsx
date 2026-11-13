@@ -54,6 +54,7 @@ export function RunServiceDetails({ run, runId, canReply = false, snapshotOnly =
   const supplements = reviews.map(object).filter(item => item?.source === "automatic" && item.action === "apply" && ["sent", "failed"].includes(text(item.delivery)) && Array.isArray(item.answers) && item.answers.length > 0);
   const retry = object(details.autoRetry);
   const retryQuestions = Array.isArray(retry?.questions) ? retry.questions.map(text).filter(Boolean) : [];
+  const retryInputError = ["input_error", "unsupported"].includes(text(retry?.state)) || (!!retry && !retryQuestions.length && /无法回答|无法完成|执行失败|输入校验|invalid_input|must use/i.test(text(retry.title)));
   const inputRequests = (Array.isArray(details.protocolFrames) ? details.protocolFrames : []).map(object).filter(item => item?.type === "user_input_request" && object(item.parameters)?.reason === "requirements");
   const recordedRequests = inputRequests.filter((item, index) => inputRequests.findIndex(other => other?.request_id === item?.request_id) === index);
   const reviewRequests = reviews.map(object).filter(item => item?.source === "service" && item.action === "requested" && !item.request).map(item => ({ message: text(object(item?.data)?.title), data: item?.data }));
@@ -66,15 +67,17 @@ export function RunServiceDetails({ run, runId, canReply = false, snapshotOnly =
     {supplements.map((item, index) => <details key={index} className="run-score-note"><summary>{item?.delivery === "sent" ? "查看自动补充的条件" : "查看未发送的自动补充"}{text(item?.model) ? `（${text(item?.model)}）` : ""}</summary>{(Array.isArray(item?.answers) ? item.answers : []).map((answer, answerIndex) => <p key={answerIndex}>{text(object(answer)?.answer)}</p>)}</details>)}
     {text(nativeRun?.error) && <p className="eval-error" role="alert">{text(nativeRun?.error)}</p>}
     {retry && <>
-      <FollowupNotice title={text(retry.title)} questions={retryQuestions} />
-      <p className="run-score-note">{({ generating: "原连接已结束，正在自动生成补充。", restarting: "补充已生成，正在重新发起一次。", running: "已携带补充重新发起，正在运行。", completed: "已携带补充重新发起，运行已结束。", failed: "自动补充或重新发起未完成，请查看失败原因。", unavailable: "服务未给出具体追问，无法自动补充。" } as Record<string, string>)[text(retry.state)] || "自动补充状态未知。"}</p>
-      {text(retry.message) && <details className="run-score-note"><summary>查看自动补充内容{text(retry.model) ? `（${text(retry.model)}）` : ""}</summary><p>{text(retry.message)}</p><p>自动补充可能包含假设，请结合题目核对。</p></details>}
+      {retryInputError
+        ? <p className="eval-error" role="alert">该服务不支持修改问题后继续回答：{text(retry.title)}。本轮不会自动补充或重发；请调整题面后重新发起测评。</p>
+        : <FollowupNotice title={text(retry.title)} questions={retryQuestions} />}
+      <p className="run-score-note">{({ generating: "原连接已结束，正在自动生成补充。", restarting: "补充已生成，正在重新发起一次。", running: "已携带补充重新发起，正在运行。", completed: "已携带补充重新发起，运行已结束。", failed: "自动补充或重新发起未完成，请查看失败原因。", unavailable: "服务未给出具体追问，无法自动补充。", input_error: "该服务不支持修改问题后继续回答，未自动补充或重发。", unsupported: "该服务不支持修改问题后继续回答，未自动补充或重发。" } as Record<string, string>)[text(retry.state)] || "自动补充状态未知。"}</p>
+      {!retryInputError && text(retry.message) && <details className="run-score-note"><summary>查看自动补充内容{text(retry.model) ? `（${text(retry.model)}）` : ""}</summary><p>{text(retry.message)}</p><p>自动补充可能包含假设，请结合题目核对。</p></details>}
       {text(retry.previousAnswer) && <details className="run-score-note"><summary>查看首轮回答</summary><p>{text(retry.previousAnswer)}</p>{retry.previousAnswerTruncated === true && <p>首轮回答已截断。</p>}</details>}
     </>}
     {recordedRequests.map((item, index) => { const request = followup(item); return <FollowupNotice key={text(item?.request_id) || index} {...request} />; })}
     {reviewRequests.map((item, index) => <FollowupNotice key={`review-${index}`} {...followup(item)} />)}
     {missionRequests.map((item, index) => <FollowupNotice key={`mission-${index}`} {...followup({ ...item, data: { ...object(item?.data), questions: item?.questions || object(item?.data)?.questions } })} />)}
-    {nativeStatus === "waiting_for_input" && (!retry || (retry.state === "failed" && !!retry.taskId)) && <><FollowupNotice {...followup(result)} heading={retry ? "重试后服务仍要求补充" : "服务追问"} />{!retry && <p className="run-score-note">原连接已结束，无法直接回复；有权限时可重新测评，系统会在收到具体追问后尝试自动补充。</p>}</>}
+    {nativeStatus === "waiting_for_input" && !retryInputError && (!retry || (retry.state === "failed" && !!retry.taskId)) && <><FollowupNotice {...followup(result)} heading={retry ? "重试后服务仍要求补充" : "服务追问"} />{!retry && <p className="run-score-note">原连接已结束，无法直接回复；有权限时可重新测评，系统会在收到具体追问后尝试自动补充。</p>}</>}
     {pending && <section className="run-service-section" aria-label="运行条件确认"><h3>{text(pending.title) || "请确认运行条件"}</h3><p className="run-score-note">服务正在等待答复，尚未自动接受建议条件。</p><details><summary>查看服务提出的条件</summary><pre>{JSON.stringify(pending.data, null, 2)}</pre></details>{canReply && !snapshotOnly ? <ReviewForm key={text(pending.requestId)} review={pending} runId={runId} onRefresh={onRefresh} /> : <p className="run-score-note">仅发起人可在原运行进程中答复；当前显示的记录无法提交确认。</p>}</section>}
     {nativeStatus && <p className="run-score-note">服务结果：{resultStates[nativeStatus] || nativeStatus}。这是服务自报状态。</p>}
     <StructuredOutcomes details={details} runId={runId} />

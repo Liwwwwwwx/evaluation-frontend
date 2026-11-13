@@ -1,12 +1,14 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { AnswerMarkdown } from "@/components/answer-markdown";
 import { ConversationAnswer } from "@/components/conversation-answer";
 import { BackLink, StatusDot, Tabs, type StatusTone } from "@/components/ui";
 import type { Comparison, ComparisonJudge, ComparisonRun } from "@/lib/comparison-preview";
 import { comparisonRequirementRows, shortTopic } from "@/lib/comparison-api";
 import { comparableJudge, totalOf, type JudgeKey } from "@/lib/comparison-validity";
+import { imageCoverageLabel } from "@/lib/score-image-coverage";
 import { buildComparisonMarkdown, buildServiceMarkdown, comparisonOverviewFilename, comparisonServiceFilename, downloadMarkdown, exportComparisonFiles } from "@/lib/comparison-export";
 import styles from "./run-comparison.module.css";
 
@@ -117,9 +119,13 @@ function executionTone(status: string): StatusTone {
   return status === "succeeded" ? "success" : status === "queued" || status === "running" ? "info" : status === "cancelled" ? "neutral" : "danger";
 }
 
-function ServiceSummaryBlock({ run }: { run: ComparisonRun }) {
+function ServiceSummaryBlock({ run, preview }: { run: ComparisonRun; preview: boolean }) {
   return <div className={styles.serviceBlock}>
-    <div className={styles.serviceInfo}><strong>{run.serviceLabel}</strong><span><StatusDot tone={executionTone(run.executionStatus)}>{executionLabels[run.executionStatus] || "状态未知"}</StatusDot> · {formatElapsed(run.elapsedMs)} · {qualificationSummary(run)}</span>{run.error && <span role="alert">执行错误：{run.error}</span>}</div>
+    <div className={styles.serviceInfo}>
+      <div className={styles.serviceTitle}><strong>{run.serviceLabel}</strong>{!preview && <Link href={`/runs/${encodeURIComponent(run.runId)}`} aria-label={`查看${run.serviceLabel}运行详情`}>查看详情</Link>}</div>
+      <div className={styles.serviceMeta}><StatusDot tone={executionTone(run.executionStatus)}>{executionLabels[run.executionStatus] || "状态未知"}</StatusDot><span>{formatElapsed(run.elapsedMs)}</span><span>{qualificationSummary(run)}</span></div>
+      {run.error && <span role="alert">执行错误：{run.error}</span>}{judgeKeys.map(key => { const label = imageCoverageLabel(run.scores[key].quality?.source?.imageCoverage); return label ? <span key={key}>{judgeLabels[key]}：{label}</span> : null; })}
+    </div>
     <div className={styles.scoreLine}>{judgeKeys.map((key) => <span key={key}><em>{judgeLabels[key]}</em><b>{scoreShort(run.scores[key])}</b></span>)}</div>
   </div>;
 }
@@ -180,7 +186,7 @@ export function RunComparison({ comparison, preview = false, backHref = "/runs",
     rightGaps.length ? { label: `${right.serviceLabel} 风险`, value: rightGaps.slice(0, 2).map(shortTopic).join(" · ") } : null,
   ].filter((item): item is { label: string; value: string } => Boolean(item));
   const verdictTitle = !bothComparable ? "评分暂不可比较" : leader ? `${leader.serviceLabel} 总分领先${bothFailed ? "，但双方都未合格" : ""}` : dsDelta === 0 && qwDelta === 0 ? "两家评委总分持平" : "两家评委总分结论不一致";
-  const verdictText = !bothComparable ? "双方需执行完成，且同一规则、同一评委模型的评分均有效、未截断，才展示综合结论。" : `${bothFailed ? "两家评委都判定未达到合格线。" : ""}${commonGaps.length ? `双方共同缺少：${commonGaps.slice(0, 3).map(shortTopic).join("、")}。` : "双方未提取到明确的共同缺失项。"}${split ? `${split}。` : ""}`;
+  const verdictText = !bothComparable ? "双方需执行完成，且同一规则、同一评委模型与图片评分方式的评分均有效、未截断，才展示综合结论。" : `${bothFailed ? "两家评委都判定未达到合格线。" : ""}${commonGaps.length ? `双方共同缺少：${commonGaps.slice(0, 3).map(shortTopic).join("、")}。` : "双方未提取到明确的共同缺失项。"}${split ? `${split}。` : ""}`;
 
   function closeExport(event: React.MouseEvent<HTMLButtonElement>) {
     event.currentTarget.closest("details")?.removeAttribute("open");
@@ -247,9 +253,9 @@ export function RunComparison({ comparison, preview = false, backHref = "/runs",
         </div>
       </div>
       <div className={styles.serviceSummary}>
-        <ServiceSummaryBlock run={left} />
+        <ServiceSummaryBlock run={left} preview={preview} />
         <span className={styles.vs}>VS</span>
-        <ServiceSummaryBlock run={right} />
+        <ServiceSummaryBlock run={right} preview={preview} />
       </div>
     </div>
 

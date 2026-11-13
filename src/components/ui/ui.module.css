@@ -277,6 +277,7 @@
   position: fixed;
   z-index: 90;
   max-height: 240px;
+  overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 4px;
@@ -292,6 +293,7 @@
   align-items: center;
   gap: 6px;
   width: 100%;
+  min-width: 0;
   min-height: 36px;
   padding: 0 8px;
   border: 0;
@@ -301,6 +303,13 @@
   font-size: 13px;
   line-height: 20px;
   text-align: left;
+  white-space: nowrap;
+}
+
+.selectOptionLabel {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 

@@ -4,7 +4,7 @@ import { copyText } from "@/lib/clipboard";
 
 import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import { ScoreSummary, type ScoreSummaryValue } from "@/components/score-summary";
-import { Button, EmptyState, Pagination, StatusDot, ToastStack, useToasts, type StatusTone, type ToastTone } from "@/components/ui";
+import { Button, Checkbox, ConfirmDialog, EmptyState, Pagination, StatusDot, ToastStack, useToasts, type StatusTone, type ToastTone } from "@/components/ui";
 import { questionDomains } from "@/lib/question-domains";
 import { buildRunMarkdown, runMarkdownFilename } from "@/lib/run-markdown";
 import { isUncertainRun, runStatusLabel } from "@/lib/run-status";
@@ -13,7 +13,7 @@ import Link from "next/link";
 
 type Run = { runId: string; serviceKey: string; origin: string; question: string; status: string; recoveryState?: string; startedAt: string | null; domainKey?: string | null; comparisonGroupId?: string | null; canRescore?: boolean; scores?: ScoreSummaryValue };
 type MenuState = { run: Run; top: number; left: number; trigger: HTMLButtonElement };
-const names: Record<string, string> = { "mission-material": "Mission 主服务", "alpha-rsi": "ALPHA 材料 RSI（1110）", alloy: "合金材料", literature: "文献检索", "literature-aircraft": "航空文献", synthesis: "合成制备", "new-material": "新材料" };
+const names: Record<string, string> = { "mission-material": "Mission 主服务", "alpha-rsi": "材料 RSI", alloy: "合金材料", literature: "文献检索", "literature-aircraft": "航空文献", synthesis: "合成制备", "new-material": "新材料" };
 const origins: Record<string, string> = { manual: "人工对话", automation: "自动化", legacy: "其他入口" };
 const domainOptions: [string, string][] = [["", "全部领域"], ["unclassified", "未分类"], ...Object.entries(questionDomains)];
 function pad(value: number) { return String(value).padStart(2, "0"); }
@@ -30,14 +30,16 @@ function statusTone(status: string): StatusTone {
 }
 function domainLabel(key?: string | null) { return questionDomains[key || ""] || "未分类"; }
 
-function RunRow({ run, menuOpen, onMenu, listHref }: { run: Run; menuOpen: boolean; onMenu: (event: ReactMouseEvent<HTMLButtonElement>, run: Run) => void; listHref: string }) {
+function RunRow({ run, menuOpen, onMenu, listHref, selectable, selected, onSelect }: { run: Run; menuOpen: boolean; onMenu: (event: ReactMouseEvent<HTMLButtonElement>, run: Run) => void; listHref: string; selectable: boolean; selected: boolean; onSelect: (run: Run) => void }) {
   const started = dateLabel(run.startedAt);
   const service = names[run.serviceKey] || run.serviceKey;
   const origin = origins[run.origin] || "未知";
   const uncertain = isUncertainRun(run.status, run.recoveryState);
   const status = runStatusLabel(run.status, run.recoveryState);
+  const active = ["queued", "running", "scoring"].includes(run.status);
   return <li className="run-row">
     <Link className="run-row-link" href={appendFrom(`/runs/${run.runId}`, listHref)} title={run.question} aria-label={`查看运行：${run.question}`} />
+    {selectable && <span className="run-row-check"><Checkbox checked={selected} disabled={active} onChange={() => onSelect(run)} aria-label={`选择运行：${run.question}`} /></span>}
     <span className="run-row-main">
       <strong className="run-row-question">{run.question || "未命名题目"}</strong>
       <span className="run-row-meta">{service} · {domainLabel(run.domainKey)} · {origin}{run.comparisonGroupId && " · 双服务对比"}<span className="run-row-inline-time"> · {started}</span></span>
@@ -46,7 +48,6 @@ function RunRow({ run, menuOpen, onMenu, listHref }: { run: Run; menuOpen: boole
     <span className="run-row-score"><ScoreSummary scores={run.scores} /></span>
     <time className="run-row-time" dateTime={run.startedAt || undefined}>{started}</time>
     <span className="run-row-actions">
-      {run.comparisonGroupId && <Link className="run-comparison-link" href={appendFrom(`/compare/${encodeURIComponent(run.comparisonGroupId)}`, listHref)} aria-label={`查看双服务对比：${run.question}`}>对比</Link>}
       <button type="button" className="run-action-button" aria-haspopup="menu" aria-expanded={menuOpen} aria-label={`更多操作：${run.question}`} onClick={(event) => onMenu(event, run)}>
         <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.6" /><circle cx="12" cy="12" r="1.6" /><circle cx="19" cy="12" r="1.6" /></svg>
       </button>
@@ -61,13 +62,16 @@ export function UnifiedRunList({ initialQuery = "", initialDomain = "", initialF
   const [domain, setDomain] = useState(initialDomain);
   const [from, setFrom] = useState(initialFrom);
   const [to, setTo] = useState(initialTo);
-  const [data, setData] = useState<{ items: Run[]; total: number } | null>(null);
+  const [data, setData] = useState<{ items: Run[]; total: number; canHide?: boolean } | null>(null);
   const [error, setError] = useState("");
   const [retry, setRetry] = useState(0);
   const [refreshTick, setRefreshTick] = useState(0);
   const [filterOpen, setFilterOpen] = useState(false);
   const [menu, setMenu] = useState<MenuState | null>(null);
   const [rescoring, setRescoring] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Record<string, Run>>({});
+  const [hideTarget, setHideTarget] = useState<Run[] | null>(null);
+  const [hiding, setHiding] = useState(false);
   const { toasts, push: pushToast, dismiss: dismissToast } = useToasts();
   const filterRef = useRef<HTMLDivElement>(null);
   const filterButton = useRef<HTMLButtonElement>(null);
@@ -91,6 +95,14 @@ export function UnifiedRunList({ initialQuery = "", initialDomain = "", initialF
       .catch((err) => { if (!controller.signal.aborted) { setData(null); setError(err instanceof Error ? err.message : "读取失败。"); } });
     return () => controller.abort();
   }, [page, retry, refreshTick, search, domain, from, to]);
+  useEffect(() => { setSelected({}); }, [page, search, domain, from, to]);
+  useEffect(() => {
+    setSelected(current => {
+      const ids = new Set((data?.items || []).map(run => run.runId));
+      const next = Object.fromEntries(Object.entries(current).filter(([id]) => ids.has(id)));
+      return Object.keys(next).length === Object.keys(current).length ? current : next;
+    });
+  }, [data?.items]);
   useEffect(() => {
     if (!data?.items.some((run) => ["queued", "running", "scoring"].includes(run.status))) return;
     const timer = window.setInterval(() => {
@@ -129,6 +141,11 @@ export function UnifiedRunList({ initialQuery = "", initialDomain = "", initialF
   const filtersActive = Boolean(search || domain || from || to);
   const hasChips = Boolean(domain || from || to);
   const filterCount = (domain ? 1 : 0) + (from || to ? 1 : 0);
+  const canHide = data?.canHide === true;
+  const selectableRows = (data?.items || []).filter(run => !["queued", "running", "scoring"].includes(run.status));
+  const selectedRows = Object.values(selected);
+  const allSelected = selectableRows.length > 0 && selectableRows.every(run => !!selected[run.runId]);
+  const someSelected = selectableRows.some(run => !!selected[run.runId]);
   const listParams = new URLSearchParams();
   if (page > 1) listParams.set("page", String(page));
   if (search) listParams.set("q", search);
@@ -147,7 +164,7 @@ export function UnifiedRunList({ initialQuery = "", initialDomain = "", initialF
   function openMenu(event: ReactMouseEvent<HTMLButtonElement>, run: Run) {
     const rect = event.currentTarget.getBoundingClientRect();
     const width = 180;
-    setMenu({ run, left: Math.max(8, Math.min(window.innerWidth - width - 8, rect.right - width)), top: Math.min(rect.bottom + 6, window.innerHeight - 190), trigger: event.currentTarget });
+    setMenu({ run, left: Math.max(8, Math.min(window.innerWidth - width - 8, rect.right - width)), top: Math.min(rect.bottom + 6, window.innerHeight - 236), trigger: event.currentTarget });
   }
   function toggleMenu(event: ReactMouseEvent<HTMLButtonElement>, run: Run) {
     if (menu?.run.runId === run.runId) { setMenu(null); return; }
@@ -187,6 +204,43 @@ export function UnifiedRunList({ initialQuery = "", initialDomain = "", initialF
       notify("已导出 Markdown。");
     } catch (err) { notify(err instanceof Error ? err.message : "导出失败，请重试。", "error"); }
   }
+  function toggleRow(run: Run) {
+    setSelected(current => {
+      const next = { ...current };
+      if (next[run.runId]) delete next[run.runId]; else next[run.runId] = run;
+      return next;
+    });
+  }
+  function toggleAll() {
+    setSelected(allSelected ? {} : Object.fromEntries(selectableRows.map(run => [run.runId, run])));
+  }
+  async function removeRuns() {
+    if (!hideTarget?.length || hiding) return;
+    const requested = hideTarget.length;
+    setHiding(true);
+    try {
+      const response = await fetch("/api/evaluation/unified/runs/hide", { method: "POST", headers: { "Content-Type": "application/json", "Idempotency-Key": createRequestKey() }, body: JSON.stringify({ runIds: hideTarget.map(run => run.runId) }) });
+      const value = await response.json().catch(() => ({}));
+      if (!response.ok || !Array.isArray(value.hidden)) throw new Error(typeof value.error === "string" ? value.error : value.error?.message || "无法删除运行记录，请重试。");
+      const hidden = new Set<string>(value.hidden);
+      setData(current => current ? { ...current, items: current.items.filter(run => !hidden.has(run.runId)), total: Math.max(0, current.total - hidden.size) } : current);
+      setSelected(current => Object.fromEntries(Object.entries(current).filter(([id]) => !hidden.has(id))));
+      setHideTarget(null);
+      if (hidden.size === requested) notify(`已删除 ${hidden.size} 条运行记录。`);
+      else if (hidden.size) notify(`已删除 ${hidden.size} 条；其余 ${requested - hidden.size} 条仍在执行或不可移除。`, "error");
+      else notify("没有可删除的运行记录；执行中的记录需结束后再删除。", "error");
+      if (hidden.size) {
+        const remaining = Math.max(0, (data?.total ?? 0) - hidden.size);
+        const lastPage = Math.max(1, Math.ceil(remaining / 20));
+        if (page > lastPage) setPage(lastPage);
+        setRetry(value => value + 1);
+      }
+    } catch (err) {
+      notify(err instanceof Error ? err.message : "删除失败，请重试。", "error");
+    } finally {
+      setHiding(false);
+    }
+  }
   return <section className="runs-list-page" aria-labelledby="runs-title"><header className="runs-list-header"><div><h1 id="runs-title">运行记录</h1><p>统一流式对话和自动化运行记录，点击任意一条查看详情。</p></div><Button href="/evaluate" variant="primary">新建测评</Button></header>
     <div className="runs-toolbar">
       <div className="runs-search">
@@ -211,20 +265,27 @@ export function UnifiedRunList({ initialQuery = "", initialDomain = "", initialF
         </div>}
       </div>
       <Button type="button" variant="secondary" onClick={() => setRefreshTick((value) => value + 1)}>刷新</Button>
+      {canHide && selectedRows.length > 0 && <div className="runs-selection" role="status">
+        <span>已选 {selectedRows.length} 条</span>
+        <Button type="button" variant="danger" size="sm" onClick={() => setHideTarget(selectedRows)}>删除</Button>
+        <Button type="button" variant="ghost" size="sm" onClick={() => setSelected({})}>取消选择</Button>
+      </div>}
       {filtersActive && <Button type="button" variant="ghost" size="sm" onClick={resetFilters}>重置</Button>}
     </div>
     {hasChips && <div className="runs-filter-chips">
       {(from || to) && <span className="runs-filter-chip"><span>日期 {from || "不限"} 至 {to || "不限"}</span><button type="button" aria-label="清除日期筛选" onClick={() => { setFrom(""); setTo(""); setPage(1); }}><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M6 6l12 12M18 6 6 18" /></svg></button></span>}
       {domain && <span className="runs-filter-chip"><span>{domain === "unclassified" ? "未分类" : domainLabel(domain)}</span><button type="button" aria-label="清除领域筛选" onClick={() => { setDomain(""); setPage(1); }}><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M6 6l12 12M18 6 6 18" /></svg></button></span>}
     </div>}
-    {error ? <EmptyState state="error" title={error} action={<Button type="button" variant="secondary" onClick={() => setRetry((value) => value + 1)}>重试</Button>} /> : !data ? <EmptyState state="loading" title="正在读取运行记录…" /> : data.total === 0 ? <EmptyState state="empty" title={filtersActive ? "没有匹配的运行记录。" : "暂无统一运行记录。"} action={filtersActive ? <Button type="button" variant="secondary" onClick={resetFilters}>清除筛选</Button> : undefined} /> : <><div className="runs-list-wrap"><div className="runs-list-head" aria-hidden="true"><span>题目</span><span>状态</span><span>评分</span><span>开始时间</span><span>操作</span></div><ul className="runs-list" aria-label="运行记录">{data.items.map((run) => <RunRow key={run.runId} run={run} menuOpen={menu?.run.runId === run.runId} onMenu={toggleMenu} listHref={listHref} />)}</ul></div><Pagination page={page} pages={pages} total={data.total} pageSize={20} onPageChange={(next) => { setData(null); setPage(next); }} /></>}
+    {error ? <EmptyState state="error" title={error} action={<Button type="button" variant="secondary" onClick={() => setRetry((value) => value + 1)}>重试</Button>} /> : !data ? <EmptyState state="loading" title="正在读取运行记录…" /> : data.total === 0 ? <EmptyState state="empty" title={filtersActive ? "没有匹配的运行记录。" : "暂无统一运行记录。"} action={filtersActive ? <Button type="button" variant="secondary" onClick={resetFilters}>清除筛选</Button> : undefined} /> : <><div className="runs-list-wrap" data-selectable={canHide || undefined}><div className="runs-list-head" aria-hidden={canHide ? undefined : true}>{canHide && <span className="run-row-check-head"><Checkbox checked={allSelected} indeterminate={someSelected && !allSelected} onChange={toggleAll} aria-label="全选本页可删除运行" /></span>}<span>题目</span><span>状态</span><span>评分</span><span>开始时间</span><span>操作</span></div><ul className="runs-list" aria-label="运行记录">{data.items.map((run) => <RunRow key={run.runId} run={run} menuOpen={menu?.run.runId === run.runId} onMenu={toggleMenu} listHref={listHref} selectable={canHide} selected={!!selected[run.runId]} onSelect={toggleRow} />)}</ul></div><Pagination page={page} pages={pages} total={data.total} pageSize={20} onPageChange={(next) => { setData(null); setPage(next); }} /></>}
     {menu && <div ref={menuRef} className="run-action-menu" role="menu" style={{ top: menu.top, left: menu.left }}>
       <Link className="run-action-item" role="menuitem" href={appendFrom(`/runs/${menu.run.runId}`, listHref)} onClick={() => setMenu(null)}><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14m-6-6 6 6-6 6" /></svg><span>查看详情</span></Link>
       {menu.run.comparisonGroupId && <Link className="run-action-item" role="menuitem" href={appendFrom(`/compare/${encodeURIComponent(menu.run.comparisonGroupId)}`, listHref)} onClick={() => setMenu(null)}><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M5 7h14M5 17h14M9 4 6 7l3 3m6 4 3 3-3 3" /></svg><span>查看双服务对比</span></Link>}
       <button type="button" className="run-action-item" role="menuitem" onClick={() => void copyQuestion(menu.run)}><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15V5h10" /></svg><span>复制题目</span></button>
       {menu.run.canRescore && <button type="button" className="run-action-item" role="menuitem" disabled={rescoring === menu.run.runId} onClick={() => void rescore(menu.run)}><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M20 7v5h-5M4 17v-5h5" /><path d="M6.1 7a7 7 0 0 1 11.6-1L20 9M4 15l2.3 3A7 7 0 0 0 17.9 17" /></svg><span>{rescoring === menu.run.runId ? "正在提交…" : "重新评分"}</span></button>}
+      {canHide && !["queued", "running", "scoring"].includes(menu.run.status) && <button type="button" className="run-action-item run-action-danger" role="menuitem" onClick={() => { const run = menu.run; setMenu(null); setHideTarget([run]); }}><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M4 7h16M9 7V5h6v2M6.5 7l.9 13h9.2l.9-13" /><path d="M10.5 11v5.5M13.5 11v5.5" /></svg><span>删除</span></button>}
       <button type="button" className="run-action-item" role="menuitem" onClick={() => void exportMarkdown(menu.run)}><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M12 4v11m-4-4 4 4 4-4M5 20h14" /></svg><span>导出 Markdown</span></button>
     </div>}
+    <ConfirmDialog open={!!hideTarget} onClose={() => { if (!hiding) setHideTarget(null); }} onConfirm={() => void removeRuns()} title={hideTarget?.length === 1 ? "删除这条运行记录？" : `删除选中的 ${hideTarget?.length || 0} 条运行记录？`} description="仅从当前账号的运行记录中移除；运行数据、评分和他人的记录仍保留。执行中的运行需结束后再删除。" confirmLabel="删除" danger busy={hiding} />
     {toasts.length > 0 && <ToastStack toasts={toasts} onDismiss={dismissToast} />}
   </section>;
 }

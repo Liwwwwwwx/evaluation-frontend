@@ -13,7 +13,7 @@ import { isTerminalRun } from "@/lib/run-status";
 import { appendFrom, backLabel } from "@/lib/navigation";
 import styles from "./question-detail.module.css";
 
-type Question = { id: string; question: string; domainKey?: string | null; serviceKey?: string | null; criteria?: unknown; sourceType: string; datasetVersion: string; createdAt?: string | null };
+type Question = { id: string; question: string; domainKey?: string | null; serviceKey?: string | null; criteria?: unknown; sourceType: string; datasetVersion: string; createdAt?: string | null; testSet?: string | null; applicableServices?: string[] | null };
 type Run = { runId: string; serviceKey: string; origin: string; status: string; scores?: ScoreSummaryValue | null; startedAt?: string | null };
 type StandardContent = {
   domain: string;
@@ -219,7 +219,7 @@ export function QuestionDetailPage({ questionId, datasetVersion, initialTab = "q
     <header className={styles.header}>
       <div>
         <div className={styles.titleRow}><h1 id="question-detail-title">题目详情</h1><Badge tone="info">{question.sourceType === "random" ? "随机题" : "固定题"}</Badge></div>
-        <p>{domains[question.domainKey || ""] || "未分类"}{question.serviceKey && <> · 绑定服务 {serviceNames[question.serviceKey] || question.serviceKey}</>} · 数据集版本 {question.datasetVersion} · 题目 ID <span className={styles.mono}>{question.id}</span> · 创建 {formatDate(question.createdAt)}</p>
+        <p>{domains[question.domainKey || ""] || "未分类"}{question.serviceKey && <> · 绑定服务 {serviceNames[question.serviceKey] || question.serviceKey}</>}{question.testSet && <> · {question.testSet}</>} · 数据集版本 {question.datasetVersion} · 题目 ID <span className={styles.mono}>{question.id}</span> · 创建 {formatDate(question.createdAt)}</p>
       </div>
       <div className={styles.actions}><BackLink href={backHref}>{backLabel(backHref, "返回题库")}</BackLink></div>
     </header>

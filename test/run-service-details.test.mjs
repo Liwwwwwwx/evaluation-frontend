@@ -156,3 +156,20 @@ test('IC模型按类型和调用保留文件链接，拒绝脚本与凭据地址
   assert.equal((html.match(/href="https:\/\/example.com\/first\/model.glb"/g) || []).length, 1);
   assert.match(html, /noopener noreferrer/); assert.doesNotMatch(html, /javascript:|password@|>危险</);
 });
+
+test('服务输入校验失败时不生成自动补充，直接显示服务错误', () => {
+  const html = render({ autoRetry: { state: 'input_error', title: 'heat_treatment must use explicit solution/precipitation stage fields; otherwise supply native process_history' }, result: { status: 'waiting_for_input', user_conclusion: '当前任务无法回答。' } });
+  assert.match(html, /不支持修改问题后继续回答/);
+  assert.match(html, /heat_treatment/);
+  assert.match(html, /未自动补充或重发/);
+  assert.doesNotMatch(html, /查看自动补充内容/);
+  assert.doesNotMatch(html, /<h3>服务追问<\/h3>/);
+});
+
+test('历史自动重试记录若已是服务失败，不展示自动补充内容或重试追问', () => {
+  const html = render({ autoRetry: { state: 'failed', taskId: 'second', title: '当前任务无法回答。\n\nheat_treatment must use explicit solution/precipitation stage fields; otherwise supply native process_history', questions: [], message: '复述题目明确条件……假设1：可将题目文字热处理条件映射为两个阶段字段。', model: 'deepseek-chat' }, result: { status: 'waiting_for_input', user_conclusion: '当前任务无法回答。' } });
+  assert.match(html, /不支持修改问题后继续回答/);
+  assert.match(html, /heat_treatment/);
+  assert.doesNotMatch(html, /查看自动补充内容/);
+  assert.doesNotMatch(html, /重试后服务仍要求补充/);
+});
