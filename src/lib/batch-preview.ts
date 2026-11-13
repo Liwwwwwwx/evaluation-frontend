@@ -334,8 +334,7 @@ type PreviewScheme = {
   isNightly: boolean;
   updatedAt: string;
   config: {
-    pools: { aviation: number; synthesis: number };
-    services: Record<string, { aviation: number; synthesis: number }>;
+    services: Record<string, number>;
     compareAlloyAlpha?: boolean;
     compareSynthesisAlpha?: boolean;
     concurrency?: Record<string, number>;
@@ -360,7 +359,7 @@ export const previewSchemeCatalog: {
   storageReady: true,
   nightlyEnabled: true,
   nightly: { name: "基础夜间方案", version: 2 },
-  concurrencyCaps: { "mission-material": 5, literature: 5, "literature-aircraft": 1, alloy: 5, synthesis: 5, "new-material": 5, "alpha-rsi": 5 },
+  concurrencyCaps: { "mission-material": 5, literature: 5, "literature-aircraft": 1, "new-material": 5, "alpha-rsi": 5, "alpha-combined-rsi": 5 },
   items: [
     {
       id: "preview-scheme-own",
@@ -370,11 +369,10 @@ export const previewSchemeCatalog: {
       isNightly: false,
       updatedAt: "2026-11-02T23:42:00+08:00",
       config: {
-        pools: { aviation: 4, synthesis: 4 },
-        services: { "mission-material": { aviation: 4, synthesis: 0 }, alloy: { aviation: 4, synthesis: 0 }, "alpha-rsi": { aviation: 4, synthesis: 0 } },
-        compareAlloyAlpha: true,
+        services: { "mission-material": 4, "alpha-combined-rsi": 4, "alpha-rsi": 4 },
+        compareAlloyAlpha: false,
         compareSynthesisAlpha: false,
-        concurrency: { "mission-material": 2, literature: 5, "literature-aircraft": 1, alloy: 3, synthesis: 5, "new-material": 5, "alpha-rsi": 3 },
+        concurrency: { "mission-material": 2, literature: 5, "literature-aircraft": 1, "new-material": 5, "alpha-rsi": 3, "alpha-combined-rsi": 3 },
       },
     },
     {
@@ -385,9 +383,8 @@ export const previewSchemeCatalog: {
       isNightly: true,
       updatedAt: "2026-11-01T02:05:00+08:00",
       config: {
-        pools: { aviation: 20, synthesis: 20 },
-        services: { "mission-material": { aviation: 10, synthesis: 0 }, literature: { aviation: 10, synthesis: 0 }, alloy: { aviation: 20, synthesis: 0 }, "alpha-rsi": { aviation: 20, synthesis: 0 } },
-        compareAlloyAlpha: true,
+        services: { "mission-material": 10, literature: 10, "alpha-combined-rsi": 20, "alpha-rsi": 20 },
+        compareAlloyAlpha: false,
         compareSynthesisAlpha: false,
       },
     },
@@ -399,8 +396,7 @@ export const previewSchemeCatalog: {
       isNightly: false,
       updatedAt: "2026-10-30T18:20:00+08:00",
       config: {
-        pools: { aviation: 6, synthesis: 2 },
-        services: { alloy: { aviation: 3, synthesis: 0 }, "new-material": { aviation: 3, synthesis: 2 } },
+        services: { "alpha-rsi": 3, "alpha-combined-rsi": 5 },
         compareAlloyAlpha: false,
         compareSynthesisAlpha: false,
       },

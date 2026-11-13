@@ -34,7 +34,7 @@ test('近期对话显示服务、标题和活动状态，缺失服务不猜测',
     { id: 'four', question: '其他服务', serviceKey: 'custom-service', status: 'done', startedAt: null },
   ];
   const html = renderToStaticMarkup(React.createElement(SidebarBody, { items, error: '', activeId: 'two', onManage() {}, canManage: true, storageReady: true, preview: true }));
-  assert.match(html, /Mission 主服务/); assert.match(html, /材料 RSI/); assert.ok(!html.includes("ALPHA"));
+  assert.match(html, /Mission 主服务/); assert.match(html, /材料配比 RSI/); assert.ok(!html.includes("ALPHA"));
   assert.match(html, /自定义标题/); assert.match(html, /运行中/); assert.match(html, /服务未知/); assert.match(html, /custom-service/);
   assert.match(html, /href="\/compare\/group/); assert.match(html, /管理对话/);
 });

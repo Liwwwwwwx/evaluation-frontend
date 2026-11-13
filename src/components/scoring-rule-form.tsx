@@ -92,7 +92,7 @@ export function ScoringRuleForm({ value, onChange, disabled, tab }: { value: Rul
         <div><h2 id="rules-efficiency-heading">阶段效率阈值</h2><p>使用明确的阶段起止或运行中事件计时。总耗时不能替代团队查询耗时；缺少证据时显示无法评估。</p></div>
         {!disabled && <span className="rules-total">{c.efficiencyRules.length} / 20 项</span>}
       </header>
-      <datalist id="rule-service-keys">{["*","literature","literature-aircraft","alloy","synthesis","new-material","mission-material"].map(key => <option key={key} value={key} />)}</datalist>
+      <datalist id="rule-service-keys">{["*","literature","literature-aircraft","alpha-rsi","alpha-combined-rsi","mission-material"].map(key => <option key={key} value={key} />)}</datalist>
       {c.efficiencyRules.length === 0 ? <div className="rules-empty-card">
         <p>当前没有阶段阈值。过程耗时仍会保留，但不会判定阶段超时。</p>
         {!disabled && <Button type="button" variant="secondary" onClick={() => config({efficiencyRules:[{serviceKey:"*",phaseKey:"new-stage",label:"新阶段",warningSeconds:60,criticalSeconds:180}]})}>添加阶段阈值</Button>}

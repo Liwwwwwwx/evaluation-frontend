@@ -75,8 +75,8 @@ function formatDateTime(value?: string | null) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
-const serviceNames: Record<string, string> = { "mission-material": "Mission 主服务", literature: "文献检索", "literature-aircraft": "航空文献", alloy: "合金材料", synthesis: "合成制备", "new-material": "新材料" };
-const shortServiceNames: Record<string, string> = { "mission-material": "Mission", literature: "文献", "literature-aircraft": "航空", alloy: "合金", synthesis: "合成", "new-material": "新材料" };
+const serviceNames: Record<string, string> = { "mission-material": "Mission 主服务", literature: "文献检索", "literature-aircraft": "航空文献", alloy: "合金材料", synthesis: "合成制备", "new-material": "新材料", "alpha-rsi": "材料配比 RSI", "alpha-combined-rsi": "配比+制备 RSI" };
+const shortServiceNames: Record<string, string> = { "mission-material": "Mission", literature: "文献", "literature-aircraft": "航空", alloy: "合金", synthesis: "合成", "new-material": "新材料", "alpha-rsi": "材料配比", "alpha-combined-rsi": "配比+制备" };
 const scoreStateNames: Record<string, string> = { pending: "评分中", failed: "评分失败", unavailable: "未配置", absent: "无评分", skipped: "不适用" };
 const taskStateNames: Record<string, string> = { partial: "部分完成", failed: "未完成", unclear: "无法确认" };
 
@@ -448,7 +448,7 @@ export function QuestionBank({ initialSource = "fixed", initialSearch = "", init
         <Button type="button" variant="secondary" onClick={() => setDetail(null)}>关闭</Button>
         <Button type="button" variant="secondary" onClick={() => void copyQuestion(detail.question)}><Icon name="copy" />复制题目</Button>
         {!editMode && <Button type="button" variant="secondary" onClick={() => generateStandards(detail)}>生成测评标准</Button>}
-        {["fixed", "random"].includes(detail.sourceType) && !detail.criteria && (!detail.serviceKey || ["mission-material", "literature", "literature-aircraft", "alloy", "synthesis", "new-material"].includes(detail.serviceKey)) && !editMode && <Button type="button" variant="secondary" disabled={quickBusy} onClick={() => void prepareEvaluation(detail)}>{quickBusy ? "正在准备…" : "使用这道题测评"}</Button>}
+        {["fixed", "random"].includes(detail.sourceType) && !detail.criteria && (!detail.serviceKey || ["mission-material", "literature", "literature-aircraft", "alpha-rsi", "alpha-combined-rsi"].includes(detail.serviceKey)) && !editMode && <Button type="button" variant="secondary" disabled={quickBusy} onClick={() => void prepareEvaluation(detail)}>{quickBusy ? "正在准备…" : "使用这道题测评"}</Button>}
         {canManage && (editMode ? <Button type="button" variant="primary" disabled={editBusy} onClick={() => void saveEdit()}>{editBusy ? "保存中…" : "保存修改"}</Button> : <Button type="button" variant="secondary" disabled={domainBusy} onClick={() => setEditMode(true)}>编辑</Button>)}
         {canManage && !editMode && <Button type="button" variant="danger" disabled={domainBusy} onClick={() => { setDetail(null); askDelete([detail]); }}>删除</Button>}
       </> : undefined}
