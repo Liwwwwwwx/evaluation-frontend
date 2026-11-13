@@ -229,7 +229,12 @@ export function UnifiedRunList({ initialQuery = "", initialDomain = "", initialF
       if (hidden.size === requested) notify(`已删除 ${hidden.size} 条运行记录。`);
       else if (hidden.size) notify(`已删除 ${hidden.size} 条；其余 ${requested - hidden.size} 条仍在执行或不可移除。`, "error");
       else notify("没有可删除的运行记录；执行中的记录需结束后再删除。", "error");
-      if (hidden.size && page > 1 && (data?.items.length || 0) === hidden.size) setPage(page - 1);
+      if (hidden.size) {
+        const remaining = Math.max(0, (data?.total ?? 0) - hidden.size);
+        const lastPage = Math.max(1, Math.ceil(remaining / 20));
+        if (page > lastPage) setPage(lastPage);
+        setRetry(value => value + 1);
+      }
     } catch (err) {
       notify(err instanceof Error ? err.message : "删除失败，请重试。", "error");
     } finally {
