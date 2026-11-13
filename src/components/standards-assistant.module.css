@@ -66,7 +66,8 @@
 
 .picker { display: flex; flex-direction: column; gap: 16px; min-height: 0; }
 .filters { display: flex; flex-wrap: wrap; gap: 12px; }
-.filters label { display: grid; gap: 6px; flex: 1; min-width: 140px; font-size: 13px; }
+.filters label, .filterField { display: grid; gap: 6px; flex: 1; min-width: 140px; font-size: 13px; }
+.filterField > span { color: var(--color-fg); }
 .filters input, .filters select { width: 100%; min-height: 40px; padding: 8px 12px; border: 1px solid var(--color-border); border-radius: 8px; color: var(--color-fg); background: var(--color-bg-elevated); font: inherit; }
 .questionList { min-height: 120px; max-height: min(48vh, 440px); overflow-y: auto; }
 .questionList > p { color: var(--color-fg-muted); }

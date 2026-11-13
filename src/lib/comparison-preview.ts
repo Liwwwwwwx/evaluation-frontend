@@ -204,7 +204,7 @@ export const previewComparison: Comparison = {
     {
       runId: "preview-alpha-rsi-run",
       serviceKey: "alpha-rsi",
-      serviceLabel: "ALPHA 材料 RSI · 1110",
+      serviceLabel: "材料 RSI",
       executionStatus: "succeeded",
       scoringStatus: "ready",
       elapsedMs: 448000,

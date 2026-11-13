@@ -51,7 +51,7 @@ const activeStatusLabels: Record<string, string> = { queued: "排队中", runnin
 function serviceLabels(key?: string | null) {
   const normalized = typeof key === "string" ? key.trim() : "";
   const full = evaluationServiceCatalog.find(item => item.key === normalized)?.label || normalized || "服务未知";
-  return { full, short: normalized === "alpha-rsi" ? "ALPHA 1110" : full };
+  return { full, short: full };
 }
 
 function groupLabel(value: string | null) {

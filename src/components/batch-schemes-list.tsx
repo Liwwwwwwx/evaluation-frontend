@@ -11,7 +11,7 @@ type Counts = { aviation: number; synthesis: number };
 type SchemeConfig = { pools: Counts; services: Record<string, Counts>; compareAlloyAlpha?: boolean; compareSynthesisAlpha?: boolean; concurrency?: Record<string, number> };
 type Scheme = { id: string; name: string; version: number; createdBy: string | null; isNightly: boolean; updatedAt: string; config: SchemeConfig };
 type Catalog = { items: Scheme[]; userId: string; canManage: boolean; canSetNightly: boolean; canRun: boolean; storageReady: boolean; nightly: { name: string; version: number } | null; nightlyEnabled: boolean | null; defaultConfig?: SchemeConfig; concurrencyCaps?: Record<string, number> | null };
-const serviceNames: Record<string, string> = { "mission-material": "Mission 主服务", literature: "文献检索", "literature-aircraft": "航空文献", alloy: "合金材料", synthesis: "合成制备", "new-material": "新材料", "alpha-rsi": "ALPHA 1110" };
+const serviceNames: Record<string, string> = { "mission-material": "Mission 主服务", literature: "文献检索", "literature-aircraft": "航空文献", alloy: "合金材料", synthesis: "合成制备", "new-material": "新材料", "alpha-rsi": "材料 RSI" };
 const serviceOrder = Object.keys(serviceNames);
 const PAGE_SIZE = 8;
 

@@ -8,7 +8,8 @@ export default async function QuestionBankPage({ searchParams }: { searchParams:
   const source = readQuery(query.source) === "random" ? "random" : "fixed";
   const search = readQuery(query.q) || "";
   const domain = readQuery(query.domain) || "";
+  const testSet = readQuery(query.testSet) || "";
   const page = pageNumber(readQuery(query.page));
-  return <QuestionBank key={JSON.stringify([source, search, domain, page])} initialSource={source} initialSearch={search} initialDomain={domain} initialPage={page} />;
+  return <QuestionBank key={JSON.stringify([source, search, domain, testSet, page])} initialSource={source} initialSearch={search} initialDomain={domain} initialTestSet={testSet} initialPage={page} />;
 }
 

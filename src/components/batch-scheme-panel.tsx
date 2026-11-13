@@ -15,7 +15,7 @@ type Pending = { key: string; config: Config; schemeId: string | null; schemeVer
 type Mode = "launch" | "edit";
 const BASE = "/api/evaluation/unified/batch-schemes";
 const PENDING = "evaluation-manual-batch-pending";
-const SERVICES: [string, string][] = [["mission-material", "Mission 主服务"], ["literature", "文献检索"], ["literature-aircraft", "航空文献"], ["alloy", "合金材料"], ["synthesis", "合成制备"], ["new-material", "新材料"], ["alpha-rsi", "ALPHA 1110"]];
+const SERVICES: [string, string][] = [["mission-material", "Mission 主服务"], ["literature", "文献检索"], ["literature-aircraft", "航空文献"], ["alloy", "合金材料"], ["synthesis", "合成制备"], ["new-material", "新材料"], ["alpha-rsi", "材料 RSI"]];
 const DEFAULT_CAPS: Record<string, number> = { "mission-material": 5, literature: 5, "literature-aircraft": 1, alloy: 5, synthesis: 5, "new-material": 5, "alpha-rsi": 5 };
 
 function capsOf(catalog: Catalog | null) { return { ...DEFAULT_CAPS, ...(catalog?.concurrencyCaps || {}) }; }

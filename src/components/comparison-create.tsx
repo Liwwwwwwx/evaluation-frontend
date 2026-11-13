@@ -136,7 +136,7 @@ export function ComparisonCreate() {
     }
   }
 
-  const labelOf = (key: string) => services.find((service) => service.key === key)?.label || (key === "alloy" ? "合金材料" : key === "alpha-rsi" ? "ALPHA 材料 RSI（1110）" : key);
+  const labelOf = (key: string) => services.find((service) => service.key === key)?.label || (key === "alloy" ? "合金材料" : key === "alpha-rsi" ? "材料 RSI" : key);
   const pairReady = ready;
 
   return <main className="eval-page">
@@ -205,7 +205,7 @@ export function ComparisonCreate() {
 
       {pending && <InlineAlert tone="warning" className="eval-alert" action={<><Button href="/runs" target="_blank" rel="noopener noreferrer" variant="secondary" size="sm">查看运行记录</Button><Button type="button" variant="secondary" size="sm" disabled={submitting} onClick={() => { if (window.confirm("请确认已查看运行记录。放弃后重新发起可能产生重复运行，是否继续？")) { sessionStorage.removeItem(storageKey); setPending(null); setError(""); } }}>已核对，放弃原请求</Button></>}>上次对比请求结果尚未确认（{pending.serviceKeys.map(labelOf).join(" 与 ")}）；重试会使用原题目、题库版本和请求标识。</InlineAlert>}
       {legacyPending && <InlineAlert tone="warning" className="eval-alert" action={<><Button href="/runs" target="_blank" rel="noopener noreferrer" variant="secondary" size="sm">查看运行记录</Button><Button type="button" variant="secondary" size="sm" disabled={submitting} onClick={() => { if (window.confirm("请确认已查看运行记录。旧版对比请求不再支持重试，放弃后可能产生重复运行，是否继续？")) { sessionStorage.removeItem(storageKey); setLegacyPending(null); setError(""); } }}>已核对，允许新建</Button></>}>检测到旧版「合成制备 + 1110」待确认请求；该组合已不再支持，请先核对运行记录。</InlineAlert>}
-      {!pairReady && !loading && <InlineAlert tone="danger" className="eval-alert">合金材料或 ALPHA 材料 RSI（1110）尚未启用，暂不能开始对比。</InlineAlert>}
+      {!pairReady && !loading && <InlineAlert tone="danger" className="eval-alert">合金材料或「材料 RSI」尚未启用，暂不能开始对比。</InlineAlert>}
       {generated && <p className="eval-hint">根据两个服务生成 · 请核对题目和服务适用性。</p>}
       {error && <InlineAlert tone="danger" className="eval-alert" action={<Button href="/runs" target="_blank" rel="noopener noreferrer" variant="secondary" size="sm">查看运行记录</Button>}>{error}</InlineAlert>}
       <p className="eval-hint">{loading ? "正在读取可用服务…" : submitting ? "正在创建对比运行，请勿重复提交。" : pending ? "点击发送按钮重试原请求。" : "每次对比保留题目、两份回答及评分状态。"}</p>
