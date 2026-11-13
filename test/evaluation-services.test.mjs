@@ -32,3 +32,11 @@ test('1110进入新建入口，未知服务仍被忽略', () => {
   assert.equal(isEvaluationService('alpha-rsi'), true);
   assert.equal(isEvaluationService('mission-material'), true);
 });
+
+test('两个 RSI 独立可用，停用服务不可选择且新材料保留名称', () => {
+  const services = availableEvaluationServices(['alpha-rsi', 'alpha-combined-rsi', 'alloy', 'synthesis', 'new-material'].map(key => ({ key, enabled: true })));
+  assert.equal(services.find(item => item.key === 'alpha-rsi')?.label, '材料配比 RSI');
+  assert.equal(services.find(item => item.key === 'alpha-combined-rsi')?.enabled, true);
+  assert.equal(services.find(item => item.key === 'new-material')?.enabled, false);
+  assert.equal(services.some(item => ['alloy', 'synthesis'].includes(item.key)), false);
+});

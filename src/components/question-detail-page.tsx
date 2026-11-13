@@ -25,7 +25,7 @@ type StandardContent = {
 };
 type StandardItem = { id: string; state: "unsaved" | "draft" | "confirmed" | "superseded"; content: StandardContent; model?: string | null; createdAt: string; confirmedAt?: string | null };
 
-const serviceNames: Record<string, string> = { "mission-material": "Mission 主服务", literature: "文献检索", "literature-aircraft": "航空文献", alloy: "合金材料", synthesis: "合成制备", "new-material": "新材料" };
+const serviceNames: Record<string, string> = { "mission-material": "Mission 主服务", literature: "文献检索", "literature-aircraft": "航空文献", alloy: "合金材料", synthesis: "合成制备", "new-material": "新材料", "alpha-rsi": "材料配比 RSI", "alpha-combined-rsi": "配比+制备 RSI" };
 const statusNames: Record<string, string> = { queued: "排队中", running: "运行中", scoring: "评分中", done: "已完成", cancelled: "已结束", error: "失败" };
 const originNames: Record<string, string> = { manual: "人工", automation: "自动", legacy: "其他" };
 const standardStates: Record<string, string> = { unsaved: "未保存", confirmed: "已确认", draft: "草稿", superseded: "历史" };

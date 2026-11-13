@@ -252,7 +252,7 @@ export function Evaluate() {
     setPickerOpen(false);
   }
 
-  async function pickRandom() {
+  async function pickRandom(questionKind: "composition" | "manufacturing" = "composition") {
     if (busy) return;
     setRandomBusy(true);
     setSubmitError("");
@@ -260,7 +260,7 @@ export function Evaluate() {
       const data = await jsonRequest("/api/question-bank/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ generationMode: "service", serviceKey: service, count: 1, focus: "general" }),
+        body: JSON.stringify({ generationMode: "service", serviceKey: service, count: 1, focus: "general", ...(["alpha-rsi", "alpha-combined-rsi"].includes(service) ? { questionKind } : {}) }),
       });
       const row = data?.items?.[0];
       const generatedMax = service === "synthesis" ? 200 : MAX;
@@ -372,7 +372,7 @@ export function Evaluate() {
                       >
                         <span className="check"><Icon name="check" /></span>
                         <span>{item.label}</span>
-                        {!item.enabled && <span className="tag">未启用</span>}
+                        {!item.enabled && <span className="tag">{item.key === "new-material" ? "暂停测评" : "未启用"}</span>}
                       </button>
                     ))}
                   </div>
@@ -383,12 +383,14 @@ export function Evaluate() {
                 <Icon name="book" /><span>从题库选</span>
               </button>
 
-              <button type="button" className="eval-tool" onClick={pickRandom} disabled={busy || unsupportedPending}>
+              <button type="button" className="eval-tool" onClick={() => pickRandom()} disabled={busy || unsupportedPending}>
                 {randomBusy ? <span className="eval-spinner" aria-hidden="true" /> : <Icon name="shuffle" />}
                 <span>{source ? "换一题" : "随机一题"}</span>
               </button>
+              {service === "alpha-combined-rsi" && <button type="button" className="eval-tool" onClick={() => pickRandom("manufacturing")} disabled={busy || unsupportedPending}>
+                <Icon name="shuffle" /><span>随机制备题</span>
+              </button>}
 
-              <Button href="/compare" variant="ghost" size="sm">对比两个服务</Button>
             </div>
 
             <div className="eval-actions">
