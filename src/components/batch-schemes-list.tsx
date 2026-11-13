@@ -7,7 +7,7 @@ import { previewSchemeCatalog } from "@/lib/batch-preview";
 import { formatDateTime } from "@/components/batch-ui";
 import styles from "./batches.module.css";
 
-type SchemeConfig = { services: Record<string, number>; compareAlloyAlpha?: boolean; compareSynthesisAlpha?: boolean; concurrency?: Record<string, number> };
+type SchemeConfig = { services: Record<string, number>; rsiManufacturingCount?: number; compareAlloyAlpha?: boolean; compareSynthesisAlpha?: boolean; concurrency?: Record<string, number> };
 type Scheme = { id: string; name: string; version: number; createdBy: string | null; isNightly: boolean; updatedAt: string; config: SchemeConfig };
 type Catalog = { items: Scheme[]; userId: string; canManage: boolean; canSetNightly: boolean; canRun: boolean; storageReady: boolean; nightly: { name: string; version: number } | null; nightlyEnabled: boolean | null; defaultConfig?: SchemeConfig; concurrencyCaps?: Record<string, number> | null };
 const serviceNames: Record<string, string> = { "mission-material": "Mission 主服务", literature: "文献检索", "literature-aircraft": "航空文献", "new-material": "新材料", "alpha-rsi": "材料配比 RSI", "alpha-combined-rsi": "配比+制备 RSI" };
@@ -15,13 +15,15 @@ const serviceOrder = Object.keys(serviceNames);
 const PAGE_SIZE = 8;
 
 function schemeServices(item: Scheme) {
-  return Object.entries(item.config.services)
-    .filter(([, count]) => count > 0)
+  const entries = Object.entries(item.config.services);
+  if ((item.config.rsiManufacturingCount || 0) > 0 && !entries.some(([key]) => key === "alpha-combined-rsi")) entries.push(["alpha-combined-rsi", 0]);
+  return entries
+    .filter(([key, count]) => count > 0 || (key === "alpha-combined-rsi" && (item.config.rsiManufacturingCount || 0) > 0))
     .sort(([a], [b]) => serviceOrder.indexOf(a) - serviceOrder.indexOf(b));
 }
 
 function schemeTotal(item: Scheme) {
-  return schemeServices(item).reduce((sum, [, count]) => sum + count, 0);
+  return schemeServices(item).reduce((sum, [, count]) => sum + count, 0) + (item.config.rsiManufacturingCount || 0);
 }
 
 export function BatchSchemesList({ refresh, onOpen, onHistory, preview = false }: { refresh: number; onOpen: (action: "create" | "edit" | "editDefault" | "launch", id?: string) => void; onHistory: (id: string, name: string) => void; preview?: boolean }) {
@@ -170,10 +172,12 @@ export function BatchSchemesList({ refresh, onOpen, onHistory, preview = false }
             <caption className="sr-only">各服务题量与并发上限</caption>
             <thead><tr><th>服务</th><th>题数</th><th>并发</th></tr></thead>
             <tbody>{schemeServices(detail).map(([key, count]) => <tr key={key}>
-              <th scope="row">{serviceNames[key] || key}</th>
+              <th scope="row">{serviceNames[key] || key}{key === "alpha-combined-rsi" ? "（配比题）" : ""}</th>
               <td>{count}</td>
               <td>{detail.config.concurrency?.[key] ?? catalog?.concurrencyCaps?.[key] ?? 5}</td>
-            </tr>)}</tbody>
+            </tr>)}
+              {(detail.config.rsiManufacturingCount || 0) > 0 && <tr><th scope="row">配比+制备 RSI（制备专项）</th><td>{detail.config.rsiManufacturingCount}</td><td>与 1109 共用</td></tr>}
+            </tbody>
           </table>
           {!detail.config.concurrency && <p className={styles.detailHint}>并发未单独设置，按服务默认上限执行。</p>}
         </section>

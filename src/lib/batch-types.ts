@@ -52,6 +52,7 @@ export type RunBrief = {
   question: string;
   comparisonGroupId?: string | null;
   serviceKey: string;
+  questionKind?: "composition" | "manufacturing";
   status: "queued" | "running" | "scoring" | "done" | "error" | "paused";
   execution: "completed" | "failed" | "timeout" | "unfinished";
   scores: { deepSeek: number | null; qwen: number | null };
@@ -66,6 +67,7 @@ export type ServiceDetail = {
   serviceKey: string;
   label: string;
   expected: number;
+  manufacturingExpected?: number;
   totals: BatchTotals;
   scores: { deepSeek: JudgeSummary; qwen: JudgeSummary };
   maxElapsedMs: number | null;

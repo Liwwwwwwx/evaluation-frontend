@@ -223,7 +223,7 @@ export function BatchDetailPage({ batchId, basePath, backHref = basePath, backLa
       </div>
       <div className={styles.listFade} aria-hidden="true" />
       </div>
-      <p className={styles.coverage}>{detail.coverage.note} 计划 {detail.coverage.planned}，已持久化 {detail.coverage.persisted}，缺少 {detail.coverage.missing}。</p>
+      <p className={styles.coverage}>{detail.coverage.note} 计划 {detail.coverage.planned}，已持久化 {detail.coverage.persisted}，缺少 {detail.coverage.missing}。{detail.services.some(item => (item.manufacturingExpected || 0) > 0) && " 1109 的服务汇总包含配比题和制备专项；可在问题清单按题型查看单条记录。"}</p>
     </div> : <div className={styles.tabPanel} id={tabPanelId("batch-view", "problems")} role="tabpanel" aria-labelledby={tabButtonId("batch-view", "problems")}>
       {runsError ? <EmptyState state="error" title="无法读取批次运行" description={runsError} action={<Button variant="secondary" onClick={() => setRunsRetry((value) => value + 1)}>重试</Button>} /> : !runsData ? <EmptyState state="loading" title="正在读取运行记录…" /> : pageRuns.length === 0 ? <EmptyState state="empty" title="没有匹配的运行记录。" action={filtersActive ? <Button variant="secondary" onClick={() => { setService(""); setExecution(""); setPage(1); }}>清除筛选</Button> : undefined} /> : <>
         <div className={styles.runsPanel}>
@@ -231,7 +231,7 @@ export function BatchDetailPage({ batchId, basePath, backHref = basePath, backLa
           <div className={styles.runsHead} aria-hidden="true"><span>题目</span><span>服务</span><span>状态</span><span>评分</span><span>耗时</span><span>开始时间</span><span /></div>
           <ul className={styles.runsList} aria-label="批次运行">
             {pageRuns.map((run) => {
-              const meta = [run.questionId, run.datasetVersion].filter(Boolean).join(" · ");
+              const meta = [run.questionKind === "composition" ? "配比题" : run.questionKind === "manufacturing" ? "制备专项" : null, run.questionId, run.datasetVersion].filter(Boolean).join(" · ");
               return <li key={run.runId} className={styles.runsRow}>
               <span className={styles.runQuestion}><strong className={styles.runQuestionTitle} title={run.question}>{run.question}</strong>{meta && <span className={styles.runMeta}>{meta}</span>}<span className={styles.mobileMeta}>{serviceLabel(run.serviceKey)} · 耗时 {formatElapsed(run.elapsedMs)}</span></span>
               <span className={`${styles.runCellMuted} ${styles.runService}`}>{serviceLabel(run.serviceKey)}</span>
