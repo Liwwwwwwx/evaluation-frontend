@@ -4,6 +4,7 @@ import { questionDomains } from "@/lib/question-domains";
 import { RunServiceDetails } from "@/components/run-service-details";
 import { UnifiedScores } from "@/components/unified-scores";
 import { EndRunButton } from "@/components/end-run-button";
+import { useAuth } from "@/components/auth-gate";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { ConversationAnswer } from "@/components/conversation-answer";
 import { Button, Dialog, EmptyState, InlineAlert, Pagination, Select, ToastStack, useToasts } from "@/components/ui";
@@ -63,6 +64,7 @@ function bankUrl(service: string, params: Record<string, string>) {
 
 
 export function Evaluate() {
+  const { user } = useAuth();
   const [draft, setDraft] = useState("");
   const [source, setSource] = useState<BankQuestion | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -114,7 +116,7 @@ export function Evaluate() {
   const unsupportedPending = hasPendingRequest && !isEvaluationService(service);
   const sourceMatchesService = !source?.serviceKey || source.serviceKey === service;
   const over = trimmed.length > max;
-  const draftValid = sourceMatchesService && services.some(item => item.key === service && item.enabled) && trimmed.length >= min && !over && !submitting && !recovering;
+  const draftValid = user.canManageAccounts && sourceMatchesService && services.some(item => item.key === service && item.enabled) && trimmed.length >= min && !over && !submitting && !recovering;
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const serviceLabel = services.find((item) => item.key === service)?.label ?? "暂未接入的服务";
   const busy = submitting || randomBusy;
@@ -306,6 +308,8 @@ export function Evaluate() {
     : trimmed && trimmed.length < min ? `题目过短，至少需要 ${min} 个字符。` : "";
 
   if (run) return <div className="chat-view"><div className="chat-top"><h1>运行详情</h1><span className={`run-dot ${run.status === "done" ? "done" : run.status === "cancelled" ? "cancelled" : run.status === "error" ? "error" : uncertain ? "" : "running"}`} /><span>{runStatusLabel(run.status, run.snapshotOnly ? "snapshot_only" : undefined)} · {services.find((item) => item.key === run.service)?.label || run.service}</span>{run.canEnd && <div className="run-detail-actions"><EndRunButton runId={run.id} onEnded={() => setRecoveryRetry(value => value + 1)} /></div>}</div><div className="chat-scroll"><div className="chat-scroll-inner"><div className="run-layout"><div ref={conversationRef} className="run-chat" tabIndex={0} role="region" aria-label="对话内容"><div className="run-question-wrap"><p className="run-question">{run.question}</p><RunCopyButton label="提问" getText={() => run.question} /></div><section className="run-answer-block"><div className="run-answer-head"><strong>{services.find((item) => item.key === run.service)?.label || run.service}</strong><span>回答</span><RunCopyButton label="回答" getText={() => copyableRunAnswer(run.answer, run.result, following)} /></div><div className="run-answer"><ConversationAnswer content={run.answer} run={run.result} streaming={!uncertain && (run.executionStatus === "running" || (!run.executionStatus && run.status === "running"))} uncertain={uncertain} /></div><RunServiceDetails run={run.result} runId={run.id} canReply={run.canReply} snapshotOnly={run.snapshotOnly} />{run.truncated && <p className="run-score-note">恢复的回答已截断。</p>}{submitError && <InlineAlert tone="danger" className="eval-alert" action={<Button type="button" variant="secondary" size="sm" onClick={() => setRecoveryRetry(value => value + 1)}>重试读取运行</Button>}>{submitError}</InlineAlert>}</section></div><aside className="run-panel"><div className="run-panel-head"><h2>评分</h2></div>{uncertain && <p className="run-score-note">这是已保存的运行快照，当前进程无法确认远端任务是否仍在执行，也无法结束它；已保存的内容仍可查看。</p>}{run.scoreError && <p className="run-score-note">{run.scoreError}</p>}{uncertain && (["queued", "running"].includes(run.executionStatus || run.status) || !run.scores) ? <p className="run-score-note">当前没有可确认的评分结果。</p> : <UnifiedScores scores={run.scores} run={run.result} executionStatus={run.executionStatus || "running"} />}<div className="run-review-actions"><Button href={`/runs/${encodeURIComponent(run.id)}?from=${encodeURIComponent("/evaluate")}`} variant="secondary">查看完整详情</Button><Button type="button" variant="secondary" disabled={submitting && !run.id} onClick={resetRun}>新建测评</Button></div></aside></div></div></div></div>;
+
+  if (!user.canManageAccounts) return <main className="eval-page"><EmptyState state="forbidden" title="仅 admin 可以发起测评" description="你仍可查看有权限的题库和运行记录。" action={<Button href="/runs" variant="secondary">查看运行记录</Button>} /></main>;
 
   return (
     <main className="eval-page">

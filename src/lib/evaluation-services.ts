@@ -17,7 +17,7 @@ export function isEvaluationService(key: string) {
 }
 
 export function availableEvaluationServices(items: unknown): EvaluationService[] {
-  return evaluationServiceCatalog.map(item => ({ ...item, enabled: item.key !== "new-material" && Array.isArray(items)
+  return evaluationServiceCatalog.map(item => ({ ...item, enabled: Array.isArray(items)
     && items.some(value => value && value.key === item.key && value.enabled === true) }));
 }
 
