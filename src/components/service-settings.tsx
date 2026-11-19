@@ -38,7 +38,7 @@ export function ServiceSettings() {
     return () => controller.abort();
   }, [user.canManageAccounts, reload]);
 
-  if (!user.canManageAccounts) return <div className={pageStyles.page}><EmptyState state="forbidden" title="没有服务配置权限" description="仅 admin 可以管理和发起测评。" /></div>;
+  if (!user.canManageAccounts) return <div className={pageStyles.page}><EmptyState state="forbidden" title="没有服务配置权限" description="仅管理员可启停测评服务和修改服务地址。" /></div>;
 
   const changes = draft.flatMap((item, index) => {
     const saved = settings?.items[index];

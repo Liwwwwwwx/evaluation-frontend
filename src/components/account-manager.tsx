@@ -66,7 +66,7 @@ export function AccountManager() {
 
       <div className={styles.notice}>
         <span className={styles.noticeIcon} aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3.5 19 6v5.7c0 4.4-3.1 7.2-7 8.8-3.9-1.6-7-4.4-7-8.8V6z" /><path d="M9 12l2 2 4-4" /></svg></span>
-        <div><strong>评测账号权限</strong><p>普通用户可维护共享题库和评测规则、查看有权限的运行记录；仅 admin 可发起测评。</p></div>
+        <div><strong>评测账号权限</strong><p>成员可查看有权限的运行记录。有写权限的成员可维护共享题库和评测规则、发起单次和批次测评，也可重测本人已结束的人工单题。仅管理员可修改测评服务配置。</p></div>
       </div>
 
       <section className={styles.section} aria-labelledby="account-list-title">
