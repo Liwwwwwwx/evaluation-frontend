@@ -1,5 +1,7 @@
 "use client";
 
+import { formatScoringCost, formatScoringTokens } from "@/lib/scoring-usage";
+
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -58,6 +60,7 @@ export function UnifiedRunDetail({ runId, backHref = "/runs", backLabel = "返�
       </div>
       <aside className="run-panel" tabIndex={0} aria-label="评分">
         <div className="run-panel-head run-panel-head-row"><h2>评分</h2><RescoreButton runId={run.runId} allowed={run.canRescore} revision={JSON.stringify(run.run && typeof run.run === "object" ? (run.run as Record<string, unknown>).scoring : null)} onRefresh={() => setRetry(value => value + 1)} /></div>
+        <p className="run-score-note">{run.scoringUsage ? <>已记录评分用量（token） {formatScoringTokens(run.scoringUsage)} · 预估费用 {formatScoringCost(run.scoringUsage)}</> : "暂无评分用量记录"}</p>
         {uncertain && <p className="run-score-note">这是已保存的运行快照，当前进程无法确认远端任务是否仍在执行，也无法结束它；已保存的内容仍可查看。</p>}
         {run.error && <p className="run-score-note">{run.error}</p>}
         {run.persistenceError && <p role="alert" className="run-score-note">评分保存失败，当前仅显示内存结果，请稍后重试读取。</p>}

@@ -1,3 +1,5 @@
+import type { ScoringUsage } from "./scoring-usage";
+
 export type BatchSource = "trial" | "mission" | "manual";
 export type BatchState = "preparing" | "dispatching" | "running" | "done" | "partial" | "failed";
 export type JudgeKey = "deepSeek" | "qwen";
@@ -30,6 +32,7 @@ export type BatchTotals = {
 };
 
 export type BatchSummary = {
+  scoringUsage?: ScoringUsage | null;
   batchId: string;
   date: string;
   source: BatchSource;
@@ -76,6 +79,7 @@ export type ServiceDetail = {
 };
 
 export type BatchDetail = {
+  scoringUsage?: ScoringUsage | null;
   batch: {
     batchId: string;
     date: string;

@@ -1,4 +1,7 @@
+import type { ScoringUsage } from "./scoring-usage";
+
 export type UnifiedRunSnapshot = {
+  scoringUsage?: ScoringUsage | null;
   runId: string; serviceKey: string; question: string; status: string; answer: string;
   executionStatus?: string; scoringStatus?: string; answerTruncated: boolean;
   run: unknown; scores: unknown; scoreError: string | null; error: string | null;
