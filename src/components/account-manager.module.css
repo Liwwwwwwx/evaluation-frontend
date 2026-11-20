@@ -46,3 +46,10 @@
   .toolbar { align-items: stretch; }
   .search { width: 100%; }
 }
+
+.usageFilters { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; margin-bottom: 16px; }
+.usageTable th:nth-child(n + 2), .usageTable td:nth-child(n + 2) {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}

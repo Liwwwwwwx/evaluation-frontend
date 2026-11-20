@@ -1,5 +1,7 @@
 "use client";
 
+import { formatScoringCost } from "@/lib/scoring-usage";
+
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -203,6 +205,7 @@ export function BatchListPage({ basePath, preview = false, initialTab = "configs
             <span className={styles.cardMeta}>{batch.scheme ? `${batch.scheme.name} v${batch.scheme.version} · ` : ""}{batch.services.length} 个服务 · 更新 {formatDateTime(batch.updatedAt)}{batch.error ? ` · ${batch.error}` : ""}</span>
             <div className={styles.cardStats}>
               <span><b>{batch.totals.total}</b>/{batch.totals.planned} 已记录</span>
+              <span>评分预估 <b>{formatScoringCost(batch.scoringUsage, batch.totals.total)}</b></span>
               <span>失败 <b>{batch.totals.failed}</b></span>
               <span>超时 <b>{batch.totals.timeout}</b></span>
               <span className={styles.cardScores}><ScorePairSummary scores={batch.scores} /></span>

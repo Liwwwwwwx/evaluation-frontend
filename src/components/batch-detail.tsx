@@ -1,5 +1,7 @@
 "use client";
 
+import { formatScoringCost, formatScoringTokens } from "@/lib/scoring-usage";
+
 import { useEffect, useState } from "react";
 import { fetchBatchDetail, fetchBatchRuns } from "@/lib/batch-api";
 import { previewBatchDetails, previewBatchRuns } from "@/lib/batch-preview";
@@ -281,6 +283,9 @@ export function BatchDetailPage({ batchId, basePath, backHref = basePath, backLa
         <div className={styles.sideRows}>
           <div className={styles.sideRow}><span>来源</span><b>{sourceLabel(detail.batch.source)}</b></div>
           <div className={styles.sideRow}><span>方案</span><b title={detail.batch.scheme ? `${detail.batch.scheme.name} v${detail.batch.scheme.version}` : "内置默认配置"}>{detail.batch.scheme ? `${detail.batch.scheme.name} v${detail.batch.scheme.version}` : "内置默认配置"}</b></div>
+          <div className={styles.sideRow}><span>评分预估费用</span><b>{formatScoringCost(detail.scoringUsage, detail.totals.total)}</b></div>
+          <div className={styles.sideRow}><span>评分 token</span><b>{formatScoringTokens(detail.scoringUsage)}</b></div>
+          {detail.scoringUsage && <p className={styles.sideNote}>已记录 {detail.scoringUsage.evaluations} / {detail.totals.total} 次运行的评分用量</p>}
           <div className={styles.sideRow}><span>计划</span><b>{detail.totals.planned} 次</b></div>
           <div className={styles.sideRow}><span>记录</span><b>{detail.totals.total} / {detail.totals.planned}</b></div>
           <div className={styles.sideRow}><span>更新</span><b>{formatDateTime(detail.batch.updatedAt)}</b></div>
