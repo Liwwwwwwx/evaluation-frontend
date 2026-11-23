@@ -88,8 +88,9 @@ function ScoringCriteria({ scoring, scores }: { scoring: RecordValue | null; sco
       {hasRule && <div><strong>本轮评分规则</strong>{text(rule?.name) && <p>{text(rule?.name)}{rule?.id === "builtin-v1" ? " · 内置规则" : typeof rule?.version === "number" ? ` · 版本 ${rule.version}` : ""}</p>}
         {weights && <p>原始权重：{[["可读性", weights.readability], ["专业性", weights.professionalism], ["图文辅助", weights.visualAids]].filter(([, value]) => typeof value === "number" && Number.isFinite(value)).map(([label, value]) => `${label} ${value}%`).join(" · ")}。图文不适用时，其余维度按比例分配。</p>}
         {typeof config?.passScore === "number" && Number.isFinite(config.passScore) && <p>合格线 {config.passScore} 分；关键要求未满足、交付不完整或启用的格式门槛未通过，也可能未达标。</p>}
-        {text(config?.contentInstructions) && <p>内容评分：{text(config?.contentInstructions)}</p>}{text(config?.completionInstructions) && <p>交付标准：{text(config?.completionInstructions)}</p>}
+        {text(config?.contentInstructions) && <p>内容评分：{text(config?.contentInstructions)}</p>}
       </div>}
+      {text(config?.completionInstructions) && <div><strong>交付判定条件</strong><p>{text(config?.completionInstructions)}</p></div>}
       {requirements.length > 0 ? <div><strong>本题要求</strong>{!stored.length && <p>根据本轮已保存的评委结果展示，可能不完整。</p>}
         <ul>{requirements.map((requirement, index) => <li key={text(requirement.id) || index}><span>{text(requirement.requirement)}</span>{requirement.critical === true && <span>（关键要求）</span>}
           {assessments.filter(judge => judge.item?.status === "ready").map(judge => { const result = judge.requirements.map(object).find(item => item && (text(requirement.id) ? item.id === requirement.id : item.requirement === requirement.requirement)); return <p key={judge.name}>{judge.name}：{result ? requirementStates[text(result.status)] || "状态未知" : "未列出"}{text(result?.note) && ` — ${text(result?.note)}`}</p>; })}
@@ -101,6 +102,50 @@ function ScoringCriteria({ scoring, scores }: { scoring: RecordValue | null; sco
   </details>;
 }
 
+function unclearReasons(quality: RecordValue, task: RecordValue | null, qualification: RecordValue) {
+  const source = object(quality.source);
+  const truncated = source?.truncated === true;
+  const issues = Array.isArray(quality.evaluationIssues) ? quality.evaluationIssues.map(object) : [];
+  const reasons: string[] = [];
+  if (truncated) reasons.push(source?.outputTruncated === false
+    ? "题目所需的图片未能全部发送给评委。总分仅供参考。"
+    : "本次评分输入不完整，无法核验全部交付。总分仅供参考。");
+  if (issues.some(issue => issue?.code === "EVIDENCE_INVALID")) reasons.push("评委引用的依据未通过核验。");
+  if (issues.some(issue => issue?.code === "REQUIREMENT_MISSING_OR_DUPLICATED")) reasons.push("评委漏评或重复评价了部分题目要求。");
+  if (qualification.markdownGate === true && quality.markdownStatus === "not_evaluable") reasons.push("已启用的 Markdown 门槛无法核验。");
+
+  const delivery = object(quality.deliveryReview);
+  const deliveryNote = !truncated && delivery?.status === "unclear" && delivery.evidenceIssue !== true ? text(delivery.note) : "";
+  if (deliveryNote) reasons.push(deliveryNote);
+
+  for (const value of Array.isArray(task?.requirements) ? task.requirements : []) {
+    const requirement = object(value);
+    if (requirement?.status !== "unclear" || (requirement.critical !== true && task?.status !== "unclear")) continue;
+    const label = text(requirement.requirement);
+    if (!label) continue;
+    const hasIssue = issues.some(issue => issue?.path === `requirements.${text(requirement.id)}`);
+    const note = !truncated && !hasIssue ? text(requirement.note) : "";
+    reasons.push(`${requirement.critical === true ? "关键要求" : "要求"}待确认「${label}」${note && note !== deliveryNote ? `。${note}` : ""}`);
+  }
+  return reasons;
+}
+
+function attachmentCoverageLabel(value: unknown) {
+  const coverage = object(value);
+  if (!Array.isArray(coverage?.files) || !coverage.files.length) return "";
+  const states = coverage.files.map(file => object(file)?.state);
+  const partial = states.filter(state => state === "partial").length;
+  const included = states.filter(state => state === "included").length + partial;
+  const details = [
+    partial ? `${partial} 份部分读取` : "",
+    ...[["blocked", "来源不可读取"], ["unreadable", "读取失败"], ["limited", "超过评分读取上限"]].map(([state, label]) => {
+      const count = states.filter(fileState => fileState === state).length;
+      return count ? `${count} 份${label}` : "";
+    }),
+  ].filter(Boolean);
+  return `附件文本已纳入 ${included} / ${states.length} 份${details.length ? ` · ${details.join(" · ")}` : ""}`;
+}
+
 function JudgeCard({ value, name }: { value: unknown; name: string }) {
   const item = object(value); const quality = object(item?.quality); const ready = item?.status === "ready" && quality?.version === "evaluation-v1";
   const total = quality?.total; const score = typeof total === "number" && Number.isFinite(total) && total >= 0 && total <= 100 ? total : null;
@@ -108,9 +153,13 @@ function JudgeCard({ value, name }: { value: unknown; name: string }) {
   const task = object(quality?.taskCompletion);
   const qualification = object(quality?.qualification);
   const gaps = stringList(quality?.gaps); const suggestions = stringList(quality?.suggestions);
-  const truncated = object(quality?.source)?.truncated === true;
-  const imageCoverage = imageCoverageLabel(object(quality?.source)?.imageCoverage);
+  const source = object(quality?.source);
+  const truncated = source?.truncated === true;
+  const imageCoverage = imageCoverageLabel(source?.imageCoverage);
+  const attachmentCoverage = attachmentCoverageLabel(source?.attachmentCoverage);
   const state = states[text(item?.status)] || "无评分";
+  const unclear = qualification?.status === "unclear";
+  const uncertainty = ready && unclear ? unclearReasons(quality, task, qualification) : [];
   const failures: string[] = [];
   if (qualification?.status === "not_qualified") {
     if (score !== null && typeof qualification.passScore === "number" && score < qualification.passScore) failures.push(`总分低于合格线 ${qualification.passScore} 分。`);
@@ -128,12 +177,14 @@ function JudgeCard({ value, name }: { value: unknown; name: string }) {
     {ready && task && <p className="score-card-task">任务完成度 · {taskStates[text(task.status)] || "无法确认"}</p>}
     {ready && qualification && <p className="score-card-task">内容判定 · {qualificationStates[text(qualification.status)] || "无法判断"}{typeof qualification.passScore === "number" && Number.isFinite(qualification.passScore) ? ` · 合格线 ${Number(qualification.passScore)} 分` : ""}</p>}
     {ready && imageCoverage && <p className="run-score-note">{imageCoverage}</p>}
+    {ready && attachmentCoverage && <p className="run-score-note">{attachmentCoverage}</p>}
     {ready && qualification?.status === "not_qualified" && <div className="score-qualification"><strong>未达标原因</strong>{failures.length ? <ul>{failures.map((reason, index) => <li key={index}>{reason}</li>)}</ul> : <p>当前记录未保存可明确展示的触发原因，请核对本次评判标准与评委结果。</p>}</div>}
+    {ready && unclear && <div className="score-qualification"><strong>无法判断的原因</strong>{uncertainty.length ? <ul>{uncertainty.map((reason, index) => <li key={index}>{reason}</li>)}</ul> : <p>当前记录未保存具体原因。</p>}</div>}
     {ready && dimensions && <div className="score-visual">{Object.entries(dimensions).map(([key, v]) => { const d = object(v); if (!d) return null; const applicable = d.applicable !== false; const dimScore = typeof d.score === "number" && Number.isFinite(d.score) ? d.score : null; const weight = typeof d.weight === "number" && Number.isFinite(d.weight) ? Math.round(Number(d.weight) * 100) : null; return <div className="score-visual-row" key={key}><span className="score-visual-label">{text(d.label) || key}{weight !== null ? ` · ${weight}%` : ""}</span><span className="score-visual-value">{!applicable ? "不适用" : dimScore !== null ? `${dimScore} / 100` : "缺少评分"}</span>{applicable && dimScore !== null && <span className="score-visual-bar" aria-hidden="true"><i style={{ width: `${Math.max(0, Math.min(100, dimScore))}%` }} /></span>}{applicable && text(d.note) && <span className="score-visual-note">{text(d.note)}</span>}</div>; })}</div>}
     {ready && gaps.length > 0 && <FindingList label="扣分原因" items={gaps} />}
     {ready && suggestions.length > 0 && <FindingList label="改进建议" items={suggestions} />}
     {ready && text(quality?.comment) && <p className="score-comment"><strong>总评：</strong>{text(quality?.comment)}</p>}
-    {truncated && <p className="run-score-note">输入不完整 · 分数仅供参考</p>}
+    {truncated && !unclear && <p className="run-score-note">输入不完整 · 分数仅供参考</p>}
     {text(item?.error) && <p className="run-score-note">{text(item?.error)}</p>}
   </article>;
 }

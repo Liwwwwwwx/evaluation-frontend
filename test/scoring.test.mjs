@@ -75,6 +75,40 @@ test('历史记录没有标准或缺失判定原因时明确提示，不套用�
  const html=render({deepSeekScore:{status:'ready',quality:q}},{scoring:{version:'evaluation-v1'}});
  assert.match(html,/本次记录未保存题目要求/); assert.match(html,/未保存可明确展示的触发原因/); assert.doesNotMatch(html,/原始权重/);
 });
+test('规则正文的无法判断与当轮实际判定分开呈现', () => {
+ const q = {...quality, total: 85, source: {truncated: false}, qualification: {status: 'qualified', passScore: 60}, taskCompletion: {status: 'completed', requirements: []}};
+ const ruleSnapshot = {id: 'builtin-v1', name: '默认评分规则', config: {completionInstructions: '缺少必要证据时标为无法判断。'}};
+ const html = render({deepSeekScore: {status: 'ready', quality: q}}, {scoring: {version: 'evaluation-v1', ruleSnapshot}});
+ assert.match(html, /交付判定条件<\/strong><p>缺少必要证据时标为无法判断。/);
+ assert.match(html, /内容判定 · 合格/);
+ assert.doesNotMatch(html, /无法判断的原因/);
+});
+test('无法判断时按评委显示输入覆盖或实际核验原因', () => {
+ const base = {...quality, total: 85, qualification: {status: 'unclear', passScore: 60}, taskCompletion: {status: 'unclear', requirements: []}};
+ const deep = {...base, source: {truncated: true, imageCoverage: {found: 2, sent: 1}}, deliveryReview: {status: 'unclear', note: '已交付全部成果'}};
+ const qwen = {...base, source: {truncated: false}, deliveryReview: {status: 'unclear', note: '只收到文件名，无法检查报告正文。'}, evaluationIssues: [{code: 'EVIDENCE_INVALID', path: 'requirements.R1'}], taskCompletion: {status: 'unclear', requirements: [{id: 'R1', critical: true, status: 'unclear', requirement: '提供完整报告'}]}};
+ const html = render({deepSeekScore: {status: 'ready', quality: deep}, qwenScore: {status: 'ready', quality: qwen}});
+ const [, deepCard, qwenCard] = html.split('<article class="score-card">');
+ assert.match(deepCard, /已发送 1 \/ 2 张图片给模型.*无法判断的原因/);
+ assert.match(deepCard, /本次评分输入不完整.*仅供参考/);
+ assert.doesNotMatch(deepCard, /已交付全部成果|未通过核验/);
+ assert.match(qwenCard, /无法判断的原因.*评委引用的依据未通过核验/);
+ assert.match(qwenCard, /只收到文件名，无法检查报告正文/);
+ assert.match(qwenCard, /关键要求待确认「提供完整报告」/);
+ assert.doesNotMatch(qwenCard, /输入不完整|EVIDENCE_INVALID/);
+});
+test('无法判断的历史评分不推测未保存的原因', () => {
+ const q = {...quality, source: {truncated: false}, qualification: {status: 'unclear', passScore: 60}};
+ const html = render({deepSeekScore: {status: 'ready', quality: q}});
+ assert.match(html, /无法判断的原因.*当前记录未保存具体原因/);
+});
+test('附件和可选图片的覆盖缺口不会显示为整轮输入不完整', () => {
+ const q = {...quality, source: {truncated: false, outputTruncated: false, imageCoverage: {found: 1, sent: 0, blocked: 1}, attachmentCoverage: {files: [{state: 'included'}, {state: 'partial'}, {state: 'blocked'}]}}};
+ const html = render({deepSeekScore: {status: 'ready', quality: q}});
+ assert.match(html, /发现 1 张图片，未发送给模型；其中 1 张来源不可读取/);
+ assert.match(html, /附件文本已纳入 2 \/ 3 份 · 1 份部分读取 · 1 份来源不可读取/);
+ assert.doesNotMatch(html, /输入不完整|参考分/);
+});
 test('规则表单校验和完整文档保留实际配置，不生成另一套标准',()=>{
  const value={name:'验收规则',changeNote:'测试',config:{weights:{readability:40,professionalism:40,visualAids:20},passScore:60,markdownGate:false,contentInstructions:'内容说明',completionInstructions:'检查实际交付',experienceInstructions:'结合排障上下文',efficiencyRules:[{serviceKey:'*',phaseKey:'team-discovery',label:'团队查询',warningSeconds:60,criticalSeconds:180}]}};
  assert.equal(validateRuleForm(value),'');const md=ruleDocument({...value,id:'test',version:2});for(const s of ['可读性：40%','检查实际交付','180秒','v2'])assert.ok(md.includes(s),s);
