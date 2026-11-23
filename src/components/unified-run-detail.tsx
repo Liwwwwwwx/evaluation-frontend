@@ -23,7 +23,7 @@ import { isRunOutputActive, useFollowRunOutput } from "@/lib/use-follow-run-outp
 import { isUncertainRun, runStatusLabel } from "@/lib/run-status";
 
 type Run = UnifiedRunSnapshot;
-const names: Record<string, string> = { "mission-material": "Mission 主服务", "alpha-rsi": "材料配比 RSI", "alpha-combined-rsi": "配比+制备 RSI", alloy: "合金材料", literature: "文献检索", "literature-aircraft": "航空文献", synthesis: "合成制备", "new-material": "新材料" };
+const names: Record<string, string> = { "mission-material": "Mission 主服务", "alpha-rsi": "材料配比 RSI", "alpha-combined-rsi": "配比+制备 RSI", alloy: "合金材料", literature: "文献检索", "literature-aircraft": "航空文献", synthesis: "合成制备", "new-material": "新材料", "new-material-rsi": "新材料 RSI" };
 
 export function UnifiedRunDetail({ runId, backHref = "/runs", backLabel = "返回运行记录", selfHref }: { runId: string; backHref?: string; backLabel?: string; selfHref?: string }) {
   const router = useRouter();

@@ -8,6 +8,7 @@ export const evaluationServiceCatalog: EvaluationService[] = [
   { key: "literature", label: "文献检索", enabled: false },
   { key: "literature-aircraft", label: "航空文献", enabled: false },
   { key: "new-material", label: "新材料", enabled: false },
+  { key: "new-material-rsi", label: "新材料 RSI", enabled: false },
 ];
 
 export const historicalServiceLabels: Record<string, string> = { alloy: "合金材料", synthesis: "合成制备" };

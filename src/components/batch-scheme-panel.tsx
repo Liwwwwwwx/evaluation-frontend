@@ -14,8 +14,8 @@ type Pending = { key: string; config: Config; schemeId: string | null; schemeVer
 type Mode = "launch" | "edit";
 const BASE = "/api/evaluation/unified/batch-schemes";
 const PENDING = "evaluation-manual-batch-pending";
-const SERVICES: [string, string][] = [["mission-material", "Mission 主服务"], ["literature", "文献检索"], ["literature-aircraft", "航空文献"], ["alpha-rsi", "材料配比 RSI"], ["alpha-combined-rsi", "配比+制备 RSI"], ["new-material", "新材料"]];
-const DEFAULT_CAPS: Record<string, number> = { "mission-material": 5, literature: 5, "literature-aircraft": 1, "new-material": 5, "alpha-rsi": 5, "alpha-combined-rsi": 5 };
+const SERVICES: [string, string][] = [["mission-material", "Mission 主服务"], ["literature", "文献检索"], ["literature-aircraft", "航空文献"], ["alpha-rsi", "材料配比 RSI"], ["alpha-combined-rsi", "配比+制备 RSI"], ["new-material", "新材料"], ["new-material-rsi", "新材料 RSI"]];
+const DEFAULT_CAPS: Record<string, number> = { "mission-material": 5, literature: 5, "literature-aircraft": 1, "new-material": 5, "new-material-rsi": 5, "alpha-rsi": 5, "alpha-combined-rsi": 5 };
 
 function capsOf(catalog: Catalog | null) { return { ...DEFAULT_CAPS, ...(catalog?.concurrencyCaps || {}) }; }
 function numberInput(value: string): NumberInput { return value === "" ? "" : Number(value); }
@@ -26,6 +26,7 @@ function normalizeConfig(input: Config | Record<string, unknown>): Config {
   const raw = input as { services?: Record<string, unknown>; rsiManufacturingCount?: NumberInput; includeNewMaterial?: boolean; concurrency?: Record<string, NumberInput> };
   const services: Record<string, NumberInput> = {};
   for (const [key] of SERVICES) {
+    if (key === "new-material-rsi" && !Object.hasOwn(raw.services || {}, key)) continue;
     const value = raw.services?.[key];
     services[key] = key === "new-material" && !raw.includeNewMaterial ? 0 : value && typeof value === "object"
       ? countOf((value as { aviation?: NumberInput }).aviation) + countOf((value as { synthesis?: NumberInput }).synthesis)
@@ -34,7 +35,7 @@ function normalizeConfig(input: Config | Record<string, unknown>): Config {
   return { services, rsiManufacturingCount: raw.rsiManufacturingCount ?? 0, compareAlloyAlpha: false, compareSynthesisAlpha: false, ...(raw.includeNewMaterial ? { includeNewMaterial: true } : {}), concurrency: raw.concurrency };
 }
 function withConcurrency(config: Config, caps: Record<string, number>): Config {
-  return { ...config, concurrency: Object.fromEntries(SERVICES.map(([key]) => [key, config.concurrency?.[key] ?? caps[key]])) };
+  return { ...config, concurrency: Object.fromEntries(Object.keys(config.services).map(key => [key, config.concurrency?.[key] ?? caps[key]])) };
 }
 
 async function api(path: string, body?: unknown, key?: string) {
@@ -177,7 +178,8 @@ export function BatchSchemePanel({ open, onClose, onStarted, onSaved, initialAct
 
   const total = config ? totalOf(config) : 0;
   const commonCount = config ? Math.min(countOf(config.services["alpha-rsi"]), countOf(config.services["alpha-combined-rsi"])) : 0;
-  const generated = total - commonCount;
+  const commonMaterialCount = config ? Math.min(countOf(config.services["new-material"]), countOf(config.services["new-material-rsi"])) : 0;
+  const generated = total - commonCount - commonMaterialCount;
   const overServiceLimit = !!config && countOf(config.services["alpha-combined-rsi"]) + countOf(config.rsiManufacturingCount) > 100;
   const overLimit = total > 320 || overServiceLimit;
   const incompleteServices = config ? SERVICES.some(([key]) => config.services[key] === "") || config.rsiManufacturingCount === "" : false;
@@ -189,7 +191,7 @@ export function BatchSchemePanel({ open, onClose, onStarted, onSaved, initialAct
   const canEditSelected = !selectedScheme || selectedScheme.createdBy === catalog?.userId;
   const summary = config && !incompleteServices ? `预计生成 ${generated} 道题 · ${total} 次运行（每批最多 320 次）` : "";
   const launch = mode === "launch";
-  const isAvailable = (key: string) => catalog?.enabledServices?.includes(key) ?? key !== "new-material";
+  const isAvailable = (key: string) => catalog?.enabledServices?.includes(key) ?? !["new-material", "new-material-rsi"].includes(key);
   const unavailable = config ? SERVICES.filter(([key]) => enabledService(config, key) && !isAvailable(key)).map(([, label]) => label) : [];
 
   return <Dialog
@@ -231,6 +233,7 @@ export function BatchSchemePanel({ open, onClose, onStarted, onSaved, initialAct
         {config.concurrency && <span>并发：{SERVICES.filter(([key]) => enabledService(config, key)).map(([key, label]) => `${label} ${config.concurrency?.[key] ?? caps[key]}`).join(" · ")}</span>}
       </div>
       <p className={styles.pairHint}>共同配比题 {commonCount} 道 · 1109 制备专项 {countOf(config.rsiManufacturingCount)} 道。两服务配比题量不同时，多余题目只由题量较多的服务执行。</p>
+      {commonMaterialCount > 0 && <p className={styles.pairHint}>新材料与新材料 RSI 共用 {commonMaterialCount} 道结构题，两边分别执行。</p>}
       {countOf(config.rsiManufacturingCount) > 0 && <p className={styles.pairHint}>1109 服务汇总包含配比题和制备专项，请按题型查看运行记录。</p>}
       {selectedScheme && !enabledService(config, "alpha-combined-rsi") && <InlineAlert tone="warning">该配置未为配比+制备 RSI 设置题量；需要测评时请编辑配置。</InlineAlert>}
       {unavailable.length > 0 && !pending && <InlineAlert tone="warning">{unavailable.join("、")}未启用。请调整所选配置的题量，或在测评服务页启用。</InlineAlert>}
@@ -252,7 +255,7 @@ export function BatchSchemePanel({ open, onClose, onStarted, onSaved, initialAct
           <table>
             <caption className="sr-only">各服务使用题量与并发上限</caption>
             <thead><tr><th>服务</th><th>题数</th><th>并发</th></tr></thead>
-            <tbody>{SERVICES.map(([key, label]) => <tr key={key}>
+            <tbody>{SERVICES.filter(([key]) => Object.hasOwn(config.services, key)).map(([key, label]) => <tr key={key}>
               <th scope="row">{label}{key === "alpha-combined-rsi" && "（配比题）"}{!isAvailable(key) && "（未启用）"}</th>
               <td><input className={styles.numInput} aria-label={`${label} 题数`} aria-invalid={config.services[key] === ""} type="number" min={0} max={100} value={String(config.services[key])} onChange={(event) => setCount(key, numberInput(event.target.value))} /></td>
               <td><input className={styles.numInput} aria-label={`${label} 并发上限`} aria-invalid={config.concurrency?.[key] === "" || config.concurrency?.[key] === 0} title={`该批次内 ${label} 同时执行的运行数上限（1–${caps[key]}）`} type="number" min={1} max={caps[key]} value={String(config.concurrency?.[key] ?? caps[key])} onChange={(event) => setConcurrency(key, numberInput(event.target.value))} /></td>
@@ -262,6 +265,7 @@ export function BatchSchemePanel({ open, onClose, onStarted, onSaved, initialAct
           </table>
         </div>
         <p className={styles.pairHint}>1110 与 1109 共用 {commonCount} 道配比题并分别运行；题量不同时，多余题目只由题量较多的服务执行。1109 制备专项单独出题，默认 0 道。</p>
+        {commonMaterialCount > 0 && <p className={styles.pairHint}>新材料与新材料 RSI 共用 {commonMaterialCount} 道结构题，两边分别执行。</p>}
         <p className={styles.pairHint}>并发为该批次内每个服务同时执行的运行数上限，保存后对后续新发起的批次生效。</p>
         {incompleteServices && <InlineAlert tone="danger">请填写所有服务的题量。</InlineAlert>}
         {invalidManufacturing && <InlineAlert tone="danger">制备专项题数须为 0 至 100 的整数。</InlineAlert>}
