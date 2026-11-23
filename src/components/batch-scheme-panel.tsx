@@ -22,11 +22,11 @@ function numberInput(value: string): NumberInput { return value === "" ? "" : Nu
 function countOf(value: NumberInput | undefined) { return Number(value) || 0; }
 function totalOf(config: Config) { return SERVICES.reduce((sum, [key]) => sum + countOf(config.services[key]), 0) + countOf(config.rsiManufacturingCount); }
 function enabledService(config: Config, key: string) { return countOf(config.services[key]) > 0 || (key === "alpha-combined-rsi" && countOf(config.rsiManufacturingCount) > 0); }
-function normalizeConfig(input: Config | Record<string, unknown>): Config {
+function normalizeConfig(input: Config, defaults: Config): Config {
   const raw = input as { services?: Record<string, unknown>; rsiManufacturingCount?: NumberInput; includeNewMaterial?: boolean; concurrency?: Record<string, NumberInput> };
   const services: Record<string, NumberInput> = {};
   for (const [key] of SERVICES) {
-    if (key === "new-material-rsi" && !Object.hasOwn(raw.services || {}, key)) continue;
+    if (key === "new-material-rsi" && !Object.hasOwn(defaults.services, key)) continue;
     const value = raw.services?.[key];
     services[key] = key === "new-material" && !raw.includeNewMaterial ? 0 : value && typeof value === "object"
       ? countOf((value as { aviation?: NumberInput }).aviation) + countOf((value as { synthesis?: NumberInput }).synthesis)
@@ -44,8 +44,6 @@ async function api(path: string, body?: unknown, key?: string) {
   if (!response.ok) throw Object.assign(new Error(typeof value.error === "string" ? value.error : value.error?.message || "请求失败"), { status: response.status });
   return value;
 }
-
-function normalized(config: Config): Config { return normalizeConfig(config); }
 
 function updatedLabel(value: string | undefined) {
   if (!value) return "";
@@ -81,7 +79,7 @@ export function BatchSchemePanel({ open, onClose, onStarted, onSaved, initialAct
       const current = initialSchemeId ? value.items.find(item => item.id === initialSchemeId && item.createdBy === value.userId) || null : value.items.find(item => item.createdBy === value.userId) || null;
       if (initialSchemeId && !current) throw new Error("配置不存在或无权操作，请刷新列表。");
       setSelected(current?.id || "");
-      const base = normalized(editDefault || initialAction === "create" ? value.defaultConfig : current?.config || value.defaultConfig);
+      const base = normalizeConfig(editDefault || initialAction === "create" ? value.defaultConfig : current?.config || value.defaultConfig, value.defaultConfig);
       setConfig(structuredClone(initialAction === "launch" ? base : withConcurrency(base, capsOf(value))));
       setName(editDefault ? "内置默认配置" : initialAction === "create" ? "" : current?.name || ""); setNightly(Boolean(!editDefault && current?.isNightly));
       if (editDefault) { setMode("edit"); setEditTarget(null); }
@@ -93,15 +91,16 @@ export function BatchSchemePanel({ open, onClose, onStarted, onSaved, initialAct
   }, [open, initialAction, initialSchemeId]);
 
   function selectScheme(id: string) {
+    if (!catalog) return;
     setSelected(id); setError("");
-    const item = catalog?.items.find(value => value.id === id);
-    setConfig(structuredClone(normalized(item?.config || catalog!.defaultConfig)));
+    const item = catalog.items.find(value => value.id === id);
+    setConfig(structuredClone(normalizeConfig(item?.config || catalog.defaultConfig, catalog.defaultConfig)));
   }
 
   function startNew() {
     if (!catalog) return;
     setEditTarget(null); setName(""); setNightly(false); setNightlyCreate(false);
-    setConfig(structuredClone(withConcurrency(normalized(catalog.defaultConfig), capsOf(catalog))));
+    setConfig(structuredClone(withConcurrency(normalizeConfig(catalog.defaultConfig, catalog.defaultConfig), capsOf(catalog))));
     setMode("edit"); setError("");
   }
 
@@ -113,14 +112,14 @@ export function BatchSchemePanel({ open, onClose, onStarted, onSaved, initialAct
     setEditTarget(editable ? item : null);
     setName(editable ? item.name : `${item.name}（副本）`);
     setNightly(editable ? item.isNightly : false); setNightlyCreate(false);
-    setConfig(structuredClone(withConcurrency(normalized(item.config), capsOf(catalog))));
+    setConfig(structuredClone(withConcurrency(normalizeConfig(item.config, catalog.defaultConfig), capsOf(catalog))));
     setMode("edit"); setError("");
   }
 
   function backToLaunch() {
     if (!catalog || !config) { setMode("launch"); return; }
     const item = selected ? catalog.items.find(value => value.id === selected) : null;
-    setConfig(structuredClone(normalized(item?.config || catalog.defaultConfig)));
+    setConfig(structuredClone(normalizeConfig(item?.config || catalog.defaultConfig, catalog.defaultConfig)));
     setName(item?.name || ""); setNightly(Boolean(item?.isNightly)); setNightlyCreate(false);
     setEditTarget(null); setMode("launch"); setError("");
   }
@@ -150,7 +149,7 @@ export function BatchSchemePanel({ open, onClose, onStarted, onSaved, initialAct
         config,
       });
       const updated = await api(BASE) as Catalog;
-      setCatalog(updated); setSelected(result.item.id); setConfig(structuredClone(normalized(result.item.config)));
+      setCatalog(updated); setSelected(result.item.id); setConfig(structuredClone(normalizeConfig(result.item.config, updated.defaultConfig)));
       setName(result.item.name); setNightly(result.item.isNightly); setNightlyCreate(false); setEditTarget(null); setMode("launch");
       pushToast("success", result.item.isNightly ? "配置已保存为夜间配置" : "配置已保存");
       onSaved?.();
