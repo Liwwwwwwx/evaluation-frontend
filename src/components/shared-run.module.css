@@ -1,5 +1,7 @@
 .section { padding: 24px 0; border-top: 1px solid var(--color-border); }
 .section h2 { margin: 0 0 12px; font-size: 16px; line-height: 24px; font-weight: 600; }
 .question { margin: 0; font-size: 16px; line-height: 26px; white-space: pre-wrap; }
+.scoreDetails { margin-top: 12px; }
+.scoreDetailsContent { margin-top: 12px; }
 .output { margin: 20px 0 0; }
 .output h3 { margin: 0 0 8px; font-size: 14px; line-height: 22px; font-weight: 600; }

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { AnswerMarkdown } from "@/components/answer-markdown";
 import { ScoreSummary, type ScoreSummaryValue } from "@/components/score-summary";
+import { UnifiedScores } from "@/components/unified-scores";
 import { Button, EmptyState } from "@/components/ui";
 import { serviceLabel } from "@/lib/batch-types";
 import { runStatusLabel } from "@/lib/run-status";
@@ -12,6 +13,7 @@ import styles from "./shared-run.module.css";
 type Result = {
   question: string; serviceKey: string; status: string; answer: string; truncated: boolean;
   sections: { title: string; content: string }[]; scores: ScoreSummaryValue; expiresAt: string;
+  scoreDetails?: { scores: unknown; scoring: unknown };
 };
 type View = { state: "loading" | "invalid" | "forbidden" | "login" | "error" } | { state: "ready"; result: Result };
 const time = new Intl.DateTimeFormat("zh-CN", { timeZone: "Asia/Shanghai", dateStyle: "medium", timeStyle: "short", hour12: false });
@@ -59,6 +61,12 @@ export function SharedRun({ shareId }: { shareId: string }) {
       <section className={styles.section}>
         <h2>评分摘要</h2>
         <ScoreSummary scores={result.scores} />
+        {result.scoreDetails && <details className={`score-criteria ${styles.scoreDetails}`}>
+          <summary>查看评分详情与标准</summary>
+          <div className={styles.scoreDetailsContent}>
+            <UnifiedScores scores={result.scoreDetails.scores} run={{ scoring: result.scoreDetails.scoring }} />
+          </div>
+        </details>}
       </section>
       <section className={styles.section}>
         <h2>回答</h2>

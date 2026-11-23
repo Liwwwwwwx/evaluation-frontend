@@ -52,7 +52,7 @@ export function RunShareButton({ runId }: { runId: string }) {
   return <>
     <Button variant="secondary" onClick={() => { setOpen(true); setLoaded(false); setShare(null); void request(); }}>分享</Button>
     <Dialog open={open} onClose={() => setOpen(false)} title="分享评测结果"
-      description="有测评查看权限的团队成员登录后，可以查看这条运行的题目、回答和评分摘要。"
+      description="有测评查看权限的团队成员登录后，可以查看这条运行的题目、回答、评分详情和本次评判标准。"
       busy={busy}
       footer={loaded ? share ? <>
         <Button variant="secondary" disabled={busy} onClick={() => void request("revoke")}>撤销链接</Button>
