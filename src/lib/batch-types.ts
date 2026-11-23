@@ -141,6 +141,7 @@ export const SERVICE_LABELS: Record<string, string> = {
   alloy: "合金材料",
   synthesis: "合成制备",
   "new-material": "新材料",
+  "new-material-rsi": "新材料 RSI",
   "alpha-rsi": "材料配比 RSI",
   "alpha-combined-rsi": "配比+制备 RSI",
 };

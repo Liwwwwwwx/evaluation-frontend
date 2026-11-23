@@ -41,3 +41,9 @@ test('两个 RSI 独立可用，新材料按后端开关生效，退役服务不
   assert.equal(availableEvaluationServices([{ key: 'new-material', enabled: false }]).find(item => item.key === 'new-material')?.enabled, false);
   assert.equal(services.some(item => ['alloy', 'synthesis'].includes(item.key)), false);
 });
+
+test('新旧两个新材料服务分别读取启用状态', () => {
+  const services = availableEvaluationServices([{ key: 'new-material', enabled: false }, { key: 'new-material-rsi', enabled: true }]);
+  assert.equal(services.find(item => item.key === 'new-material')?.enabled, false);
+  assert.deepEqual(services.find(item => item.key === 'new-material-rsi'), { key: 'new-material-rsi', label: '新材料 RSI', enabled: true });
+});

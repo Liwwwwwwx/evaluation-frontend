@@ -377,7 +377,7 @@ export function Evaluate() {
                       >
                         <span className="check"><Icon name="check" /></span>
                         <span>{item.label}</span>
-                        {!item.enabled && <span className="tag">{item.key === "new-material" ? "暂停测评" : "未启用"}</span>}
+                        {!item.enabled && <span className="tag">{["new-material", "new-material-rsi"].includes(item.key) ? "暂停测评" : "未启用"}</span>}
                       </button>
                     ))}
                   </div>

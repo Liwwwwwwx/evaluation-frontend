@@ -75,8 +75,8 @@ function formatDateTime(value?: string | null) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
-const serviceNames: Record<string, string> = { "mission-material": "Mission 主服务", literature: "文献检索", "literature-aircraft": "航空文献", alloy: "合金材料", synthesis: "合成制备", "new-material": "新材料", "alpha-rsi": "材料配比 RSI", "alpha-combined-rsi": "配比+制备 RSI" };
-const shortServiceNames: Record<string, string> = { "mission-material": "Mission", literature: "文献", "literature-aircraft": "航空", alloy: "合金", synthesis: "合成", "new-material": "新材料", "alpha-rsi": "材料配比", "alpha-combined-rsi": "配比+制备" };
+const serviceNames: Record<string, string> = { "mission-material": "Mission 主服务", literature: "文献检索", "literature-aircraft": "航空文献", alloy: "合金材料", synthesis: "合成制备", "new-material": "新材料", "new-material-rsi": "新材料 RSI", "alpha-rsi": "材料配比 RSI", "alpha-combined-rsi": "配比+制备 RSI" };
+const shortServiceNames: Record<string, string> = { "mission-material": "Mission", literature: "文献", "literature-aircraft": "航空", alloy: "合金", synthesis: "合成", "new-material": "新材料", "new-material-rsi": "新材料 RSI", "alpha-rsi": "材料配比", "alpha-combined-rsi": "配比+制备" };
 const scoreStateNames: Record<string, string> = { pending: "评分中", failed: "评分失败", unavailable: "未配置", absent: "无评分", skipped: "不适用" };
 const taskStateNames: Record<string, string> = { partial: "部分完成", failed: "未完成", unclear: "无法确认" };
 
