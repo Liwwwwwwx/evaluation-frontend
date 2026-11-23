@@ -10,6 +10,7 @@ import { RunServiceDetails } from "@/components/run-service-details";
 import { RescoreButton } from "@/components/rescore-button";
 import { UnifiedScores } from "@/components/unified-scores";
 import { RunMarkdownExport } from "@/components/run-markdown-export";
+import { RunShareButton } from "@/components/run-share-button";
 import { RerunButton } from "@/components/rerun-button";
 import { EndRunButton } from "@/components/end-run-button";
 import { RunCopyButton } from "@/components/run-copy-button";
@@ -46,7 +47,7 @@ export function UnifiedRunDetail({ runId, backHref = "/runs", backLabel = "返�
       setRun(null); setError("");
       window.dispatchEvent(new Event("evaluation-unified-change"));
       router.push(`/runs/${encodeURIComponent(id)}`);
-    }} />{!cleared && <RunMarkdownExport run={run} readError={error} />}</div></div>
+    }} />{!cleared && run.canShare && <RunShareButton key={runId} runId={runId} />}{!cleared && <RunMarkdownExport run={run} readError={error} />}</div></div>
     <div className="chat-scroll"><div className="chat-scroll-inner"><div className="run-layout">
       <div ref={conversationRef} className="run-chat" role="region" aria-label="对话内容" tabIndex={0}>
         <div className="run-question-wrap"><p className="run-question">{run.question}</p><RunCopyButton label="提问" getText={() => run.question} /></div>

@@ -232,15 +232,22 @@ const components: NonNullable<React.ComponentProps<typeof Markdown>["components"
   },
 };
 
-export const AnswerMarkdown = memo(function AnswerMarkdown({ content, streaming = false, breaks = false, empty = "暂无回答。" }: { content: string; streaming?: boolean; breaks?: boolean; empty?: string }) {
+const sharedComponents: typeof components = {
+  ...components,
+  a: ({ children }) => <>{children}</>,
+  img: ({ alt }) => alt ? <span>{alt}</span> : null,
+};
+
+export const AnswerMarkdown = memo(function AnswerMarkdown({ content, streaming = false, breaks = false, empty = "暂无回答。", readOnlyShare = false }: { content: string; streaming?: boolean; breaks?: boolean; empty?: string; readOnlyShare?: boolean }) {
   const display = useMemo(() => promoteSingleLineDisplayMath(normalizeAnswerMarkdown(content, { streaming })), [content, streaming]);
   const openFence = useMemo(() => streaming ? findOpenFence(display) : null, [display, streaming]);
+  const renderers = readOnlyShare ? sharedComponents : components;
   if (openFence) {
     const prefix = display.slice(0, openFence.start);
     return <>
-      {prefix.trim() && <Markdown remarkPlugins={REMARK_FULL(breaks)} rehypePlugins={REHYPE_LIGHT} urlTransform={transformUrl} components={components}>{prefix}</Markdown>}
+      {prefix.trim() && <Markdown remarkPlugins={REMARK_FULL(breaks)} rehypePlugins={REHYPE_LIGHT} urlTransform={transformUrl} components={renderers}>{prefix}</Markdown>}
       <CodeBlock code={openFence.body} language={openFence.language} streaming generating variant={codeVariant(openFence.language, openFence.body)} />
     </>;
   }
-  return <Markdown remarkPlugins={REMARK_FULL(breaks)} rehypePlugins={REHYPE_FULL} urlTransform={transformUrl} components={components}>{display.trim() ? display : empty}</Markdown>;
+  return <Markdown remarkPlugins={REMARK_FULL(breaks)} rehypePlugins={REHYPE_FULL} urlTransform={transformUrl} components={renderers}>{display.trim() ? display : empty}</Markdown>;
 });
